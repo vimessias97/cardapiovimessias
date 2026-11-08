@@ -28,11 +28,11 @@ function money(value) {
   return Number(value).toLocaleString('pt-BR', {style:'currency',currency:'BRL'});
 }
 
-async function fetchCatalogApi(path) {
+async function fetchCatalogApi(path, options = {}) {
   let lastError;
   for (const base of apiBases) {
     try {
-      const response = await fetch(`${base}${path}`);
+      const response = await fetch(`${base}${path}`, options);
       if (response.status === 404 && base !== apiBases.at(-1)) continue;
       return response;
     } catch (error) { lastError = error; }
