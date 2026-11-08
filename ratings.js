@@ -59,6 +59,7 @@
     });
     renderTopRated(data.topRated || []);
     window.dispatchEvent(new CustomEvent('cardapio:rating-updated'));
+    if (Number(data.vicoinsAwarded) > 0) window.dispatchEvent(new CustomEvent('cardapio:vicoins-updated',{detail:{balance:data.vicoinsBalance,earned:Number(data.vicoinsAwarded),source:'rating'}}));
     return data;
   }
 

@@ -23,6 +23,7 @@
   let ownsHalloweenBanner = false;
   let ownsVimessiasBanner = false;
   let vimessiasBannerOrder = null;
+  let equippedProfileBannerId = '';
 
   function safe(value = '') {
     return String(value).replace(/[&<>"']/g,character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
@@ -119,8 +120,9 @@
 
   function renderProfileBanner() {
     const authenticated = window.CardapioAuth?.isAuthenticated();
-    bannerButton.disabled = ownsHalloweenBanner || !authenticated || balance < 100;
-    bannerButton.textContent = ownsHalloweenBanner ? 'Equipado no seu perfil' : !authenticated ? 'Entre para resgatar' : balance < 100 ? 'Vicoins insuficientes' : 'Resgatar por 100 Vicoins';
+    const equipped = ownsHalloweenBanner && equippedProfileBannerId === 'halloween-michael';
+    bannerButton.disabled = !authenticated || equipped || (!ownsHalloweenBanner && balance < 100);
+    bannerButton.textContent = equipped ? 'Equipado' : ownsHalloweenBanner ? 'Equipar' : !authenticated ? 'Entrar' : balance < 100 ? 'Sem saldo' : 'Resgatar';
   }
 
   function renderVimessiasBanner() {
@@ -132,9 +134,10 @@
       return;
     }
     if (ownsVimessiasBanner) {
-      vimessiasBannerButton.disabled = true;
-      vimessiasBannerButton.textContent = 'Liberado no seu perfil';
-      vimessiasBannerFeedback.textContent = 'Banner aprovado e aplicado ao seu perfil.';
+      const equipped = equippedProfileBannerId === 'vimessias';
+      vimessiasBannerButton.disabled = equipped;
+      vimessiasBannerButton.textContent = equipped ? 'Equipado' : 'Equipar';
+      vimessiasBannerFeedback.textContent = equipped ? 'Este banner está aplicado ao seu perfil.' : 'Banner liberado. Você pode equipá-lo quando quiser.';
       return;
     }
     if (vimessiasBannerOrder?.status === 'pending') {
@@ -146,7 +149,7 @@
     if (vimessiasBannerOrder?.status === 'rejected') vimessiasBannerFeedback.textContent = 'O pedido anterior foi rejeitado. Você pode solicitar novamente.';
     else vimessiasBannerFeedback.textContent = 'Após registrar o pedido, abra o LivePix e aguarde a aprovação administrativa.';
     vimessiasBannerButton.disabled = false;
-    vimessiasBannerButton.textContent = 'Solicitar banner por R$ 5,00';
+    vimessiasBannerButton.textContent = 'Solicitar';
   }
 
   function renderOrders() {
@@ -164,6 +167,7 @@
       ownsHalloweenBanner = false;
       ownsVimessiasBanner = false;
       vimessiasBannerOrder = null;
+      equippedProfileBannerId = '';
       renderProfileBanner();
       renderVimessiasBanner();
       renderOrders();
@@ -177,6 +181,7 @@
       updateBalance(wallet.balance);
       ownsHalloweenBanner = Array.isArray(bannerInventory.owned) && bannerInventory.owned.includes('halloween-michael');
       ownsVimessiasBanner = Array.isArray(bannerInventory.owned) && bannerInventory.owned.includes('vimessias');
+      equippedProfileBannerId = bannerInventory.equipped?.id || '';
       vimessiasBannerOrder = Array.isArray(bannerOrders.orders) ? bannerOrders.orders.find(order => order.bannerId === 'vimessias') || null : null;
       renderProfileBanner();
       renderVimessiasBanner();
@@ -215,6 +220,20 @@
     }
   }
 
+  async function equipProfileBanner(bannerId) {
+    try {
+      feedback.textContent = 'Aplicando o banner ao seu perfil…';
+      const inventory = await api('/api/account/profile-banner',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({bannerId})});
+      equippedProfileBannerId = inventory.equipped?.id || '';
+      renderProfileBanner();
+      renderVimessiasBanner();
+      feedback.textContent = 'Banner trocado e aplicado ao seu perfil.';
+    } catch (error) {
+      feedback.textContent = error.message || 'Não foi possível trocar o banner.';
+      await load();
+    }
+  }
+
   dailyClaimButton.addEventListener('click',async () => {
     if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para resgatar seus 20 Vicoins diários.')) return;
     if (!dailyEligible) return;
@@ -235,7 +254,10 @@
 
   bannerButton.addEventListener('click',async () => {
     if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para resgatar um banner de perfil.')) return;
-    if (ownsHalloweenBanner) return;
+    if (ownsHalloweenBanner) {
+      if (equippedProfileBannerId !== 'halloween-michael') await equipProfileBanner('halloween-michael');
+      return;
+    }
     if (balance < 100) {
       feedback.textContent = 'Você precisa de 100 Vicoins para resgatar este banner.';
       return;
@@ -246,6 +268,7 @@
     try {
       const data = await api('/api/shop/profile-banners',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({bannerId:'halloween-michael'})});
       ownsHalloweenBanner = data.inventory?.owned?.includes('halloween-michael') || false;
+      equippedProfileBannerId = data.inventory?.equipped?.id || '';
       updateBalance(data.balance);
       renderProfileBanner();
       feedback.textContent = data.alreadyOwned ? 'Este banner já está no seu perfil.' : 'Banner resgatado e aplicado ao seu perfil. Foram descontados 100 Vicoins.';
@@ -257,7 +280,11 @@
 
   vimessiasBannerButton.addEventListener('click',async () => {
     if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para solicitar o banner ViMessias.')) return;
-    if (ownsVimessiasBanner || vimessiasBannerOrder?.status === 'pending') return;
+    if (ownsVimessiasBanner) {
+      if (equippedProfileBannerId !== 'vimessias') await equipProfileBanner('vimessias');
+      return;
+    }
+    if (vimessiasBannerOrder?.status === 'pending') return;
     if (!window.confirm('Registrar um pedido do banner ViMessias por R$ 5,00? O pedido ficará pendente até a conferência do pagamento no LivePix e aprovação administrativa.')) return;
     vimessiasBannerButton.disabled = true;
     vimessiasBannerFeedback.textContent = 'Registrando seu pedido…';

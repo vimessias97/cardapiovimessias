@@ -306,6 +306,15 @@ async function getVicoinsBalance(userId) {
   return Number.isSafeInteger(balance) && balance >= 0 ? balance : 0;
 }
 
+async function awardActivityVicoins({userId,type,referenceId,description}) {
+  return updateVicoinsStore(store => {
+    store.transactions = Array.isArray(store.transactions) ? store.transactions : [];
+    const exists = store.transactions.some(item => item.userId === userId && item.type === type && item.referenceId === referenceId);
+    const balance = applyVicoinsTransaction(store,{userId,amount:1,type,referenceId,description});
+    return {awarded:exists ? 0 : 1,balance};
+  });
+}
+
 async function reconcileApprovedRedemptionVicoins(userId = '') {
   const approved = (await readRedemptions()).filter(item => item.status === 'approved' && Number.isSafeInteger(Number(item.vicoinsAwarded)) && Number(item.vicoinsAwarded) > 0 && (!userId || item.requester?.id === userId));
   if (!approved.length) return;
@@ -439,6 +448,11 @@ function userFavorites(entries, userId) {
   return entries.filter(entry => Array.isArray(entry.voters) && entry.voters.includes(userId))
     .map(entry => ({id:entry.id,mediaType:entry.mediaType,title:entry.title,posterUrl:entry.posterUrl,year:entry.year || '',voteCount:entry.voters.length,liked:true}))
     .sort((a,b) => a.title.localeCompare(b.title,'pt-BR'));
+}
+
+function userRatingCount(entries,userId) {
+  if (!userId) return 0;
+  return entries.reduce((count,entry) => count + (Array.isArray(entry.votes) && entry.votes.some(vote => vote.clientId === userId) ? 1 : 0),0);
 }
 
 async function removePatreonLinkedFavorites() {
@@ -1179,10 +1193,11 @@ async function handle(req, res) {
       .filter(entry => entry.requester?.id === memberId && entry.status === 'approved')
       .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
       .map(({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}) => ({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}));
+    const achievements = {favorites:favorites.length,ratings:userRatingCount(await readRatings(),memberId),redemptions:redemptions.length};
     const vicoinsStore = await readVicoinsStore();
     const bannerInventory = getProfileBannerInventory(vicoinsStore,memberId);
     const profile = {id:member.id,login:member.login,displayName:member.displayName,profileImageUrl:member.profileImageUrl,joinedAt:member.joinedAt,vicoins:await getVicoinsBalance(memberId),banner:bannerInventory.equipped};
-    return json(res,200,{profile,favorites,redemptions});
+    return json(res,200,{profile,favorites,redemptions,achievements});
   }
   if (req.method === 'GET' && url.pathname === '/api/account/profile') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -1193,15 +1208,38 @@ async function handle(req, res) {
       .filter(entry => entry.requester?.id === profile.id && entry.status === 'approved')
       .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
       .map(({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}) => ({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}));
+    const achievements = {favorites:favorites.length,ratings:userRatingCount(await readRatings(),profile.id),redemptions:redemptions.length};
     const vicoinsStore = await readVicoinsStore();
     const bannerInventory = getProfileBannerInventory(vicoinsStore,profile.id);
-    return privateJson(res,200,{profile:{...profile,vicoins:await getVicoinsBalance(profile.id),banner:bannerInventory.equipped},favorites,redemptions});
+    return privateJson(res,200,{profile:{...profile,vicoins:await getVicoinsBalance(profile.id),banner:bannerInventory.equipped},favorites,redemptions,achievements});
   }
   if (req.method === 'GET' && url.pathname === '/api/account/profile-banner') {
     const profile = await getAuthenticatedProfile(req,res);
     if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para consultar seus banners.'});
     const store = await readVicoinsStore();
     return privateJson(res,200,getProfileBannerInventory(store,profile.id));
+  }
+  if (req.method === 'POST' && url.pathname === '/api/account/profile-banner') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para trocar seu banner.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req); }
+    catch (error) { return privateJson(res,400,{error:error.message}); }
+    const bannerId = String(body.bannerId || '');
+    try {
+      const inventory = await updateVicoinsStore(store => {
+        store.profileBannerInventory = store.profileBannerInventory || {};
+        const saved = store.profileBannerInventory[profile.id] || {owned:[],equipped:''};
+        saved.owned = Array.isArray(saved.owned) ? saved.owned : [];
+        if (!profileBannerRewards.some(item => item.id === bannerId) || !saved.owned.includes(bannerId)) throw new Error('Esse banner ainda não foi liberado no seu perfil.');
+        saved.equipped = bannerId;
+        store.profileBannerInventory[profile.id] = saved;
+        return getProfileBannerInventory(store,profile.id);
+      });
+      return privateJson(res,200,inventory);
+    } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível trocar o banner.'}); }
   }
   if (req.method === 'GET' && url.pathname === '/api/account/profile-banner-orders') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -1584,7 +1622,8 @@ async function handle(req, res) {
         else entry.votes.push({clientId,rating});
         return { ...ratingSummary(entry,clientId),topRated:publicTopRatings(entries) };
       });
-      return json(res, 200, {eligible:true,...result});
+      const reward = await awardActivityVicoins({userId:clientId,type:'rating-activity',referenceId:`${type}:${id}`,description:`Vicoins por avaliar: ${title.title}`});
+      return privateJson(res,200,{eligible:true,...result,vicoinsAwarded:reward.awarded,vicoinsBalance:reward.balance});
     } catch { return json(res, 500, {error:'Não foi possível salvar sua avaliação.'}); }
   }
   if (req.method === 'GET' && url.pathname === '/api/catalog/title') {
@@ -1619,7 +1658,7 @@ async function handle(req, res) {
         posterUrl = poster.href;
       }
       const entryKey = `${mediaType}:${id}`;
-      const favorites = await updateFavorites(entries => {
+      const updated = await updateFavorites(entries => {
         let entry = entries.find(value => `${value.mediaType}:${value.id}` === entryKey);
         if (action === 'add') {
           if (!entry) {
@@ -1634,9 +1673,12 @@ async function handle(req, res) {
           entry.voters = (Array.isArray(entry.voters) ? entry.voters : []).filter(voter => voter !== clientId);
           if (!entry.voters.length) entries.splice(entries.indexOf(entry), 1);
         }
-        return publicFavorites(entries, clientId);
+        return {favorites:publicFavorites(entries,clientId)};
       });
-      return json(res, 200, {favorites});
+      const reward = action === 'add'
+        ? await awardActivityVicoins({userId:clientId,type:'favorite-activity',referenceId:entryKey,description:`Vicoins por favoritar: ${title}`})
+        : {awarded:0,balance:await getVicoinsBalance(clientId)};
+      return privateJson(res,200,{favorites:updated.favorites,vicoinsAwarded:reward.awarded,vicoinsBalance:reward.balance});
     } catch (error) { return json(res, 400, {error:error.message || 'Não foi possível atualizar o favorito.'}); }
   }
   if (req.method === 'GET' && url.pathname === '/api/catalog/suggestions') {

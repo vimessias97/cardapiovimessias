@@ -9,6 +9,7 @@
   const feedback = document.querySelector('#communityMemberFeedback');
   const redemptions = document.querySelector('#communityMemberRedemptions');
   const favorites = document.querySelector('#communityMemberFavorites');
+  const achievementsRoot = document.querySelector('#communityAchievementList');
   const sidebarVicoinsCount = document.querySelector('#sidebarVicoinsCount');
   const shopVicoinsCount = document.querySelector('#shopVicoinsCount');
   const dialogVicoinsCount = document.querySelector('#communityMemberVicoinsCount');
@@ -41,6 +42,25 @@
     }
     dialogHead.style.setProperty('--community-profile-banner',`url("${imageUrl}")`);
     dialogHead.classList.add('has-profile-banner');
+  }
+
+  function renderAchievements(achievements = {}) {
+    const favoriteCount = Math.max(0,Number(achievements.favorites) || 0);
+    const ratingCount = Math.max(0,Number(achievements.ratings) || 0);
+    const redemptionCount = Math.max(0,Number(achievements.redemptions) || 0);
+    const rows = [
+      {id:'heart',icon:'♥',name:'Coração',value:Math.floor(favoriteCount / 5) * 5,progress:favoriteCount,goal:5,label:'favoritos'},
+      {id:'star',icon:'★',name:'Estrela',value:Math.floor(ratingCount / 5) * 5,progress:ratingCount,goal:5,label:'avaliações'},
+      {id:'clapper',icon:'🎬',name:'Claquete',value:redemptionCount,progress:redemptionCount,goal:1,label:'resgates'}
+    ];
+    achievementsRoot.innerHTML = rows.map(item => {
+      const unlocked = item.progress >= item.goal;
+      const description = item.id === 'clapper'
+        ? `${item.progress} ${item.progress === 1 ? 'resgate aprovado' : 'resgates aprovados'}`
+        : unlocked ? `${item.value} ${item.label} alcançados` : `${item.progress}/${item.goal} ${item.label}`;
+      const badgeCount = item.id === 'clapper' ? item.value : item.value || item.goal;
+      return `<article class="community-achievement${unlocked ? ' is-unlocked' : ''}" aria-label="${safe(item.name)}: ${safe(description)}"><span class="community-achievement-icon" aria-hidden="true"><span>${item.icon}</span><small>${badgeCount}</small></span><span class="community-achievement-copy"><strong>${safe(item.name)}</strong><span>${safe(description)}</span></span></article>`;
+    }).join('');
   }
 
   async function api(path) {
@@ -76,6 +96,7 @@
     setProfileBanner(null);
     setVicoins(0,true);
     feedback.textContent = '';
+    renderAchievements();
     redemptions.replaceChildren();
     favorites.replaceChildren();
     try {
@@ -85,6 +106,7 @@
       name.textContent = profile.displayName || profile.login || 'Perfil Twitch';
       setVicoins(profile.vicoins,true);
       setProfileBanner(profile.banner);
+      renderAchievements(data.achievements || {});
       if (profile.profileImageUrl) {
         avatar.src = profile.profileImageUrl;
         avatar.alt = `Foto de perfil de ${profile.displayName || profile.login || 'usuário'}`;

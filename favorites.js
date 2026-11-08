@@ -59,6 +59,7 @@
     favorites = Array.isArray(data.favorites) ? data.favorites : [];
     renderPage();
     window.dispatchEvent(new CustomEvent('cardapio:favorites-updated'));
+    if (action === 'add' && Number(data.vicoinsAwarded) > 0) window.dispatchEvent(new CustomEvent('cardapio:vicoins-updated',{detail:{balance:data.vicoinsBalance,earned:Number(data.vicoinsAwarded),source:'favorite'}}));
     return isLiked(item);
   }
 

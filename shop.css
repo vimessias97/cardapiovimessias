@@ -71,6 +71,14 @@
 .shop-daily-claim>p{margin:0;color:#b9adbf;font-size:10px;font-variant-numeric:tabular-nums}
 .shop-daily-claim>button{min-height:33px;margin-top:2px;padding:0 14px;border:1px solid #a25fc3;border-radius:7px;background:linear-gradient(110deg,#763498,#4c2162);color:#fff;font-size:11px;font-weight:700;cursor:pointer}
 .shop-daily-claim>button:disabled{border-color:#393136;background:#211d22;color:#847c86;cursor:not-allowed}
+.shop-vicoins-guide{flex:1 1 280px;min-width:260px;padding:15px 17px;border:1px solid #493853;border-radius:14px;background:linear-gradient(145deg,#1b1520,#100e14 75%);box-shadow:0 12px 34px #0005}
+.shop-vicoins-guide h2{margin:0 0 8px;color:#f5eff8;font:600 17px var(--serif)}
+.shop-vicoins-guide table{width:100%;border-collapse:collapse;color:#c9bfce;font-size:10px;line-height:1.35}
+.shop-vicoins-guide th{padding:0 5px 6px;color:#b994cf;font-size:9px;letter-spacing:.08em;text-align:left;text-transform:uppercase}
+.shop-vicoins-guide th:last-child,.shop-vicoins-guide td:last-child{width:48px;text-align:right;white-space:nowrap}
+.shop-vicoins-guide td{padding:6px 5px;border-top:1px solid #302738;vertical-align:top}
+.shop-vicoins-guide td:last-child{color:#e1b8f8;font-weight:800}
+.shop-vicoins-guide td small{display:block;margin-top:2px;color:#988d9f;font-size:9px}
 .shop-wallet-row+.shop-feedback{margin-top:18px}
 .shop-cosmetics{max-width:960px;margin-top:29px}
 .shop-cosmetics-heading h2{margin:5px 0;color:#f5eff8;font:600 24px var(--serif)}
@@ -87,12 +95,16 @@
 .shop-banner-price{display:grid;gap:2px;margin:6px 0;color:#f4e9fb}
 .shop-banner-price strong{font:700 17px var(--serif)}
 .shop-banner-price span{color:#baabbf;font-size:10px}
+.shop-banner-action-row{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;margin-top:3px}
+.shop-banner-action-row .shop-banner-price,.shop-banner-action-row .shop-reward-cost{margin:0}
+.shop-banner-action-row .shop-reward-cost{gap:4px}
+.shop-banner-action-row .shop-banner-redeem{flex:0 0 auto}
 .shop-banner-order-feedback{min-height:0!important;margin:7px 0 0!important;color:#c9b8d2!important;font-size:10px!important;line-height:1.45!important}
 .shop-banner-order-feedback a{color:#d792ff;font-weight:700;text-decoration:underline;text-underline-offset:2px}
 .admin-banner-livepix{display:inline-flex;align-items:center;min-height:34px;padding:0 11px;border:1px solid #55376a;border-radius:6px;background:#211625;color:#e5c8f8;font-size:10px;font-weight:700;text-decoration:none}
 .shop-banner-redeem{min-height:32px;padding:0 11px;border:1px solid #a25fc3;border-radius:7px;background:linear-gradient(110deg,#763498,#4c2162);color:#fff;font-size:10px;font-weight:700;cursor:pointer}
 .shop-banner-redeem:hover:not(:disabled){filter:brightness(1.15)}
 .shop-banner-redeem:disabled{border-color:#393136;background:#211d22;color:#847c86;cursor:not-allowed}
-@media(max-width:760px){.shop-wallet-row{gap:10px}.shop-wallet-row .shop-wallet{flex:1 1 320px}.shop-daily-claim{flex:1 1 190px}}
+@media(max-width:760px){.shop-wallet-row{gap:10px}.shop-wallet-row .shop-wallet{flex:1 1 320px}.shop-daily-claim{flex:1 1 190px}.shop-vicoins-guide{flex:1 1 100%}}
 @media(max-width:760px){.shop-banner-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){.shop-banner-grid{grid-template-columns:1fr}.shop-banner-details>p{min-height:0}}
