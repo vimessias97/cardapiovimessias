@@ -9,3 +9,5 @@ promotions.json
 youtube-videos.json
 *.tmp
 vicoins.json
+forum.json
+forum-uploads/

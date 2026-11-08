@@ -15,6 +15,8 @@
 .recent-redemption-copy>strong{overflow:hidden;color:#f0eaf4;font-size:12px;text-overflow:ellipsis;white-space:nowrap}
 .recent-redemption-copy>small{color:#a99eaf;font-size:10px;line-height:1.4}
 .recent-redemption-requester{overflow-wrap:anywhere;color:#d5b2e8;font-size:10px;line-height:1.35}
+.recent-redemption-requester-link{padding:0;border:0;background:transparent;color:inherit;font:inherit;text-align:left;text-decoration:underline;text-decoration-color:#8d68a0;text-underline-offset:2px;cursor:pointer}
+.recent-redemption-requester-link:hover,.recent-redemption-requester-link:focus-visible{color:#f0d2ff;text-decoration-color:currentColor}
 .recent-redemption-date-status{color:#cba2e3;font-size:10px;line-height:1.4}
 .account-redemptions-list,.admin-redemptions-list{display:grid;gap:12px;margin-top:22px}
 .account-redemption-item{display:grid;grid-template-columns:66px minmax(0,1fr) auto;gap:13px;align-items:center;padding:12px;border:1px solid #352a40;border-radius:10px;background:linear-gradient(140deg,#15121a,#100d14)}

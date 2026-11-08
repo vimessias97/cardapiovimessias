@@ -16,7 +16,10 @@ const redemptionsFile = path.join(dataRoot, 'redemptions.json');
 const communityMembersFile = path.join(dataRoot, 'community-members.json');
 const promotionsFile = path.join(dataRoot, 'promotions.json');
 const vicoinsFile = path.join(dataRoot, 'vicoins.json');
+const forumFile = path.join(dataRoot, 'forum.json');
+const forumUploadsDir = path.join(dataRoot, 'forum-uploads');
 const youtubeVideosFile = path.join(dataRoot, 'youtube-videos.json');
+await mkdir(forumUploadsDir,{recursive:true});
 if (dataRoot !== root) {
   for (const name of ['favorites.json','ratings.json']) {
     const destination = path.join(dataRoot,name);
@@ -24,7 +27,7 @@ if (dataRoot !== root) {
     catch { try { await copyFile(path.join(root,name),destination,fsConstants.COPYFILE_EXCL); } catch {} }
   }
 }
-const mime = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.ico':'image/x-icon'};
+const mime = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.gif':'image/gif','.ico':'image/x-icon'};
 const tmdbCache = new Map();
 const genreCache = new Map();
 const suggestionsCache = new Map();
@@ -42,6 +45,7 @@ let redemptionsWriteQueue = Promise.resolve();
 let communityMembersWriteQueue = Promise.resolve();
 let promotionsWriteQueue = Promise.resolve();
 let vicoinsWriteQueue = Promise.resolve();
+let forumWriteQueue = Promise.resolve();
 const defaultPromotionCollections = [
   {id:'lotr',name:'Trilogia O Senhor dos Anéis',discountPercent:30,titles:[{id:120,mediaType:'movie'},{id:121,mediaType:'movie'},{id:122,mediaType:'movie'}]},
   {id:'hobbit',name:'Trilogia O Hobbit',discountPercent:30,titles:[{id:49051,mediaType:'movie'},{id:57158,mediaType:'movie'},{id:122917,mediaType:'movie'}]},
@@ -202,6 +206,47 @@ async function readCommunityMembers() {
     const value = JSON.parse(await readFile(communityMembersFile,'utf8'));
     return Array.isArray(value) ? value : [];
   } catch { return []; }
+}
+
+async function readForumTopics() {
+  try {
+    const value = JSON.parse(await readFile(forumFile,'utf8'));
+    return Array.isArray(value) ? value : [];
+  } catch { return []; }
+}
+
+async function updateForumTopics(update) {
+  const operation = forumWriteQueue.then(async () => {
+    const topics = await readForumTopics();
+    const result = update(topics);
+    const temporary = `${forumFile}.tmp`;
+    await writeFile(temporary,JSON.stringify(topics,null,2),'utf8');
+    await rename(temporary,forumFile);
+    return result;
+  });
+  forumWriteQueue = operation.catch(() => {});
+  return operation;
+}
+
+async function saveForumAttachment(attachment) {
+  if (!attachment || typeof attachment !== 'object') return null;
+  const allowed = {'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif'};
+  const type = String(attachment.type || '').toLowerCase();
+  const extension = allowed[type];
+  const encoded = String(attachment.data || '');
+  if (!extension || !encoded || encoded.length > 5_600_000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) throw new Error('Anexe uma imagem JPG, PNG, WebP ou GIF de até 4 MB.');
+  const buffer = Buffer.from(encoded,'base64');
+  if (!buffer.length || buffer.length > 4 * 1024 * 1024 || buffer.toString('base64').replace(/=+$/,'') !== encoded.replace(/=+$/,'')) throw new Error('O arquivo anexado é inválido ou excede 4 MB.');
+  const matches = type === 'image/jpeg' ? buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff
+    : type === 'image/png' ? buffer.subarray(0,8).equals(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]))
+    : type === 'image/gif' ? ['GIF87a','GIF89a'].includes(buffer.toString('ascii',0,6))
+    : type === 'image/webp' ? buffer.toString('ascii',0,4) === 'RIFF' && buffer.toString('ascii',8,12) === 'WEBP'
+    : false;
+  if (!matches) throw new Error('O conteúdo do arquivo não corresponde ao tipo de imagem informado.');
+  const filename = `${randomUUID()}.${extension}`;
+  await writeFile(path.join(forumUploadsDir,filename),buffer,{flag:'wx'});
+  const safeName = String(attachment.name || `imagem.${extension}`).replace(/[^A-Za-z0-9._ -]/g,'').trim().slice(0,80) || `imagem.${extension}`;
+  return {url:`/api/forum/uploads/${filename}`,type,name:safeName};
 }
 
 async function readVicoinsStore() {
@@ -852,6 +897,72 @@ async function handle(req, res) {
     return res.end();
   }
   if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, {ok:true,mode:'consulta'});
+  if (req.method === 'GET' && url.pathname.startsWith('/api/forum/uploads/')) {
+    const match = /^\/api\/forum\/uploads\/([a-f0-9-]{36}\.(?:jpg|png|webp|gif))$/i.exec(url.pathname);
+    if (!match) return json(res,404,{error:'Imagem não encontrada.'});
+    try {
+      const filename = match[1];
+      const data = await readFile(path.join(forumUploadsDir,filename));
+      const extension = path.extname(filename).toLowerCase();
+      res.writeHead(200,{'content-type':mime[extension],'content-length':data.length,'cache-control':'public, max-age=31536000, immutable','x-content-type-options':'nosniff','content-security-policy':"default-src 'none'; sandbox"});
+      return res.end(data);
+    } catch { return json(res,404,{error:'Imagem não encontrada.'}); }
+  }
+  if (req.method === 'GET' && url.pathname === '/api/forum/topics') {
+    const topics = (await readForumTopics())
+      .sort((a,b) => Date.parse(b.updatedAt || b.createdAt) - Date.parse(a.updatedAt || a.createdAt))
+      .slice(0,100);
+    return json(res,200,{topics});
+  }
+  if (req.method === 'POST' && url.pathname === '/api/forum/topics') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para criar tópicos no fórum.'});
+    const origin = req.headers.origin;
+    if (origin && origin !== 'null' && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req,6 * 1024 * 1024); }
+    catch (error) { return privateJson(res,400,{error:error.message}); }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return privateJson(res,400,{error:'Os dados do tópico são inválidos.'});
+    const title = String(body.title || '').trim();
+    const content = String(body.content || '').trim();
+    const category = String(body.category || 'geral');
+    if (title.length < 3 || title.length > 120 || content.length < 3 || content.length > 6000) return privateJson(res,400,{error:'Informe um título de 3 a 120 caracteres e uma mensagem de 3 a 6.000 caracteres.'});
+    if (!['geral','filmes','series','animes','jogos','outros'].includes(category)) return privateJson(res,400,{error:'Escolha uma categoria válida para o tópico.'});
+    try {
+      const attachment = await saveForumAttachment(body.attachment);
+      const now = new Date().toISOString();
+      const topic = {id:randomUUID(),title,content,category,author:{id:profile.id,login:profile.login,displayName:profile.displayName,profileImageUrl:profile.profileImageUrl},attachment,comments:[],createdAt:now,updatedAt:now};
+      await updateForumTopics(topics => { topics.push(topic); return null; });
+      return privateJson(res,201,{topic});
+    } catch (error) { return privateJson(res,400,{error:error.message || 'Não foi possível criar o tópico.'}); }
+  }
+  const forumCommentMatch = /^\/api\/forum\/topics\/([a-f0-9-]{36})\/comments$/i.exec(url.pathname);
+  if (req.method === 'POST' && forumCommentMatch) {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para comentar no fórum.'});
+    const origin = req.headers.origin;
+    if (origin && origin !== 'null' && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req,6 * 1024 * 1024); }
+    catch (error) { return privateJson(res,400,{error:error.message}); }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return privateJson(res,400,{error:'Os dados do comentário são inválidos.'});
+    const content = String(body.content || '').trim();
+    if (content.length < 1 || content.length > 3000) return privateJson(res,400,{error:'O comentário precisa ter até 3.000 caracteres.'});
+    try {
+      const attachment = await saveForumAttachment(body.attachment);
+      const now = new Date().toISOString();
+      const comment = {id:randomUUID(),content,author:{id:profile.id,login:profile.login,displayName:profile.displayName,profileImageUrl:profile.profileImageUrl},attachment,createdAt:now};
+      const topic = await updateForumTopics(topics => {
+        const item = topics.find(entry => entry.id === forumCommentMatch[1]);
+        if (!item) throw new Error('Este tópico não existe mais.');
+        item.comments = Array.isArray(item.comments) ? item.comments : [];
+        item.comments.push(comment);
+        item.updatedAt = now;
+        return item;
+      });
+      return privateJson(res,201,{topic});
+    } catch (error) { return privateJson(res,error.message === 'Este tópico não existe mais.' ? 404 : 400,{error:error.message || 'Não foi possível publicar o comentário.'}); }
+  }
   if (req.method === 'GET' && url.pathname === '/api/promotions') {
     return json(res,200,{promotions:await readPromotions()});
   }
@@ -924,7 +1035,7 @@ async function handle(req, res) {
       .filter(entry => entry.status === 'approved')
       .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
       .slice(0,5)
-      .map(entry => ({id:entry.id,title:entry.title,mediaType:entry.mediaType,posterUrl:entry.posterUrl,durationMinutes:entry.durationMinutes,durationLabel:entry.durationLabel,scheduledAt:entry.scheduledAt,requester:{login:entry.requester?.login || '',displayName:entry.requester?.displayName || ''}}));
+      .map(entry => ({id:entry.id,title:entry.title,mediaType:entry.mediaType,posterUrl:entry.posterUrl,durationMinutes:entry.durationMinutes,durationLabel:entry.durationLabel,scheduledAt:entry.scheduledAt,requester:{id:entry.requester?.id || '',login:entry.requester?.login || '',displayName:entry.requester?.displayName || ''}}));
     return json(res,200,{redemptions:entries});
   }
   if (req.method === 'GET' && url.pathname === '/api/community/members') {

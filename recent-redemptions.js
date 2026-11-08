@@ -33,13 +33,21 @@ async function loadRecentRedemptions() {
       recentRedemptionsList.innerHTML = '<p class="rail-empty">Nenhum resgate aprovado ainda.</p>';
       return;
     }
-    recentRedemptionsList.innerHTML = entries.map(item => `<article class="recent-redemption-item">${item.posterUrl ? `<img class="recent-redemption-poster" src="${redemptionSafe(item.posterUrl)}" alt="Pôster de ${redemptionSafe(item.title)}" loading="lazy">` : '<span class="recent-redemption-poster recent-redemption-no-poster" aria-hidden="true">✦</span>'}<div class="recent-redemption-copy"><strong>${redemptionSafe(item.title)}</strong><small>${redemptionSafe(item.mediaType === 'tv' ? 'Série' : 'Filme')} · ${redemptionSafe(item.durationLabel || 'Duração não informada')}</small><span class="recent-redemption-requester">Resgatado por ${redemptionSafe(item.requester?.displayName || item.requester?.login || 'Usuário Twitch')}</span><span class="recent-redemption-date-status">${redemptionSafe(formatRedemptionDate(item.scheduledAt))}</span></div></article>`).join('');
+    recentRedemptionsList.innerHTML = entries.map(item => {
+      const person = redemptionSafe(item.requester?.displayName || item.requester?.login || 'Usuário Twitch');
+      const requester = item.requester?.id ? `<button type="button" class="recent-redemption-requester-link" data-member-id="${redemptionSafe(item.requester.id)}">${person}</button>` : `<span class="recent-redemption-requester">${person}</span>`;
+      return `<article class="recent-redemption-item">${item.posterUrl ? `<img class="recent-redemption-poster" src="${redemptionSafe(item.posterUrl)}" alt="Pôster de ${redemptionSafe(item.title)}" loading="lazy">` : '<span class="recent-redemption-poster recent-redemption-no-poster" aria-hidden="true">✦</span>'}<div class="recent-redemption-copy"><strong>${redemptionSafe(item.title)}</strong><small>${redemptionSafe(item.mediaType === 'tv' ? 'Série' : 'Filme')} · ${redemptionSafe(item.durationLabel || 'Duração não informada')}</small><span class="recent-redemption-requester">Resgatado por ${requester}</span><span class="recent-redemption-date-status">${redemptionSafe(formatRedemptionDate(item.scheduledAt))}</span></div></article>`;
+    }).join('');
   } catch (error) {
     recentRedemptionsList.innerHTML = `<p class="rail-empty">${redemptionSafe(error.message || 'Não foi possível carregar os últimos resgates.')}</p>`;
   }
 }
 
 loadRecentRedemptions();
+recentRedemptionsList.addEventListener('click',event => {
+  const button = event.target.closest('.recent-redemption-requester-link[data-member-id]');
+  if (button) window.CardapioCommunityProfiles?.open(button.dataset.memberId);
+});
 window.addEventListener('cardapio:redemptions-updated',loadRecentRedemptions);
 document.addEventListener('visibilitychange',() => { if (!document.hidden) loadRecentRedemptions(); });
 window.setInterval(() => { if (!document.hidden) loadRecentRedemptions(); },60000);

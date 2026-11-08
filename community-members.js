@@ -4,7 +4,6 @@
   const close = document.querySelector('#communityMemberClose');
   const avatar = document.querySelector('#communityMemberAvatar');
   const name = document.querySelector('#communityMemberName');
-  const login = document.querySelector('#communityMemberLogin');
   const feedback = document.querySelector('#communityMemberFeedback');
   const redemptions = document.querySelector('#communityMemberRedemptions');
   const favorites = document.querySelector('#communityMemberFavorites');
@@ -15,7 +14,7 @@
   const dialogVicoinsLink = document.querySelector('#communityMemberVicoinsLink');
   const sidebarProfileButton = document.querySelector('#sidebarUserOpenProfile');
   const dialogHead = document.querySelector('.community-member-dialog-head');
-  const profileBannerImages = {'halloween-michael':'/assets/profile-banners/halloween-michael-1600x240.png'};
+  const profileBannerImages = {'halloween-michael':'/assets/profile-banners/halloween-michael-1600x240.png?v=2'};
   const bases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
 
   function safe(value = '') {
@@ -72,7 +71,6 @@
     avatar.removeAttribute('src');
     avatar.alt = '';
     name.textContent = 'Carregando perfil…';
-    login.textContent = '';
     setProfileBanner(null);
     setVicoins(0,true);
     feedback.textContent = '';
@@ -83,7 +81,6 @@
       const data = await api(ownProfile ? '/api/account/profile' : `/api/community/members/${encodeURIComponent(memberId)}`);
       const profile = data.profile || {};
       name.textContent = profile.displayName || profile.login || 'Perfil Twitch';
-      login.textContent = profile.login ? `@${profile.login}` : '';
       setVicoins(profile.vicoins,true);
       setProfileBanner(profile.banner);
       if (profile.profileImageUrl) {

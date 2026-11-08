@@ -26,6 +26,7 @@
   <link rel="stylesheet" href="user-profile.css">
   <link rel="stylesheet" href="redemption-flow.css">
   <link rel="stylesheet" href="brand.css">
+  <link rel="stylesheet" href="forum.css">
 </head>
 <body class="catalog-home">
   <div class="app-shell">
@@ -37,6 +38,7 @@
         <a href="#calendario" data-page="calendario"><span>▦</span>Calendário</a>
         <a href="#sugestoes" data-page="sugestoes"><span>♡</span>Sugestões</a>
         <a href="#jogos" data-page="jogos"><span>▣</span>Jogos</a>
+        <a href="#forum" data-page="forum"><span>☷</span>Fórum</a>
         <a href="#promocoes" data-page="promocoes"><span>％</span>Promoções</a>
         <a href="#lojinha" data-page="lojinha"><span>◉</span>Lojinha</a>
         <a class="hidden" id="adminPanelNav" href="#admin" data-page="admin"><span>⚙</span>Painel administrativo</a>
@@ -173,6 +175,21 @@
           </button>
         </div>
       </main>
+      <main class="forum-page hidden" id="forum" aria-labelledby="forumHeading">
+        <header class="forum-intro"><span class="eyebrow muted">COMUNIDADE VIMESSIAS PLAY</span><h1 id="forumHeading">Fórum</h1><p>Converse sobre filmes, séries, animes e os reacts da comunidade.</p></header>
+        <section class="forum-login-notice hidden" id="forumLoginNotice"><span aria-hidden="true">◉</span><div><strong>Participe da conversa</strong><p>Entre com sua conta Twitch para criar tópicos, comentar e compartilhar imagens ou GIFs.</p></div><a href="/auth/twitch/start">Entrar com Twitch</a></section>
+        <form class="forum-composer hidden" id="forumTopicForm">
+          <div class="forum-composer-heading"><div><span class="eyebrow muted">NOVO TÓPICO</span><h2>O que você quer conversar?</h2></div><span class="forum-composer-user" id="forumComposerUser"></span></div>
+          <label>Título<input type="text" name="title" minlength="3" maxlength="120" placeholder="Escreva um título para a discussão" required></label>
+          <label>Categoria<select name="category"><option value="geral">Geral</option><option value="filmes">Filmes</option><option value="series">Séries</option><option value="animes">Animes</option><option value="jogos">Jogos</option><option value="outros">Outros</option></select></label>
+          <label>Mensagem<textarea name="content" minlength="3" maxlength="6000" rows="4" placeholder="Comece a conversa…" required></textarea></label>
+          <div class="forum-composer-actions"><label class="forum-attach-label">▧ Adicionar imagem ou GIF<input class="forum-file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif"></label><small class="forum-attachment-name"></small><button type="submit">Publicar tópico</button></div>
+          <div class="forum-attachment-preview" aria-live="polite"></div><p class="forum-form-feedback" aria-live="polite"></p>
+        </form>
+        <div class="forum-toolbar"><div class="forum-category-filters" role="group" aria-label="Filtrar tópicos"><button type="button" class="active" data-forum-category="todos">Todos</button><button type="button" data-forum-category="geral">Geral</button><button type="button" data-forum-category="filmes">Filmes</button><button type="button" data-forum-category="series">Séries</button><button type="button" data-forum-category="animes">Animes</button><button type="button" data-forum-category="jogos">Jogos</button><button type="button" data-forum-category="outros">Outros</button></div><span id="forumTopicCount"></span></div>
+        <p class="forum-page-feedback" id="forumPageFeedback" aria-live="polite">Carregando discussões…</p>
+        <div class="forum-topic-list" id="forumTopicList" aria-live="polite"></div>
+      </main>
       <main class="promotions-page hidden" id="promocoes" aria-labelledby="promotionsHeading">
         <div class="promotions-intro"><span class="eyebrow muted">PACOTES ESPECIAIS</span><h1 id="promotionsHeading">Promoções</h1><p>Descontos para quem escolhe uma coleção completa.</p></div>
         <div class="promotion-collections" id="promotionCollections" aria-live="polite"></div>
@@ -181,9 +198,9 @@
         <header class="shop-intro"><span class="eyebrow muted">RECOMPENSAS DA COMUNIDADE</span><h1 id="shopHeading">Lojinha</h1><p>Troque seus Vicoins por recompensas especiais do Vimessias Play.</p></header>
         <div class="shop-wallet-row"><section class="shop-wallet" aria-label="Seu saldo de Vicoins"><img src="assets/vicoins-coin.png" alt="Moeda Vicoins"><div><span>SEU SALDO</span><strong id="shopVicoinsCount">0</strong><small>Vicoins</small><p class="shop-vicoins-rule">A cada R$ 5,00 em resgates pagos e aprovados, você ganha 20 Vicoins.</p></div></section><section class="shop-daily-claim" aria-label="Bônus diário de login"><span class="shop-daily-kicker">BÔNUS DE LOGIN</span><strong>+20 Vicoins</strong><p id="dailyVicoinsTimer" aria-live="polite">Entre com a Twitch para liberar</p><button type="button" id="claimDailyVicoins">Resgatar</button></section></div>
         <p class="shop-feedback" id="shopFeedback" aria-live="polite">Entre com a Twitch para consultar seu saldo e resgatar uma oferta.</p>
-        <section class="shop-cosmetics" aria-labelledby="shopBannersHeading"><div class="shop-cosmetics-heading"><div><span class="eyebrow muted">PERSONALIZE SEU PERFIL</span><h2 id="shopBannersHeading">Banners de perfil</h2><p>O banner resgatado é aplicado automaticamente no topo do seu perfil.</p></div></div><article class="shop-banner-card"><img class="shop-banner-preview" src="assets/profile-banners/halloween-michael-1600x240.png" alt="Banner de Halloween com Michael Myers"><div class="shop-banner-details"><span class="shop-reward-kicker">EDIÇÃO DE HALLOWEEN</span><h3>Michael Myers</h3><p>Um fundo cinematográfico para personalizar o cabeçalho do seu perfil.</p><div class="shop-reward-cost"><img src="assets/vicoins-coin.png" alt=""><strong>100</strong><span>Vicoins</span></div><button type="button" class="shop-banner-redeem" id="redeemHalloweenBanner">Resgatar por 100 Vicoins</button></div></article></section>
         <label class="shop-requested-title-label" for="shopRequestedTitle">Conteúdo que deseja resgatar <small>(opcional; será conferido pelo administrador)</small><input id="shopRequestedTitle" type="text" maxlength="150" placeholder="Digite o nome do filme ou da série"></label>
         <div class="shop-rewards" id="shopRewards"></div>
+        <section class="shop-cosmetics" aria-labelledby="shopBannersHeading"><div class="shop-cosmetics-heading"><div><span class="eyebrow muted">PERSONALIZE SEU PERFIL</span><h2 id="shopBannersHeading">Banners de perfil</h2><p>O banner resgatado é aplicado automaticamente no topo do seu perfil.</p></div></div><div class="shop-banner-grid"><article class="shop-banner-card"><img class="shop-banner-preview" src="assets/profile-banners/halloween-michael-1600x240.png?v=2" alt="Banner de Halloween com Michael Myers"><div class="shop-banner-details"><span class="shop-reward-kicker">EDIÇÃO DE HALLOWEEN</span><h3>Michael Myers</h3><p>Um fundo cinematográfico para personalizar o cabeçalho do seu perfil.</p><div class="shop-reward-cost"><img src="assets/vicoins-coin.png" alt=""><strong>100</strong><span>Vicoins</span></div><button type="button" class="shop-banner-redeem" id="redeemHalloweenBanner">Resgatar por 100 Vicoins</button></div></article></div></section>
         <section class="shop-orders"><h2>Meus pedidos</h2><div id="shopOrders" aria-live="polite"><p class="shop-empty">Entre com a Twitch para ver seus pedidos.</p></div></section>
       </main>
       <main class="account-library-page hidden" id="favoritos" aria-labelledby="myFavoritesHeading">
@@ -253,7 +270,7 @@
     <a class="troove-game-fallback" href="https://www.mrtroove.com/pt-br/quiz/48e03f" target="_blank" rel="noopener noreferrer">Abrir o quiz no Mr Troove ↗</a>
   </dialog>
   <dialog class="community-member-dialog" id="communityMemberDialog" aria-labelledby="communityMemberName">
-    <div class="community-member-dialog-head"><div class="community-member-identity"><img id="communityMemberAvatar" alt=""><div><span class="eyebrow muted">PERFIL DA COMUNIDADE</span><h2 id="communityMemberName"></h2><p id="communityMemberLogin"></p></div></div><a class="vicoins-balance dialog-vicoins" id="communityMemberVicoinsLink" href="#lojinha" data-page="lojinha" title="Vicoins" aria-label="Vicoins: 0. Abrir lojinha"><img src="assets/vicoins-coin.png" alt=""><span id="communityMemberVicoinsCount">0</span></a><button type="button" class="community-member-close" id="communityMemberClose" aria-label="Fechar perfil">×</button></div>
+    <div class="community-member-dialog-head"><div class="community-member-identity"><img id="communityMemberAvatar" alt=""><div><span class="eyebrow muted">PERFIL DA COMUNIDADE</span><h2 id="communityMemberName"></h2></div></div><a class="vicoins-balance dialog-vicoins" id="communityMemberVicoinsLink" href="#lojinha" data-page="lojinha" title="Vicoins" aria-label="Vicoins: 0. Abrir lojinha"><img src="assets/vicoins-coin.png" alt=""><span id="communityMemberVicoinsCount">0</span></a><button type="button" class="community-member-close" id="communityMemberClose" aria-label="Fechar perfil">×</button></div>
     <p class="community-member-feedback" id="communityMemberFeedback" aria-live="polite"></p>
     <section class="community-member-section"><h3>Filmes que resgatei</h3><div class="community-member-titles" id="communityMemberRedemptions"></div></section>
     <section class="community-member-section"><h3>Filmes que favoritei</h3><div class="community-member-titles" id="communityMemberFavorites"></div></section>
@@ -263,6 +280,7 @@
   <script src="recent-redemptions.js" defer></script>
   <script src="react-week.js" defer></script>
   <script src="community-members.js" defer></script>
+  <script src="forum.js" defer></script>
   <script src="calculator.js" defer></script>
   <script src="suggestions.js" defer></script>
   <script src="randomizer.js" defer></script>
