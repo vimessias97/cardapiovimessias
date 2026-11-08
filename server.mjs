@@ -470,6 +470,14 @@ function userRatingCount(entries,userId) {
   return entries.reduce((count,entry) => count + (Array.isArray(entry.votes) && entry.votes.some(vote => vote.clientId === userId) ? 1 : 0),0);
 }
 
+function userRatings(entries,userId) {
+  if (!userId) return [];
+  return entries.flatMap(entry => {
+    const vote = Array.isArray(entry.votes) ? entry.votes.find(item => item.clientId === userId && Number.isFinite(item.rating)) : null;
+    return vote ? [{id:entry.id,mediaType:entry.mediaType,title:entry.title,posterUrl:entry.posterUrl || '',rating:vote.rating}] : [];
+  }).sort((a,b) => a.title.localeCompare(b.title,'pt-BR'));
+}
+
 async function removePatreonLinkedFavorites() {
   const favorites = await readFavorites();
   if (!favorites.length) return favorites;
@@ -1276,12 +1284,13 @@ async function handle(req, res) {
       .filter(entry => entry.requester?.id === memberId && entry.status === 'approved')
       .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
       .map(({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}) => ({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}));
-    const achievements = {favorites:favorites.length,ratings:userRatingCount(await readRatings(),memberId),redemptions:redemptions.length};
+    const ratings = userRatings(await readRatings(),memberId);
+    const achievements = {favorites:favorites.length,ratings:ratings.length,redemptions:redemptions.length};
     const vicoinsStore = await readVicoinsStore();
     const bannerInventory = getProfileBannerInventory(vicoinsStore,memberId);
     const isAdmin = getTwitchRole(member) === 'admin';
     const profile = {id:member.id,login:member.login,displayName:member.displayName,profileImageUrl:member.profileImageUrl,joinedAt:member.joinedAt,vicoins:await getVicoinsBalance(memberId,isAdmin),vicoinsInfinite:isAdmin,banner:bannerInventory.equipped};
-    return json(res,200,{profile,favorites,redemptions,achievements});
+    return json(res,200,{profile,favorites,redemptions,ratings,achievements});
   }
   if (req.method === 'GET' && url.pathname === '/api/shop/profile-banners') {
     const store = await readVicoinsStore();
@@ -1358,10 +1367,11 @@ async function handle(req, res) {
       .filter(entry => entry.requester?.id === profile.id && entry.status === 'approved')
       .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
       .map(({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}) => ({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}));
-    const achievements = {favorites:favorites.length,ratings:userRatingCount(await readRatings(),profile.id),redemptions:redemptions.length};
+    const ratings = userRatings(await readRatings(),profile.id);
+    const achievements = {favorites:favorites.length,ratings:ratings.length,redemptions:redemptions.length};
     const vicoinsStore = await readVicoinsStore();
     const bannerInventory = getProfileBannerInventory(vicoinsStore,profile.id);
-    return privateJson(res,200,{profile:{...profile,vicoins:await getVicoinsBalance(profile.id,profile.role === 'admin'),vicoinsInfinite:profile.role === 'admin',banner:bannerInventory.equipped},favorites,redemptions,achievements});
+    return privateJson(res,200,{profile:{...profile,vicoins:await getVicoinsBalance(profile.id,profile.role === 'admin'),vicoinsInfinite:profile.role === 'admin',banner:bannerInventory.equipped},favorites,redemptions,ratings,achievements});
   }
   if (req.method === 'GET' && url.pathname === '/api/account/profile-banner') {
     const profile = await getAuthenticatedProfile(req,res);

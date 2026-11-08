@@ -48,6 +48,12 @@
 .community-member-title-copy strong{overflow:hidden;color:#eee8f2;font-size:11px;line-height:1.35;text-overflow:ellipsis}
 .community-member-title-copy small{color:#a99eae;font-size:9px;line-height:1.4}
 @media(max-width:520px){.community-member-dialog{padding:15px}.community-member-identity>img{width:56px;height:56px}.community-member-identity h2{font-size:20px}.community-achievement-list{grid-template-columns:1fr}.community-achievement{padding:6px 8px}.community-member-titles{grid-auto-columns:clamp(112px,37vw,138px);gap:8px}}
+.community-rating-stars{display:flex;align-items:center;gap:1px;margin-top:2px;white-space:nowrap}
+.community-rating-star{font-size:13px;line-height:1}
+.community-rating-star.is-full{color:#e6bd67}
+.community-rating-star.is-half{background:linear-gradient(90deg,#e6bd67 50%,#514957 50%);background-clip:text;color:transparent;-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.community-rating-star.is-empty{color:#514957}
+.community-member-title-copy .community-rating-stars small{margin-left:5px;color:#d1b273;font-size:9px;font-weight:700}
 .sidebar-user-open-profile{display:flex;align-items:center;gap:5px;width:100%;padding:0;border:0;background:transparent;color:#f5eff8;text-align:left;cursor:pointer}
 .sidebar-user-open-profile strong{max-width:145px}
 .sidebar-user-open-profile>span{flex:none;color:#c997ed;font-size:12px}

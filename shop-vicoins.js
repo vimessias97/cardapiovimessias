@@ -136,7 +136,7 @@
     const featured = bannerCatalog.find(banner => banner.paymentType === 'livepix');
     const more = bannerCatalog.filter(banner => banner.paymentType !== 'livepix');
     const moreCount = more.length;
-    bannerGrid.innerHTML = `${featured ? bannerCardMarkup(featured,authenticated,owned) : '<p class="shop-empty">Banner LivePix indisponível no momento.</p>'}<button type="button" class="shop-more-banners-card" data-open-banners><span class="shop-more-banners-icon" aria-hidden="true">▧</span><strong>Confira mais banners</strong><small>${moreCount ? `${moreCount} ${moreCount === 1 ? 'opção disponível' : 'opções disponíveis'}` : 'Novas opções em breve'}</small><span class="shop-more-banners-action">Abrir coleção ↗</span></button>`;
+    bannerGrid.innerHTML = `${featured ? bannerCardMarkup(featured,authenticated,owned) : '<p class="shop-empty">Banner LivePix indisponível no momento.</p>'}<button type="button" class="shop-banner-card shop-more-banners-card" data-open-banners><span class="shop-more-banners-preview"><span aria-hidden="true">▧</span><strong>Confira mais banners</strong></span><span class="shop-more-banners-details"><strong>Ver coleção completa</strong><small>${moreCount ? `${moreCount} ${moreCount === 1 ? 'banner disponível' : 'banners disponíveis'} · Abrir ↗` : 'Novas opções em breve'}</small></span></button>`;
     moreBannersGrid.innerHTML = more.length ? more.map(banner => bannerCardMarkup(banner,authenticated,owned)).join('') : '<p class="shop-empty shop-more-banners-empty">Ainda não há outros banners cadastrados. Volte em breve para conferir as novidades.</p>';
   }
 

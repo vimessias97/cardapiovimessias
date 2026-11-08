@@ -29,6 +29,11 @@
 .account-redemption-status.status-pending,.admin-redemption-status.status-pending{border-color:#795b35;background:#2a2115;color:#f0d4a7}
 .admin-page{max-width:1320px;min-height:calc(100vh - 70px);margin:0 auto;padding:44px 28px 60px}
 .admin-page-intro .eyebrow{color:#d5aa73;font-size:11px;letter-spacing:.14em}.admin-page-intro h1{margin:8px 0 5px;color:#f5eff8;font:600 36px var(--serif)}.admin-page-intro h1 em{color:#dcb37c;font-style:normal}.admin-page-intro p{margin:0;color:#b5adbb;font-size:15px;line-height:1.6}
+.admin-redemptions-section{margin:18px 0 26px;padding:17px;border:1px solid #493554;border-radius:13px;background:linear-gradient(145deg,#17121c,#0e0c12 75%);box-shadow:0 12px 30px #0003}
+.admin-redemptions-section>div:first-child h2{margin:5px 0;color:#f5eff8;font:600 24px var(--serif)}
+.admin-redemptions-section>div:first-child p{margin:0;color:#b5adbb;font-size:12px;line-height:1.5}
+.admin-redemptions-section .admin-redemptions-feedback{margin:12px 0 0}
+.admin-redemptions-section .admin-redemptions-list{gap:10px;margin-top:10px}
 .admin-payment-note{margin:20px 0 0;padding:12px 14px;border:1px solid #71532e;border-radius:8px;background:#221b12;color:#e5cfaa;font-size:12px;line-height:1.55}
 .admin-redemptions-feedback{margin:18px 0;color:#b6adbf;font-size:13px;line-height:1.6}
 .admin-redemption-card{display:grid;grid-template-columns:82px minmax(0,1fr);gap:15px;padding:14px;border:1px solid #3c3046;border-radius:11px;background:linear-gradient(140deg,#17131b,#100d14);box-shadow:0 7px 22px #0003}

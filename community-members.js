@@ -9,6 +9,7 @@
   const feedback = document.querySelector('#communityMemberFeedback');
   const redemptions = document.querySelector('#communityMemberRedemptions');
   const favorites = document.querySelector('#communityMemberFavorites');
+  const ratedTitles = document.querySelector('#communityMemberRatings');
   const achievementsRoot = document.querySelector('#communityAchievementList');
   const sidebarVicoinsCount = document.querySelector('#sidebarVicoinsCount');
   const shopVicoinsCount = document.querySelector('#shopVicoinsCount');
@@ -89,6 +90,24 @@
     requestAnimationFrame(() => updateCarouselControls(container));
   }
 
+  function renderRatedTitles(items = []) {
+    if (!items.length) {
+      ratedTitles.innerHTML = '<p class="community-members-empty">Ainda não há filmes ou séries avaliados.</p>';
+      updateCarouselControls(ratedTitles);
+      return;
+    }
+    ratedTitles.innerHTML = items.map(item => {
+      const rating = Math.max(0,Math.min(5,Number(item.rating) || 0));
+      const stars = Array.from({length:5},(_,index) => {
+        const value = index + 1;
+        const state = rating >= value ? 'is-full' : rating >= value - .5 ? 'is-half' : 'is-empty';
+        return `<span class="community-rating-star ${state}" aria-hidden="true">★</span>`;
+      }).join('');
+      return `<article class="community-member-title-card community-rated-title-card">${item.posterUrl ? `<img src="${safe(item.posterUrl)}" alt="Pôster de ${safe(item.title)}" loading="lazy">` : '<span class="community-member-title-poster" aria-hidden="true">✦</span>'}<div class="community-member-title-copy"><strong>${safe(item.title)}</strong><small>${safe(item.mediaType === 'tv' ? 'Série' : 'Filme')}</small><span class="community-rating-stars" aria-label="Nota ${rating.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} de 5">${stars}<small>${rating.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} / 5</small></span></div></article>`;
+    }).join('');
+    requestAnimationFrame(() => updateCarouselControls(ratedTitles));
+  }
+
   function updateCarouselControls(container) {
     const maxScroll = Math.max(0,container.scrollWidth - container.clientWidth);
     document.querySelectorAll(`[data-carousel-target="${container.id}"]`).forEach(button => {
@@ -113,8 +132,10 @@
     renderAchievements();
     redemptions.replaceChildren();
     favorites.replaceChildren();
+    ratedTitles.replaceChildren();
     updateCarouselControls(redemptions);
     updateCarouselControls(favorites);
+    updateCarouselControls(ratedTitles);
     try {
       const ownProfile = String(window.CardapioAuth?.getUser()?.id || '') === String(memberId);
       const data = await api(ownProfile ? '/api/account/profile' : `/api/community/members/${encodeURIComponent(memberId)}`);
@@ -129,6 +150,7 @@
       }
       renderTitles(redemptions,Array.isArray(data.redemptions) ? data.redemptions : [],'Ainda não há resgates aprovados.',true);
       renderTitles(favorites,Array.isArray(data.favorites) ? data.favorites : [],'Ainda não há filmes ou séries favoritos.');
+    renderRatedTitles(Array.isArray(data.ratings) ? data.ratings : []);
     } catch (error) {
       feedback.textContent = error.message || 'Não foi possível carregar este perfil.';
     }
@@ -201,7 +223,7 @@
     const container = document.getElementById(button.dataset.carouselTarget);
     if (container) moveCarousel(container,Number(button.dataset.carouselDirection));
   });
-  for (const container of [redemptions,favorites]) {
+  for (const container of [redemptions,favorites,ratedTitles]) {
     container.addEventListener('scroll',() => updateCarouselControls(container),{passive:true});
     window.addEventListener('resize',() => updateCarouselControls(container));
   }
