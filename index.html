@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="games.css">
   <link rel="stylesheet" href="quote-game.css">
   <link rel="stylesheet" href="promotions.css">
+  <link rel="stylesheet" href="shop.css">
   <link rel="stylesheet" href="ratings.css">
   <link rel="stylesheet" href="recent-redemptions.css">
   <link rel="stylesheet" href="react-week.css">
@@ -37,11 +38,13 @@
         <a href="#sugestoes" data-page="sugestoes"><span>♡</span>Sugestões</a>
         <a href="#jogos" data-page="jogos"><span>▣</span>Jogos</a>
         <a href="#promocoes" data-page="promocoes"><span>％</span>Promoções</a>
+        <a href="#lojinha" data-page="lojinha"><span>◉</span>Lojinha</a>
         <a class="hidden" id="adminPanelNav" href="#admin" data-page="admin"><span>⚙</span>Painel administrativo</a>
       </nav>
       <div class="sidebar-login-area" id="sidebarLoginArea"><a class="twitch-login" id="twitchLogin" href="/auth/twitch/start"><span class="twitch-mark" aria-hidden="true">◉</span><span>Entrar com Twitch</span></a><span class="twitch-auth-feedback" id="twitchAuthFeedback" aria-live="polite"></span></div>
       <section class="sidebar-user-profile hidden" id="sidebarUserProfile" aria-label="Perfil da Twitch">
-        <div class="sidebar-user-heading"><img id="sidebarUserAvatar" alt=""><span><strong id="sidebarUserName"></strong></span></div>
+        <div class="sidebar-user-heading"><img id="sidebarUserAvatar" alt=""><span><button class="sidebar-user-open-profile" id="sidebarUserOpenProfile" type="button" aria-label="Abrir meu perfil"><strong id="sidebarUserName"></strong><span aria-hidden="true">↗</span></button></span></div>
+        <a class="vicoins-balance sidebar-vicoins" id="sidebarVicoinsLink" href="#lojinha" data-page="lojinha" title="Vicoins" aria-label="Vicoins: 0. Abrir lojinha"><img src="assets/vicoins-coin.png" alt=""><span id="sidebarVicoinsCount">0</span></a>
         <span class="sidebar-user-role" id="sidebarUserRole"></span>
         <nav class="sidebar-user-links" aria-label="Minha conta">
           <a href="#resgatados" data-page="resgatados"><span aria-hidden="true">▣</span>Filmes que resgatei</a>
@@ -174,6 +177,14 @@
         <div class="promotions-intro"><span class="eyebrow muted">PACOTES ESPECIAIS</span><h1 id="promotionsHeading">Promoções</h1><p>Descontos para quem escolhe uma coleção completa.</p></div>
         <div class="promotion-collections" id="promotionCollections" aria-live="polite"></div>
       </main>
+      <main class="shop-page hidden" id="lojinha" aria-labelledby="shopHeading">
+        <header class="shop-intro"><span class="eyebrow muted">RECOMPENSAS DA COMUNIDADE</span><h1 id="shopHeading">Lojinha</h1><p>Em breve, seus Vicoins poderão ser trocados por recompensas especiais do Vimessias Play.</p></header>
+        <section class="shop-wallet" aria-label="Seu saldo de Vicoins"><img src="assets/vicoins-coin.png" alt="Moeda Vicoins"><div><span>SEU SALDO</span><strong id="shopVicoinsCount">0</strong><small>Vicoins</small><p class="shop-vicoins-rule">A cada R$ 5,00 em resgates pagos e aprovados, você ganha 20 Vicoins.</p></div></section>
+        <p class="shop-feedback" id="shopFeedback" aria-live="polite">Entre com a Twitch para consultar seu saldo e resgatar uma oferta.</p>
+        <label class="shop-requested-title-label" for="shopRequestedTitle">Conteúdo que deseja resgatar <small>(opcional; será conferido pelo administrador)</small><input id="shopRequestedTitle" type="text" maxlength="150" placeholder="Digite o nome do filme ou da série"></label>
+        <div class="shop-rewards" id="shopRewards"></div>
+        <section class="shop-orders"><h2>Meus pedidos</h2><div id="shopOrders" aria-live="polite"><p class="shop-empty">Entre com a Twitch para ver seus pedidos.</p></div></section>
+      </main>
       <main class="account-library-page hidden" id="favoritos" aria-labelledby="myFavoritesHeading">
         <header class="account-library-intro"><span class="eyebrow muted">SUA CONTA · TWITCH</span><h1 id="myFavoritesHeading">Filmes que favoritei</h1><p>Seus títulos favoritos ficam salvos na sua conta Twitch.</p></header>
         <p class="account-library-feedback" id="myFavoritesFeedback" aria-live="polite">Carregando seus favoritos…</p>
@@ -199,9 +210,11 @@
             <div class="admin-promotion-search-results" id="adminPromotionSearchResults" role="listbox" aria-label="Resultados da busca"></div>
             <h4>Títulos da coleção <span id="adminPromotionTitleCount">0</span></h4>
             <div class="admin-promotion-selected" id="adminPromotionSelected"><p>Busque e selecione os títulos da coleção.</p></div>
+            <p class="admin-promotion-form-status" id="adminPromotionFormStatus" aria-live="assertive"></p>
             <div class="admin-promotion-form-actions"><button type="submit" class="admin-promotion-save">Salvar promoção</button><button type="button" class="admin-promotion-cancel" id="adminPromotionCancelBottom">Cancelar</button></div>
           </form>
         </section>
+        <section class="admin-vicoins-orders" aria-labelledby="adminVicoinsOrdersHeading"><div><span class="eyebrow muted">RECOMPENSAS DA COMUNIDADE</span><h2 id="adminVicoinsOrdersHeading">Pedidos da Lojinha</h2><p>Entregue o vale de conteúdo solicitado ou cancele o pedido para devolver os Vicoins.</p></div><p class="admin-vicoins-feedback" id="adminVicoinsFeedback" aria-live="polite">Carregando pedidos…</p><div class="admin-vicoins-list" id="adminVicoinsList"></div></section>
         <p class="admin-payment-note">Antes de aprovar, confirme o pagamento no LivePix. Esta fila registra os pedidos e ainda não recebe confirmação automática do provedor.</p>
         <div class="admin-redemptions-feedback" id="adminRedemptionsFeedback" aria-live="polite">Carregando solicitações…</div>
         <div class="admin-redemptions-list" id="adminRedemptionsList"></div>
@@ -239,7 +252,7 @@
     <a class="troove-game-fallback" href="https://www.mrtroove.com/pt-br/quiz/48e03f" target="_blank" rel="noopener noreferrer">Abrir o quiz no Mr Troove ↗</a>
   </dialog>
   <dialog class="community-member-dialog" id="communityMemberDialog" aria-labelledby="communityMemberName">
-    <div class="community-member-dialog-head"><div class="community-member-identity"><img id="communityMemberAvatar" alt=""><div><span class="eyebrow muted">PERFIL DA COMUNIDADE</span><h2 id="communityMemberName"></h2><p id="communityMemberLogin"></p></div></div><button type="button" class="community-member-close" id="communityMemberClose" aria-label="Fechar perfil">×</button></div>
+    <div class="community-member-dialog-head"><div class="community-member-identity"><img id="communityMemberAvatar" alt=""><div><span class="eyebrow muted">PERFIL DA COMUNIDADE</span><h2 id="communityMemberName"></h2><p id="communityMemberLogin"></p></div></div><a class="vicoins-balance dialog-vicoins" id="communityMemberVicoinsLink" href="#lojinha" data-page="lojinha" title="Vicoins" aria-label="Vicoins: 0. Abrir lojinha"><img src="assets/vicoins-coin.png" alt=""><span id="communityMemberVicoinsCount">0</span></a><button type="button" class="community-member-close" id="communityMemberClose" aria-label="Fechar perfil">×</button></div>
     <p class="community-member-feedback" id="communityMemberFeedback" aria-live="polite"></p>
     <section class="community-member-section"><h3>Filmes que resgatei</h3><div class="community-member-titles" id="communityMemberRedemptions"></div></section>
     <section class="community-member-section"><h3>Filmes que favoritei</h3><div class="community-member-titles" id="communityMemberFavorites"></div></section>
@@ -261,5 +274,7 @@
   <script src="user-profile.js" defer></script>
   <script src="admin-redemptions.js" defer></script>
   <script src="promotions-admin.js" defer></script>
+  <script src="shop-vicoins.js" defer></script>
+  <script src="admin-vicoins.js" defer></script>
 </body>
 </html>

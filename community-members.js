@@ -8,10 +8,25 @@
   const feedback = document.querySelector('#communityMemberFeedback');
   const redemptions = document.querySelector('#communityMemberRedemptions');
   const favorites = document.querySelector('#communityMemberFavorites');
+  const sidebarVicoinsCount = document.querySelector('#sidebarVicoinsCount');
+  const shopVicoinsCount = document.querySelector('#shopVicoinsCount');
+  const dialogVicoinsCount = document.querySelector('#communityMemberVicoinsCount');
+  const sidebarVicoinsLink = document.querySelector('#sidebarVicoinsLink');
+  const dialogVicoinsLink = document.querySelector('#communityMemberVicoinsLink');
+  const sidebarProfileButton = document.querySelector('#sidebarUserOpenProfile');
   const bases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
 
   function safe(value = '') {
     return String(value).replace(/[&<>"']/g,character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+  }
+
+  function setVicoins(value,dialogOnly = false) {
+    const balance = Number.isSafeInteger(Number(value)) && Number(value) >= 0 ? Number(value) : 0;
+    const counters = dialogOnly ? [dialogVicoinsCount] : [sidebarVicoinsCount,shopVicoinsCount];
+    const links = dialogOnly ? [dialogVicoinsLink] : [sidebarVicoinsLink];
+    for (const counter of counters) if (counter) counter.textContent = balance.toLocaleString('pt-BR');
+    for (const link of links) if (link) link.setAttribute('aria-label',`Vicoins: ${balance.toLocaleString('pt-BR')}. Abrir lojinha`);
+    return balance;
   }
 
   async function api(path) {
@@ -39,11 +54,13 @@
   }
 
   async function openProfile(memberId) {
-    dialog.showModal();
+    if (!memberId) return;
+    if (!dialog.open) dialog.showModal();
     avatar.removeAttribute('src');
     avatar.alt = '';
     name.textContent = 'Carregando perfil…';
     login.textContent = '';
+    setVicoins(0,true);
     feedback.textContent = '';
     redemptions.replaceChildren();
     favorites.replaceChildren();
@@ -52,6 +69,7 @@
       const profile = data.profile || {};
       name.textContent = profile.displayName || profile.login || 'Perfil Twitch';
       login.textContent = profile.login ? `@${profile.login}` : '';
+      setVicoins(profile.vicoins,true);
       if (profile.profileImageUrl) {
         avatar.src = profile.profileImageUrl;
         avatar.alt = `Foto de perfil de ${profile.displayName || profile.login || 'usuário'}`;
@@ -77,11 +95,28 @@
     }
   }
 
+  async function loadMyVicoins(user) {
+    if (!user) {
+      setVicoins(0);
+      return;
+    }
+    try {
+      const data = await api('/api/account/vicoins');
+      setVicoins(data.balance);
+    } catch { setVicoins(0); }
+  }
+
   list.addEventListener('click',event => {
     const button = event.target.closest('[data-member-id]');
     if (button) openProfile(button.dataset.memberId);
   });
   close.addEventListener('click',() => dialog.close());
   dialog.addEventListener('click',event => { if (event.target === dialog) dialog.close(); });
+  dialogVicoinsLink.addEventListener('click',() => dialog.close());
+  sidebarProfileButton.addEventListener('click',() => openProfile(window.CardapioAuth?.getUser()?.id));
+  window.addEventListener('cardapio:auth-updated',event => loadMyVicoins(event.detail?.user || null));
+  window.addEventListener('cardapio:vicoins-updated',event => setVicoins(event.detail?.balance));
+  window.CardapioCommunityProfiles = {open:openProfile};
   loadMembers();
+  window.CardapioAuth?.ready.then(user => loadMyVicoins(user));
 })();

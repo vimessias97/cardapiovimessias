@@ -52,3 +52,8 @@
 .promotion-redemption{position:relative;justify-content:center;text-align:center}
 .promotion-redemption span{position:absolute;right:15px}
 @media(max-width:760px){.admin-promotion-manager{padding:14px}.admin-promotion-manager-heading{flex-direction:column}.admin-promotion-manager-heading h2{font-size:22px}.admin-promotion-fields{grid-template-columns:1fr}.admin-promotion-row{align-items:flex-start;flex-direction:column}.admin-promotion-row>div:last-child{width:100%}.admin-promotion-row button{flex:1}}
+.admin-promotion-form-status{display:none;margin:0;padding:10px 12px;border:1px solid transparent;border-radius:7px;font-size:12px;line-height:1.45}
+.admin-promotion-form-status.is-info,.admin-promotion-form-status.is-success,.admin-promotion-form-status.is-error{display:block}
+.admin-promotion-form-status.is-info{border-color:#493554;background:#17121c;color:#c8b8d1}
+.admin-promotion-form-status.is-success{border-color:#3e7653;background:#14251a;color:#bde7c8}
+.admin-promotion-form-status.is-error{border-color:#70404b;background:#2b171b;color:#efb6bf}

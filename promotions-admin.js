@@ -8,6 +8,7 @@
   const selectedBox = document.querySelector('#adminPromotionSelected');
   const titleCount = document.querySelector('#adminPromotionTitleCount');
   const formHeading = document.querySelector('#adminPromotionFormHeading');
+  const formStatus = document.querySelector('#adminPromotionFormStatus');
   const formSave = form.querySelector('[type="submit"]');
   const apiBases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
   let promotions = [];
@@ -24,8 +25,8 @@
     for (const base of apiBases) {
       try {
         const response = await fetch(`${base}${path}`,{credentials:'same-origin',cache:'no-store',...options});
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Não foi possível atualizar as promoções.');
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(response.status === 404 ? 'O servidor ainda não tem a rota atualizada de promoções. Reinicie o Node ou publique a versão mais recente do backend.' : data.error || 'Não foi possível atualizar as promoções.');
         return data;
       } catch (error) {
         if (!(error instanceof TypeError)) throw error;
@@ -52,17 +53,23 @@
     selectedBox.innerHTML = selectedTitles.map((item,index) => `<article class="admin-promotion-selected-item">${item.posterUrl ? `<img src="${safe(item.posterUrl)}" alt="" loading="lazy">` : '<span>✦</span>'}<div><strong>${safe(item.title || `Título ${item.id}`)}</strong><small>${safe(item.kind || (item.mediaType === 'tv' ? 'Série' : 'Filme'))}${item.year ? ` · ${safe(item.year)}` : ''}</small></div><button type="button" data-selected-remove="${index}" aria-label="Remover ${safe(item.title || 'título')}">×</button></article>`).join('');
   }
 
-  function resetForm() {
+  function setFormStatus(message,type = 'info') {
+    formStatus.textContent = message;
+    formStatus.className = `admin-promotion-form-status${message ? ` is-${type}` : ''}`;
+  }
+
+  function resetForm(keepOpen = false) {
     form.reset();
-    form.elements.id.value = '';
-    form.elements.discountPercent.value = '30';
+    form.elements.namedItem('id').value = '';
+    form.elements.namedItem('discountPercent').value = '30';
     selectedTitles = [];
     search.value = '';
     results.replaceChildren();
     renderSelected();
     formHeading.textContent = 'Nova promoção';
     formSave.textContent = 'Salvar promoção';
-    form.classList.add('hidden');
+    setFormStatus('');
+    form.classList.toggle('hidden',!keepOpen);
   }
 
   async function loadPromotions() {
@@ -115,11 +122,12 @@
     form.classList.remove('hidden');
     formHeading.textContent = 'Editar promoção';
     formSave.textContent = 'Salvar alterações';
-    form.elements.id.value = offer.id;
-    form.elements.name.value = offer.name;
-    form.elements.discountPercent.value = String(offer.discountPercent);
-    form.elements.description.value = offer.description || '';
+    form.elements.namedItem('id').value = offer.id;
+    form.elements.namedItem('name').value = offer.name;
+    form.elements.namedItem('discountPercent').value = String(offer.discountPercent);
+    form.elements.namedItem('description').value = offer.description || '';
     feedback.textContent = 'Carregando os títulos desta coleção…';
+    setFormStatus('Carregando os títulos desta coleção…','info');
     try {
       selectedTitles = await Promise.all((offer.titles || []).map(async title => {
         const data = await api(`/api/catalog/title?type=${encodeURIComponent(title.mediaType)}&id=${encodeURIComponent(title.id)}`);
@@ -127,11 +135,13 @@
       }));
       renderSelected();
       feedback.textContent = 'Edite a coleção e salve as alterações.';
+      setFormStatus('Edite a coleção e salve as alterações.','info');
       form.scrollIntoView({behavior:'smooth',block:'start'});
     } catch (error) {
       selectedTitles = [];
       renderSelected();
       feedback.textContent = `Não foi possível carregar algum título para edição: ${error.message}`;
+      setFormStatus(`Não foi possível carregar algum título para edição: ${error.message}`,'error');
     }
   }
 
@@ -154,7 +164,7 @@
     resetForm();
     form.classList.remove('hidden');
     form.scrollIntoView({behavior:'smooth',block:'start'});
-    form.elements.name.focus();
+    form.elements.namedItem('name').focus();
   });
   document.querySelector('#adminPromotionCancel').addEventListener('click',resetForm);
   document.querySelector('#adminPromotionCancelBottom').addEventListener('click',resetForm);
@@ -182,20 +192,26 @@
     event.preventDefault();
     if (!selectedTitles.length) {
       feedback.textContent = 'Adicione pelo menos um título à coleção.';
+      setFormStatus('Adicione pelo menos um filme ou uma série antes de salvar.','error');
       return;
     }
     const submit = form.querySelector('[type="submit"]');
     submit.disabled = true;
     feedback.textContent = 'Salvando promoção…';
+    setFormStatus('Salvando promoção…','info');
     try {
-      const data = await api('/api/admin/promotions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'save',id:form.elements.id.value || '',name:form.elements.name.value,description:form.elements.description.value,discountPercent:Number(form.elements.discountPercent.value),titles:selectedTitles.map(item => ({id:item.id,mediaType:item.mediaType}))})});
+      const savedName = form.elements.namedItem('name').value.trim();
+      const data = await api('/api/admin/promotions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'save',id:form.elements.namedItem('id').value || '',name:savedName,description:form.elements.namedItem('description').value,discountPercent:Number(form.elements.namedItem('discountPercent').value),titles:selectedTitles.map(item => ({id:item.id,mediaType:item.mediaType}))})});
       promotions = Array.isArray(data.promotions) ? data.promotions : [];
       renderList();
-      resetForm();
+      resetForm(true);
       feedback.textContent = 'Promoção salva e atualizada na página pública.';
+      setFormStatus(`“${savedName}” foi salva. Ela já aparece na página Promoções.`,'success');
       window.dispatchEvent(new CustomEvent('cardapio:promotions-updated'));
     } catch (error) {
-      feedback.textContent = error.message || 'Não foi possível salvar a promoção.';
+      const message = error.message || 'Não foi possível salvar a promoção.';
+      feedback.textContent = message;
+      setFormStatus(message,'error');
     } finally { submit.disabled = false; }
   });
 

@@ -6,6 +6,7 @@ const randomResult = document.querySelector('#randomResult');
 const suggestionsPage = document.querySelector('#sugestoes');
 const gamesPage = document.querySelector('#jogos');
 const promotionsPage = document.querySelector('#promocoes');
+const shopPage = document.querySelector('#lojinha');
 const calendarPage = document.querySelector('#calendario');
 const profileFavoritesPage = document.querySelector('#favoritos');
 const profileRedemptionsPage = document.querySelector('#resgatados');
@@ -40,12 +41,13 @@ async function fetchRandomApi(path) {
 }
 
 function showPage(view, link = null, updateHistory = true) {
-  if (!['home','sorteador','sugestoes','jogos','promocoes','calendario','favoritos','resgatados','admin'].includes(view)) return;
+  if (!['home','sorteador','sugestoes','jogos','promocoes','lojinha','calendario','favoritos','resgatados','admin'].includes(view)) return;
   homePage.classList.toggle('hidden', view !== 'home');
   randomPage.classList.toggle('hidden', view !== 'sorteador');
   suggestionsPage.classList.toggle('hidden', view !== 'sugestoes');
   gamesPage.classList.toggle('hidden', view !== 'jogos');
   promotionsPage.classList.toggle('hidden', view !== 'promocoes');
+  shopPage.classList.toggle('hidden', view !== 'lojinha');
   calendarPage.classList.toggle('hidden', view !== 'calendario');
   profileFavoritesPage.classList.toggle('hidden', view !== 'favoritos');
   profileRedemptionsPage.classList.toggle('hidden', view !== 'resgatados');
@@ -56,13 +58,15 @@ function showPage(view, link = null, updateHistory = true) {
   if (view === 'favoritos') window.CardapioUserProfile?.loadFavorites();
   if (view === 'resgatados') window.CardapioUserProfile?.loadRedemptions();
   if (view === 'admin') window.CardapioAdminRedemptions?.load();
+  if (view === 'admin') window.CardapioAdminVicoins?.load();
+  if (view === 'lojinha') window.CardapioVicoinsShop?.load();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 window.CardapioNavigation = {showPage};
 
 pageButtons.forEach(link => link.addEventListener('click', event => {
   const view = link.dataset.page;
-  if (!['home','sorteador','sugestoes','jogos','promocoes','calendario','favoritos','resgatados','admin'].includes(view)) return;
+  if (!['home','sorteador','sugestoes','jogos','promocoes','lojinha','calendario','favoritos','resgatados','admin'].includes(view)) return;
   event.preventDefault();
   if (['favoritos','resgatados'].includes(view) && !window.CardapioAuth?.requireLogin()) return;
   if (view === 'admin' && !window.CardapioAuth?.isAdmin()) {
@@ -152,6 +156,8 @@ if (location.hash === '#sorteador') {
   homePage.classList.add('hidden');
   gamesPage.classList.remove('hidden');
   pageButtons.forEach(item => item.classList.toggle('selected', item.dataset.page === 'jogos'));
+} else if (location.hash === '#lojinha') {
+  showPage('lojinha',null,false);
 } else if (location.hash === '#calendario') {
   showPage('calendario',null,false);
 } else if (location.hash === '#favoritos') {

@@ -74,7 +74,8 @@
       redemptions = Array.isArray(data.redemptions) ? data.redemptions : [];
       render();
       window.dispatchEvent(new CustomEvent('cardapio:redemptions-updated'));
-      feedback.textContent = action === 'approve' ? 'Resgate aprovado e publicado em Últimos resgates e no calendário.' : action === 'reject' ? 'Solicitação rejeitada.' : action === 'delete' ? 'Resgate excluído.' : 'Data do resgate atualizada.';
+      const awarded = action === 'approve' ? Number(redemptions.find(item => item.id === id)?.vicoinsAwarded) || 0 : 0;
+      feedback.textContent = action === 'approve' ? `Resgate aprovado e publicado em Últimos resgates e no calendário.${awarded ? ` ${awarded} Vicoins creditados ao usuário.` : ''}` : action === 'reject' ? 'Solicitação rejeitada.' : action === 'delete' ? 'Resgate excluído.' : 'Data do resgate atualizada.';
     } catch (error) {
       feedback.textContent = error.message || 'Não foi possível atualizar este pedido.';
       if (control) control.querySelectorAll('button,input').forEach(element => { element.disabled = false; });
