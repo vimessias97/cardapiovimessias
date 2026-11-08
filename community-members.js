@@ -14,6 +14,8 @@
   const sidebarVicoinsLink = document.querySelector('#sidebarVicoinsLink');
   const dialogVicoinsLink = document.querySelector('#communityMemberVicoinsLink');
   const sidebarProfileButton = document.querySelector('#sidebarUserOpenProfile');
+  const dialogHead = document.querySelector('.community-member-dialog-head');
+  const profileBannerImages = {'halloween-michael':'/assets/profile-banners/halloween-michael-1600x240.png'};
   const bases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
 
   function safe(value = '') {
@@ -27,6 +29,17 @@
     for (const counter of counters) if (counter) counter.textContent = balance.toLocaleString('pt-BR');
     for (const link of links) if (link) link.setAttribute('aria-label',`Vicoins: ${balance.toLocaleString('pt-BR')}. Abrir lojinha`);
     return balance;
+  }
+
+  function setProfileBanner(banner) {
+    const imageUrl = profileBannerImages[banner?.id];
+    if (!imageUrl) {
+      dialogHead.classList.remove('has-profile-banner');
+      dialogHead.style.removeProperty('--community-profile-banner');
+      return;
+    }
+    dialogHead.style.setProperty('--community-profile-banner',`url("${imageUrl}")`);
+    dialogHead.classList.add('has-profile-banner');
   }
 
   async function api(path) {
@@ -60,16 +73,19 @@
     avatar.alt = '';
     name.textContent = 'Carregando perfil…';
     login.textContent = '';
+    setProfileBanner(null);
     setVicoins(0,true);
     feedback.textContent = '';
     redemptions.replaceChildren();
     favorites.replaceChildren();
     try {
-      const data = await api(`/api/community/members/${encodeURIComponent(memberId)}`);
+      const ownProfile = String(window.CardapioAuth?.getUser()?.id || '') === String(memberId);
+      const data = await api(ownProfile ? '/api/account/profile' : `/api/community/members/${encodeURIComponent(memberId)}`);
       const profile = data.profile || {};
       name.textContent = profile.displayName || profile.login || 'Perfil Twitch';
       login.textContent = profile.login ? `@${profile.login}` : '';
       setVicoins(profile.vicoins,true);
+      setProfileBanner(profile.banner);
       if (profile.profileImageUrl) {
         avatar.src = profile.profileImageUrl;
         avatar.alt = `Foto de perfil de ${profile.displayName || profile.login || 'usuário'}`;

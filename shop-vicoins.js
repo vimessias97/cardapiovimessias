@@ -3,6 +3,9 @@
   const feedback = document.querySelector('#shopFeedback');
   const ordersRoot = document.querySelector('#shopOrders');
   const requestedTitleInput = document.querySelector('#shopRequestedTitle');
+  const dailyClaimButton = document.querySelector('#claimDailyVicoins');
+  const dailyTimer = document.querySelector('#dailyVicoinsTimer');
+  const bannerButton = document.querySelector('#redeemHalloweenBanner');
   const apiBases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
   const rewards = [
     {id:'content-15',contentLimit:15,coinCost:500},
@@ -12,6 +15,10 @@
   ];
   let balance = 0;
   let orders = [];
+  let dailyAvailableAt = null;
+  let dailyEligible = false;
+  let dailyTimerInterval = null;
+  let ownsHalloweenBanner = false;
 
   function safe(value = '') {
     return String(value).replace(/[&<>"']/g,character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
@@ -38,6 +45,7 @@
     document.querySelector('#shopVicoinsCount').textContent = balance.toLocaleString('pt-BR');
     if (broadcast) window.dispatchEvent(new CustomEvent('cardapio:vicoins-updated',{detail:{balance}}));
     renderRewards();
+    renderProfileBanner();
   }
 
   function statusText(order) {
@@ -46,10 +54,68 @@
     return 'Aguardando atendimento';
   }
 
+  function renderDailyStatus() {
+    if (!window.CardapioAuth?.isAuthenticated()) {
+      dailyTimer.textContent = 'Entre com a Twitch para liberar';
+      dailyClaimButton.textContent = 'Entrar';
+      dailyClaimButton.disabled = false;
+      return;
+    }
+    if (dailyEligible) {
+      dailyTimer.textContent = 'Disponível agora';
+      dailyClaimButton.textContent = 'Resgatar';
+      dailyClaimButton.disabled = false;
+      return;
+    }
+    if (!dailyAvailableAt) {
+      dailyTimer.textContent = 'Carregando disponibilidade…';
+      dailyClaimButton.textContent = 'Aguarde';
+      dailyClaimButton.disabled = true;
+      return;
+    }
+    const remaining = Math.max(0,Date.parse(dailyAvailableAt) - Date.now());
+    if (!remaining) {
+      dailyEligible = true;
+      renderDailyStatus();
+      return;
+    }
+    const hours = Math.floor(remaining / 3600000);
+    const minutes = Math.floor((remaining % 3600000) / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+    dailyTimer.textContent = `Próximo resgate em ${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+    dailyClaimButton.textContent = 'Já resgatado';
+    dailyClaimButton.disabled = true;
+  }
+
+  async function loadDailyStatus() {
+    if (!window.CardapioAuth?.isAuthenticated()) {
+      dailyAvailableAt = null;
+      dailyEligible = false;
+      renderDailyStatus();
+      return;
+    }
+    try {
+      const data = await api('/api/account/vicoins/daily');
+      dailyAvailableAt = data.availableAt || null;
+      dailyEligible = Boolean(data.eligible);
+      if (Number.isSafeInteger(Number(data.balance))) updateBalance(data.balance);
+      renderDailyStatus();
+    } catch (error) {
+      dailyTimer.textContent = error.message || 'Não foi possível consultar o bônus.';
+      dailyClaimButton.disabled = true;
+    }
+  }
+
   function renderRewards() {
     const authenticated = window.CardapioAuth?.isAuthenticated();
     rewardsRoot.innerHTML = rewards.map(reward => `<article class="shop-reward-card"><span class="shop-reward-kicker">VALE DE CONTEÚDO</span><h2>Resgate até <strong>${safe(reward.contentLimit.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}))}</strong></h2><p>Use Vicoins para solicitar um resgate de conteúdo neste valor ou menos.</p><div class="shop-reward-cost"><img src="assets/vicoins-coin.png" alt=""><strong>${reward.coinCost.toLocaleString('pt-BR')}</strong><span>Vicoins</span></div><button type="button" data-reward-id="${safe(reward.id)}" ${authenticated && balance < reward.coinCost ? 'disabled' : ''}>${!authenticated ? 'Entrar para resgatar' : balance < reward.coinCost ? 'Saldo insuficiente' : 'Resgatar'}</button></article>`).join('');
     rewardsRoot.querySelectorAll('[data-reward-id]').forEach(button => button.addEventListener('click',() => submitOrder(button)));
+  }
+
+  function renderProfileBanner() {
+    const authenticated = window.CardapioAuth?.isAuthenticated();
+    bannerButton.disabled = ownsHalloweenBanner || !authenticated || balance < 100;
+    bannerButton.textContent = ownsHalloweenBanner ? 'Equipado no seu perfil' : !authenticated ? 'Entre para resgatar' : balance < 100 ? 'Vicoins insuficientes' : 'Resgatar por 100 Vicoins';
   }
 
   function renderOrders() {
@@ -64,16 +130,22 @@
     if (!window.CardapioAuth?.isAuthenticated()) {
       updateBalance(0);
       orders = [];
+      ownsHalloweenBanner = false;
+      renderProfileBanner();
       renderOrders();
+      loadDailyStatus();
       feedback.textContent = 'Entre com a Twitch para consultar seu saldo e resgatar uma oferta.';
       return;
     }
     feedback.textContent = 'Carregando seu saldo e seus pedidos…';
     try {
-      const [wallet,history] = await Promise.all([api('/api/account/vicoins'),api('/api/account/vicoins-orders')]);
+      const [wallet,history,bannerInventory] = await Promise.all([api('/api/account/vicoins'),api('/api/account/vicoins-orders'),api('/api/account/profile-banner')]);
       updateBalance(wallet.balance);
+      ownsHalloweenBanner = Array.isArray(bannerInventory.owned) && bannerInventory.owned.includes('halloween-michael');
+      renderProfileBanner();
       orders = Array.isArray(history.orders) ? history.orders : [];
       renderOrders();
+      await loadDailyStatus();
       feedback.textContent = 'Escolha um vale compatível com o conteúdo que deseja resgatar.';
     } catch (error) {
       feedback.textContent = error.message || 'Não foi possível carregar sua carteira.';
@@ -106,10 +178,54 @@
     }
   }
 
+  dailyClaimButton.addEventListener('click',async () => {
+    if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para resgatar seus 20 Vicoins diários.')) return;
+    if (!dailyEligible) return;
+    dailyClaimButton.disabled = true;
+    dailyTimer.textContent = 'Registrando seu bônus…';
+    try {
+      const data = await api('/api/account/vicoins/daily',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
+      dailyAvailableAt = data.availableAt;
+      dailyEligible = false;
+      updateBalance(data.balance);
+      feedback.textContent = 'Você recebeu 20 Vicoins. O próximo bônus poderá ser resgatado em 24 horas.';
+      renderDailyStatus();
+    } catch (error) {
+      feedback.textContent = error.message || 'Não foi possível resgatar o bônus diário.';
+      await loadDailyStatus();
+    }
+  });
+
+  bannerButton.addEventListener('click',async () => {
+    if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para resgatar um banner de perfil.')) return;
+    if (ownsHalloweenBanner) return;
+    if (balance < 100) {
+      feedback.textContent = 'Você precisa de 100 Vicoins para resgatar este banner.';
+      return;
+    }
+    if (!window.confirm('Resgatar o banner Halloween · Michael Myers por 100 Vicoins? Ele será aplicado automaticamente ao seu perfil.')) return;
+    bannerButton.disabled = true;
+    feedback.textContent = 'Aplicando o banner ao seu perfil…';
+    try {
+      const data = await api('/api/shop/profile-banners',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({bannerId:'halloween-michael'})});
+      ownsHalloweenBanner = data.inventory?.owned?.includes('halloween-michael') || false;
+      updateBalance(data.balance);
+      renderProfileBanner();
+      feedback.textContent = data.alreadyOwned ? 'Este banner já está no seu perfil.' : 'Banner resgatado e aplicado ao seu perfil. Foram descontados 100 Vicoins.';
+    } catch (error) {
+      feedback.textContent = error.message || 'Não foi possível resgatar este banner.';
+      await load();
+    }
+  });
+
   window.CardapioVicoinsShop = {load};
   window.addEventListener('cardapio:auth-updated',load);
   window.addEventListener('cardapio:vicoins-updated',event => updateBalance(event.detail?.balance,false));
   window.addEventListener('cardapio:vicoins-orders-updated',load);
   window.CardapioAuth?.ready.then(load);
+  if (dailyTimerInterval) clearInterval(dailyTimerInterval);
+  dailyTimerInterval = setInterval(renderDailyStatus,1000);
+  renderDailyStatus();
   renderRewards();
+  renderProfileBanner();
 })();

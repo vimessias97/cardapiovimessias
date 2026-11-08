@@ -37,3 +37,9 @@
 .dialog-vicoins>img{width:48px;height:48px}
 .dialog-vicoins>span{font-size:12px}
 .community-member-dialog-head{justify-content:initial}
+.vicoins-balance.sidebar-vicoins{display:flex;flex-direction:row;justify-items:initial;align-items:center;gap:5px;margin:7px 0 7px 2px}
+.vicoins-balance.sidebar-vicoins>img{width:24px;height:24px}
+.vicoins-balance.sidebar-vicoins>span{font-size:11px}
+.community-member-dialog-head.has-profile-banner{position:relative;padding:10px 12px 17px;border-radius:10px 10px 0 0;border-bottom-color:#826f87;background-image:linear-gradient(90deg,#0d0b10c4 0%,#0d0b1077 52%,#0d0b10b8 100%),var(--community-profile-banner);background-position:center 46%;background-size:cover}
+.community-member-dialog-head.has-profile-banner .community-member-identity>img{box-shadow:0 2px 14px #000a}
+.community-member-dialog-head.has-profile-banner .community-member-identity h2,.community-member-dialog-head.has-profile-banner .community-member-identity p{ text-shadow:0 2px 8px #000}

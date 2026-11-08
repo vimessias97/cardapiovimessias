@@ -63,3 +63,25 @@
 .shop-requested-title-label input{height:40px;padding:0 11px;border:1px solid #493853;border-radius:7px;background:#0c0a10;color:#f2edf6;font-size:12px}
 .shop-requested-title-label input:focus{outline:1px solid #a25ec6}
 .shop-requested-title-label input::placeholder{color:#81788a}
+.shop-wallet-row{display:flex;align-items:stretch;gap:14px;margin-top:26px;flex-wrap:wrap}
+.shop-wallet-row .shop-wallet{margin-top:0}
+.shop-daily-claim{display:grid;align-content:center;justify-items:start;gap:7px;min-width:205px;padding:17px 20px;border:1px solid #55376a;border-radius:14px;background:radial-gradient(ellipse at 15% 20%,#692e8244,transparent 58%),linear-gradient(145deg,#211625,#100e14 75%);box-shadow:0 12px 34px #0005}
+.shop-daily-kicker{color:#cf9aee;font-size:9px;font-weight:800;letter-spacing:.14em}
+.shop-daily-claim>strong{color:#f5e8ff;font:600 21px var(--serif)}
+.shop-daily-claim>p{margin:0;color:#b9adbf;font-size:10px;font-variant-numeric:tabular-nums}
+.shop-daily-claim>button{min-height:33px;margin-top:2px;padding:0 14px;border:1px solid #a25fc3;border-radius:7px;background:linear-gradient(110deg,#763498,#4c2162);color:#fff;font-size:11px;font-weight:700;cursor:pointer}
+.shop-daily-claim>button:disabled{border-color:#393136;background:#211d22;color:#847c86;cursor:not-allowed}
+.shop-wallet-row+.shop-feedback{margin-top:18px}
+.shop-cosmetics{max-width:900px;margin-top:29px}
+.shop-cosmetics-heading h2{margin:5px 0;color:#f5eff8;font:600 24px var(--serif)}
+.shop-cosmetics-heading p{margin:0;color:#b5adbb;font-size:12px;line-height:1.5}
+.shop-banner-card{overflow:hidden;margin-top:13px;border:1px solid #513c5d;border-radius:13px;background:linear-gradient(145deg,#1b1520,#100e14 75%);box-shadow:0 12px 34px #0005}
+.shop-banner-preview{display:block;width:100%;aspect-ratio:1600/240;object-fit:cover;object-position:center;background:#0c090b}
+.shop-banner-details{display:grid;justify-items:start;padding:15px 17px 17px}
+.shop-banner-details h3{margin:5px 0;color:#f5eff8;font:600 21px var(--serif)}
+.shop-banner-details>p{margin:0;color:#b6adbb;font-size:11px;line-height:1.5}
+.shop-banner-details .shop-reward-cost{margin:8px 0}
+.shop-banner-redeem{min-height:38px;padding:0 14px;border:1px solid #a25fc3;border-radius:7px;background:linear-gradient(110deg,#763498,#4c2162);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
+.shop-banner-redeem:hover:not(:disabled){filter:brightness(1.15)}
+.shop-banner-redeem:disabled{border-color:#393136;background:#211d22;color:#847c86;cursor:not-allowed}
+@media(max-width:760px){.shop-wallet-row{gap:10px}.shop-wallet-row .shop-wallet{flex:1 1 320px}.shop-daily-claim{flex:1 1 190px}}

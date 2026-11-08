@@ -53,6 +53,9 @@ const vicoinsRewards = [
   {id:'content-25',contentLimit:25,coinCost:700},
   {id:'content-30',contentLimit:30,coinCost:800}
 ];
+const profileBannerRewards = [
+  {id:'halloween-michael',name:'Halloween · Michael Myers',imageUrl:'/assets/profile-banners/halloween-michael-1600x240.png',coinCost:100}
+];
 function twitchConfig() {
   const clientId = process.env.TWITCH_CLIENT_ID || '';
   const clientSecret = process.env.TWITCH_CLIENT_SECRET || '';
@@ -63,7 +66,7 @@ function twitchConfig() {
 function getTwitchRole(profile) {
   const adminId = String(process.env.TWITCH_ADMIN_USER_ID || '').trim();
   const adminLogin = String(process.env.TWITCH_ADMIN_LOGIN || 'vimessias_').trim().toLowerCase();
-  const isAdmin = adminId ? profile.id === adminId : String(profile.login || '').toLowerCase() === adminLogin;
+  const isAdmin = Boolean((adminId && String(profile.id) === adminId) || (adminLogin && String(profile.login || '').trim().toLowerCase() === adminLogin));
   return isAdmin ? 'admin' : 'user';
 }
 
@@ -204,12 +207,19 @@ async function readCommunityMembers() {
 async function readVicoinsStore() {
   try {
     const value = JSON.parse(await readFile(vicoinsFile,'utf8'));
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return {balances:{},transactions:[],orders:[]};
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {balances:{},transactions:[],orders:[],dailyClaims:{},profileBannerInventory:{}};
     if (value.balances && typeof value.balances === 'object' && !Array.isArray(value.balances)) {
-      return {balances:value.balances,transactions:Array.isArray(value.transactions) ? value.transactions : [],orders:Array.isArray(value.orders) ? value.orders : []};
+      return {balances:value.balances,transactions:Array.isArray(value.transactions) ? value.transactions : [],orders:Array.isArray(value.orders) ? value.orders : [],dailyClaims:value.dailyClaims && typeof value.dailyClaims === 'object' && !Array.isArray(value.dailyClaims) ? value.dailyClaims : {},profileBannerInventory:value.profileBannerInventory && typeof value.profileBannerInventory === 'object' && !Array.isArray(value.profileBannerInventory) ? value.profileBannerInventory : {}};
     }
-    return {balances:value,transactions:[],orders:[]};
-  } catch { return {balances:{},transactions:[],orders:[]}; }
+    return {balances:value,transactions:[],orders:[],dailyClaims:{},profileBannerInventory:{}};
+  } catch { return {balances:{},transactions:[],orders:[],dailyClaims:{},profileBannerInventory:{}}; }
+}
+
+function getProfileBannerInventory(store,userId) {
+  const saved = store.profileBannerInventory?.[userId];
+  const owned = Array.isArray(saved?.owned) ? [...new Set(saved.owned.filter(id => profileBannerRewards.some(item => item.id === id)))] : [];
+  const equippedId = profileBannerRewards.some(item => item.id === saved?.equipped) ? saved.equipped : '';
+  return {owned,equipped:profileBannerRewards.find(item => item.id === equippedId) || null};
 }
 
 async function updateVicoinsStore(update) {
@@ -935,8 +945,58 @@ async function handle(req, res) {
       .filter(entry => entry.requester?.id === memberId && entry.status === 'approved')
       .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
       .map(({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}) => ({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}));
-    const profile = {id:member.id,login:member.login,displayName:member.displayName,profileImageUrl:member.profileImageUrl,joinedAt:member.joinedAt,vicoins:await getVicoinsBalance(memberId)};
+    const vicoinsStore = await readVicoinsStore();
+    const bannerInventory = getProfileBannerInventory(vicoinsStore,memberId);
+    const profile = {id:member.id,login:member.login,displayName:member.displayName,profileImageUrl:member.profileImageUrl,joinedAt:member.joinedAt,vicoins:await getVicoinsBalance(memberId),banner:bannerInventory.equipped};
     return json(res,200,{profile,favorites,redemptions});
+  }
+  if (req.method === 'GET' && url.pathname === '/api/account/profile') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para abrir seu perfil.'});
+    await reconcileApprovedRedemptionVicoins(profile.id);
+    const favorites = userFavorites(await removePatreonLinkedFavorites(),profile.id);
+    const redemptions = (await readRedemptions())
+      .filter(entry => entry.requester?.id === profile.id && entry.status === 'approved')
+      .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
+      .map(({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}) => ({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}));
+    const vicoinsStore = await readVicoinsStore();
+    const bannerInventory = getProfileBannerInventory(vicoinsStore,profile.id);
+    return privateJson(res,200,{profile:{...profile,vicoins:await getVicoinsBalance(profile.id),banner:bannerInventory.equipped},favorites,redemptions});
+  }
+  if (req.method === 'GET' && url.pathname === '/api/account/profile-banner') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para consultar seus banners.'});
+    const store = await readVicoinsStore();
+    return privateJson(res,200,getProfileBannerInventory(store,profile.id));
+  }
+  if (req.method === 'POST' && url.pathname === '/api/shop/profile-banners') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para resgatar um banner.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req); }
+    catch (error) { return privateJson(res,400,{error:error.message}); }
+    const reward = profileBannerRewards.find(item => item.id === String(body.bannerId || ''));
+    if (!reward) return privateJson(res,400,{error:'Banner inválido para resgate.'});
+    try {
+      const result = await updateVicoinsStore(store => {
+        store.profileBannerInventory = store.profileBannerInventory || {};
+        const inventory = store.profileBannerInventory[profile.id] || {owned:[],equipped:''};
+        inventory.owned = Array.isArray(inventory.owned) ? inventory.owned : [];
+        if (inventory.owned.includes(reward.id)) {
+          inventory.equipped = reward.id;
+          store.profileBannerInventory[profile.id] = inventory;
+          return {balance:Number(store.balances[profile.id]) || 0,inventory:getProfileBannerInventory(store,profile.id),alreadyOwned:true};
+        }
+        const balance = applyVicoinsTransaction(store,{userId:profile.id,amount:-reward.coinCost,type:'profile-banner',referenceId:reward.id,description:`Banner de perfil: ${reward.name}`});
+        inventory.owned.push(reward.id);
+        inventory.equipped = reward.id;
+        store.profileBannerInventory[profile.id] = inventory;
+        return {balance,inventory:getProfileBannerInventory(store,profile.id),alreadyOwned:false};
+      });
+      return privateJson(res,200,result);
+    } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível resgatar este banner.'}); }
   }
   if (req.method === 'POST' && url.pathname === '/api/redemptions') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -995,6 +1055,39 @@ async function handle(req, res) {
     try { await reconcileApprovedRedemptionVicoins(profile.id); }
     catch { return privateJson(res,500,{error:'Não foi possível atualizar seu saldo de Vicoins.'}); }
     return privateJson(res,200,{balance:await getVicoinsBalance(profile.id)});
+  }
+  if (req.method === 'GET' && url.pathname === '/api/account/vicoins/daily') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para resgatar o bônus diário.'});
+    const store = await readVicoinsStore();
+    const lastClaim = Date.parse(store.dailyClaims[profile.id] || '');
+    const availableAt = Number.isFinite(lastClaim) ? new Date(lastClaim + 24 * 60 * 60 * 1000).toISOString() : null;
+    return privateJson(res,200,{claimAmount:20,eligible:!availableAt || Date.now() >= Date.parse(availableAt),availableAt,balance:await getVicoinsBalance(profile.id)});
+  }
+  if (req.method === 'POST' && url.pathname === '/api/account/vicoins/daily') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para resgatar o bônus diário.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    try {
+      const result = await updateVicoinsStore(store => {
+        const lastClaim = Date.parse(store.dailyClaims[profile.id] || '');
+        const now = Date.now();
+        if (Number.isFinite(lastClaim) && now < lastClaim + 24 * 60 * 60 * 1000) {
+          const error = new Error('Seu bônus diário já foi resgatado.');
+          error.availableAt = new Date(lastClaim + 24 * 60 * 60 * 1000).toISOString();
+          throw error;
+        }
+        const claimedAt = new Date(now).toISOString();
+        const availableAt = new Date(now + 24 * 60 * 60 * 1000).toISOString();
+        const balance = applyVicoinsTransaction(store,{userId:profile.id,amount:20,type:'daily-login',referenceId:claimedAt,description:'Bônus diário de login'});
+        store.dailyClaims[profile.id] = claimedAt;
+        return {claimAmount:20,balance,eligible:false,availableAt};
+      });
+      return privateJson(res,200,result);
+    } catch (error) {
+      return privateJson(res,409,{error:error.message || 'Não foi possível resgatar o bônus diário.',availableAt:error.availableAt || null});
+    }
   }
   if (req.method === 'GET' && url.pathname === '/api/account/vicoins-orders') {
     const profile = await getAuthenticatedProfile(req,res);
