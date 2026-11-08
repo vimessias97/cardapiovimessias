@@ -17,7 +17,7 @@
   const dialogVicoinsLink = document.querySelector('#communityMemberVicoinsLink');
   const sidebarProfileButton = document.querySelector('#sidebarUserOpenProfile');
   const dialogHead = document.querySelector('.community-member-dialog-head');
-  const profileBannerImages = {'vimessias':'/assets/profile-banners/vimessias-1600x240.png?v=1','halloween-michael':'/assets/profile-banners/halloween-michael-1600x240.png?v=2'};
+  const profileBannerImages = {'vimessias':'/assets/profile-banners/vimessias-1600x240.png?v=1','halloween-michael':'/assets/profile-banners/halloween-michael-1600x240.png?v=2','terrifier-natal':'/assets/profile-banners/terrifier-natal-1600x240.png?v=1'};
   const bases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
 
   function safe(value = '') {
@@ -34,7 +34,8 @@
   }
 
   function setProfileBanner(banner) {
-    const imageUrl = profileBannerImages[banner?.id];
+    const suppliedUrl = String(banner?.imageUrl || '');
+    const imageUrl = profileBannerImages[banner?.id] || (/^\/api\/profile-banners\/[a-f0-9-]{36}\.(?:png|jpg)$/i.test(suppliedUrl) ? suppliedUrl : '');
     if (!imageUrl) {
       dialogHead.classList.remove('has-profile-banner');
       dialogHead.style.removeProperty('--community-profile-banner');

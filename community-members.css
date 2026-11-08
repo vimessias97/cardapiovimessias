@@ -7,7 +7,11 @@
 .community-member-link .community-member-avatar-fallback{display:grid;width:29px;height:29px;flex:none;place-items:center;border:1px solid #593b6b;border-radius:50%;background:#211929;color:#d3a1ed;font-size:13px}
 .community-member-link span{overflow:hidden;font-size:11px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
 .community-members-empty{margin:0;padding:8px 2px;color:#8e8796;font-size:10px;line-height:1.5}
-.community-member-dialog{width:min(720px,calc(100vw - 28px));max-width:none;max-height:min(86vh,850px);padding:22px;border:1px solid #4a3557;border-radius:16px;background:linear-gradient(150deg,#17121c,#0d0b10 70%);color:#eee9f2;box-shadow:0 28px 100px #000b}
+.community-member-dialog{width:min(720px,calc(100vw - 28px));max-width:none;max-height:min(86vh,850px);padding:22px;border:1px solid #4a3557;border-radius:16px;background:linear-gradient(150deg,#17121c,#0d0b10 70%);color:#eee9f2;box-shadow:0 28px 100px #000b;scrollbar-color:#5d4268 #17131a;scrollbar-width:thin}
+.community-member-dialog::-webkit-scrollbar,.community-member-titles::-webkit-scrollbar{width:10px;height:10px}
+.community-member-dialog::-webkit-scrollbar-track,.community-member-titles::-webkit-scrollbar-track{border-radius:10px;background:#17131a}
+.community-member-dialog::-webkit-scrollbar-thumb,.community-member-titles::-webkit-scrollbar-thumb{border:2px solid #17131a;border-radius:10px;background:#5d4268}
+.community-member-dialog::-webkit-scrollbar-thumb:hover,.community-member-titles::-webkit-scrollbar-thumb:hover{background:#9362a7}
 .community-member-dialog::backdrop{background:#050408c9;backdrop-filter:blur(4px)}
 .community-member-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-bottom:17px;border-bottom:1px solid #302738}
 .community-member-identity{display:flex;flex:1;align-items:center;gap:14px;min-width:0}

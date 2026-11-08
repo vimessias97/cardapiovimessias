@@ -83,12 +83,11 @@
 .shop-cosmetics{max-width:960px;margin-top:29px}
 .shop-cosmetics-heading h2{margin:5px 0;color:#f5eff8;font:600 24px var(--serif)}
 .shop-cosmetics-heading p{margin:0;color:#b5adbb;font-size:12px;line-height:1.5}
-.shop-banner-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin-top:13px}
+.shop-banner-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,minmax(0,1fr));grid-auto-columns:minmax(270px,calc((100% - 12px)/2));gap:10px;margin-top:13px;padding:2px 2px 8px;overflow-x:auto;overflow-y:hidden;scrollbar-color:#5d4268 #17131a;scrollbar-width:thin;scroll-snap-type:x mandatory}
 .shop-banner-card{overflow:hidden;min-width:0;border:1px solid #513c5d;border-radius:10px;background:linear-gradient(145deg,#1b1520,#100e14 75%);box-shadow:0 8px 22px #0004}
-.shop-banner-preview{display:block;width:100%;aspect-ratio:1600/240;object-fit:contain;object-position:center;background:#0c090b}
-.shop-banner-details{display:grid;justify-items:start;padding:10px 11px 12px}
-.shop-banner-details h3{margin:4px 0;color:#f5eff8;font:600 16px var(--serif)}
-.shop-banner-details>p{min-height:30px;margin:0;color:#b6adbb;font-size:10px;line-height:1.45}
+.shop-banner-card{scroll-snap-align:start}
+.shop-banner-preview{display:block;width:100%;aspect-ratio:1600/240;object-fit:cover;object-position:center;background:#0c090b}
+.shop-banner-details{display:grid;align-content:center;justify-items:start;min-height:55px;padding:7px 9px}
 .shop-banner-details .shop-reward-cost{margin:6px 0}
 .shop-banner-details .shop-reward-cost img{width:25px;height:25px}
 .shop-banner-details .shop-reward-cost strong{font-size:16px}
@@ -99,12 +98,34 @@
 .shop-banner-action-row .shop-banner-price,.shop-banner-action-row .shop-reward-cost{margin:0}
 .shop-banner-action-row .shop-reward-cost{gap:4px}
 .shop-banner-action-row .shop-banner-redeem{flex:0 0 auto}
-.shop-banner-order-feedback{min-height:0!important;margin:7px 0 0!important;color:#c9b8d2!important;font-size:10px!important;line-height:1.45!important}
+.shop-banner-order-feedback{min-height:0!important;margin:4px 0 0!important;color:#c9b8d2!important;font-size:9px!important;line-height:1.35!important}
 .shop-banner-order-feedback a{color:#d792ff;font-weight:700;text-decoration:underline;text-underline-offset:2px}
 .admin-banner-livepix{display:inline-flex;align-items:center;min-height:34px;padding:0 11px;border:1px solid #55376a;border-radius:6px;background:#211625;color:#e5c8f8;font-size:10px;font-weight:700;text-decoration:none}
 .shop-banner-redeem{min-height:32px;padding:0 11px;border:1px solid #a25fc3;border-radius:7px;background:linear-gradient(110deg,#763498,#4c2162);color:#fff;font-size:10px;font-weight:700;cursor:pointer}
 .shop-banner-redeem:hover:not(:disabled){filter:brightness(1.15)}
 .shop-banner-redeem:disabled{border-color:#393136;background:#211d22;color:#847c86;cursor:not-allowed}
 @media(max-width:760px){.shop-wallet-row{gap:10px}.shop-wallet-row .shop-wallet{flex:1 1 320px}.shop-daily-claim{flex:1 1 190px}.shop-vicoins-guide{flex:1 1 100%}}
-@media(max-width:760px){.shop-banner-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:480px){.shop-banner-grid{grid-template-columns:1fr}.shop-banner-details>p{min-height:0}}
+@media(max-width:760px){.shop-banner-grid{grid-auto-columns:minmax(250px,calc((100% - 10px)/2))}}
+@media(max-width:480px){.shop-banner-grid{grid-auto-columns:minmax(230px,82vw)}}
+.admin-shop-banners{margin:25px 0 32px;padding:18px;border:1px solid #493554;border-radius:12px;background:linear-gradient(145deg,#17121c,#0e0c12 75%)}
+.admin-shop-banners>div:first-child h2{margin:5px 0;color:#f5eff8;font:600 24px var(--serif)}
+.admin-shop-banners>div:first-child p{margin:0;color:#b5adbb;font-size:12px;line-height:1.5}
+.admin-shop-banner-form{display:grid;grid-template-columns:minmax(0,1fr) 170px;gap:12px;margin-top:16px}
+.admin-shop-banner-form label{display:grid;gap:5px;color:#d6cbdc;font-size:11px;font-weight:700}
+.admin-shop-banner-form label:first-child{grid-column:1}
+.admin-shop-banner-form label:nth-child(2){grid-column:2;grid-row:1}
+.admin-shop-banner-form label:nth-child(3){grid-column:1/-1}
+.admin-shop-banner-form input{min-width:0;min-height:38px;padding:8px 10px;border:1px solid #493853;border-radius:7px;background:#0c0a10;color:#eee8f2;font:inherit}
+.admin-shop-banner-form input[type=file]{font-size:10px}
+.admin-shop-banner-form button{min-height:38px;justify-self:start;padding:0 14px;border:1px solid #a25fc3;border-radius:7px;background:linear-gradient(110deg,#763498,#4c2162);color:#fff;font-size:11px;font-weight:700;cursor:pointer}
+.admin-shop-banner-form button:disabled{opacity:.6;cursor:wait}
+.admin-shop-banner-feedback{margin:11px 0;color:#b6adbf;font-size:11px;line-height:1.4}
+.admin-shop-banner-list{display:grid;gap:8px}
+.admin-shop-banner-empty{margin:0;color:#9f96a5;font-size:11px}
+.admin-shop-banner-item{display:grid;grid-template-columns:minmax(140px,220px) minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px;border:1px solid #302738;border-radius:8px;background:#100e14}
+.admin-shop-banner-item>img{display:block;width:100%;aspect-ratio:1600/240;object-fit:cover;border-radius:5px}
+.admin-shop-banner-item>div{display:grid;gap:4px;min-width:0}
+.admin-shop-banner-item>div strong{overflow:hidden;color:#eee8f2;font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+.admin-shop-banner-item>div span{color:#c5a5d5;font-size:10px}
+.admin-shop-banner-item>button{min-height:31px;padding:0 10px;border:1px solid #70404b;border-radius:6px;background:#2b171b;color:#efb6bf;font-size:10px;font-weight:700;cursor:pointer}
+@media(max-width:520px){.admin-shop-banners{padding:13px}.admin-shop-banner-form{grid-template-columns:1fr}.admin-shop-banner-form label:first-child,.admin-shop-banner-form label:nth-child(2),.admin-shop-banner-form label:nth-child(3){grid-column:1;grid-row:auto}.admin-shop-banner-item{grid-template-columns:1fr auto}.admin-shop-banner-item>img{grid-column:1/-1;max-width:100%}}

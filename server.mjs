@@ -18,8 +18,10 @@ const promotionsFile = path.join(dataRoot, 'promotions.json');
 const vicoinsFile = path.join(dataRoot, 'vicoins.json');
 const forumFile = path.join(dataRoot, 'forum.json');
 const forumUploadsDir = path.join(dataRoot, 'forum-uploads');
+const profileBannersDir = path.join(dataRoot, 'profile-banners');
 const youtubeVideosFile = path.join(dataRoot, 'youtube-videos.json');
 await mkdir(forumUploadsDir,{recursive:true});
+await mkdir(profileBannersDir,{recursive:true});
 if (dataRoot !== root) {
   for (const name of ['favorites.json','ratings.json']) {
     const destination = path.join(dataRoot,name);
@@ -59,7 +61,8 @@ const vicoinsRewards = [
 ];
 const profileBannerRewards = [
   {id:'vimessias',name:'ViMessias',imageUrl:'/assets/profile-banners/vimessias-1600x240.png',paymentType:'livepix',amount:5},
-  {id:'halloween-michael',name:'Halloween · Michael Myers',imageUrl:'/assets/profile-banners/halloween-michael-1600x240.png',paymentType:'vicoins',coinCost:100}
+  {id:'halloween-michael',name:'Halloween · Michael Myers',imageUrl:'/assets/profile-banners/halloween-michael-1600x240.png',paymentType:'vicoins',coinCost:100},
+  {id:'terrifier-natal',name:'Terrifier Natal',imageUrl:'/assets/profile-banners/terrifier-natal-1600x240.png',paymentType:'vicoins',coinCost:100}
 ];
 function twitchConfig() {
   const clientId = process.env.TWITCH_CLIENT_ID || '';
@@ -259,19 +262,27 @@ async function deleteForumAttachment(attachment) {
 async function readVicoinsStore() {
   try {
     const value = JSON.parse(await readFile(vicoinsFile,'utf8'));
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return {balances:{},transactions:[],orders:[],bannerOrders:[],dailyClaims:{},profileBannerInventory:{}};
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {balances:{},transactions:[],orders:[],bannerOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}};
     if (value.balances && typeof value.balances === 'object' && !Array.isArray(value.balances)) {
-      return {balances:value.balances,transactions:Array.isArray(value.transactions) ? value.transactions : [],orders:Array.isArray(value.orders) ? value.orders : [],bannerOrders:Array.isArray(value.bannerOrders) ? value.bannerOrders : [],dailyClaims:value.dailyClaims && typeof value.dailyClaims === 'object' && !Array.isArray(value.dailyClaims) ? value.dailyClaims : {},profileBannerInventory:value.profileBannerInventory && typeof value.profileBannerInventory === 'object' && !Array.isArray(value.profileBannerInventory) ? value.profileBannerInventory : {}};
+      return {balances:value.balances,transactions:Array.isArray(value.transactions) ? value.transactions : [],orders:Array.isArray(value.orders) ? value.orders : [],bannerOrders:Array.isArray(value.bannerOrders) ? value.bannerOrders : [],customProfileBanners:Array.isArray(value.customProfileBanners) ? value.customProfileBanners : [],removedProfileBanners:Array.isArray(value.removedProfileBanners) ? value.removedProfileBanners : [],dailyClaims:value.dailyClaims && typeof value.dailyClaims === 'object' && !Array.isArray(value.dailyClaims) ? value.dailyClaims : {},profileBannerInventory:value.profileBannerInventory && typeof value.profileBannerInventory === 'object' && !Array.isArray(value.profileBannerInventory) ? value.profileBannerInventory : {}};
     }
-    return {balances:value,transactions:[],orders:[],bannerOrders:[],dailyClaims:{},profileBannerInventory:{}};
-  } catch { return {balances:{},transactions:[],orders:[],bannerOrders:[],dailyClaims:{},profileBannerInventory:{}}; }
+    return {balances:value,transactions:[],orders:[],bannerOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}};
+  } catch { return {balances:{},transactions:[],orders:[],bannerOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}}; }
+}
+
+function getProfileBannerRewards(store) {
+  const removed = new Set(Array.isArray(store.removedProfileBanners) ? store.removedProfileBanners : []);
+  const builtIn = profileBannerRewards.filter(item => !removed.has(item.id));
+  const custom = Array.isArray(store.customProfileBanners) ? store.customProfileBanners : [];
+  return [...builtIn,...custom.filter(item => item && typeof item.id === 'string' && Number.isSafeInteger(item.coinCost) && item.coinCost > 0)];
 }
 
 function getProfileBannerInventory(store,userId) {
   const saved = store.profileBannerInventory?.[userId];
-  const owned = Array.isArray(saved?.owned) ? [...new Set(saved.owned.filter(id => profileBannerRewards.some(item => item.id === id)))] : [];
-  const equippedId = profileBannerRewards.some(item => item.id === saved?.equipped) ? saved.equipped : '';
-  return {owned,equipped:profileBannerRewards.find(item => item.id === equippedId) || null};
+  const rewards = getProfileBannerRewards(store);
+  const owned = Array.isArray(saved?.owned) ? [...new Set(saved.owned.filter(id => rewards.some(item => item.id === id)))] : [];
+  const equippedId = rewards.some(item => item.id === saved?.equipped) ? saved.equipped : '';
+  return {owned,equipped:rewards.find(item => item.id === equippedId) || null};
 }
 
 async function updateVicoinsStore(update) {
@@ -484,6 +495,42 @@ async function readRequestJson(req, maxBytes = 12000) {
   }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
   catch { throw new Error('O conteúdo da solicitação não é um JSON válido.'); }
+}
+
+function decodeProfileBannerImage(image) {
+  const type = String(image?.type || '').toLowerCase();
+  const extension = type === 'image/png' ? 'png' : type === 'image/jpeg' ? 'jpg' : '';
+  const encoded = String(image?.data || '');
+  if (!extension || !encoded || encoded.length > 5_600_000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) throw new Error('Envie um banner PNG ou JPG de até 4 MB.');
+  const buffer = Buffer.from(encoded,'base64');
+  if (!buffer.length || buffer.length > 4 * 1024 * 1024 || buffer.toString('base64').replace(/=+$/,'') !== encoded.replace(/=+$/,'')) throw new Error('A imagem é inválida ou excede 4 MB.');
+  let width = 0;
+  let height = 0;
+  if (extension === 'png' && buffer.subarray(0,8).equals(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a])) && buffer.length >= 24) {
+    width = buffer.readUInt32BE(16);
+    height = buffer.readUInt32BE(20);
+  } else if (extension === 'jpg' && buffer[0] === 0xff && buffer[1] === 0xd8) {
+    const frameMarkers = new Set([0xc0,0xc1,0xc2,0xc3,0xc5,0xc6,0xc7,0xc9,0xca,0xcb,0xcd,0xce,0xcf]);
+    let offset = 2;
+    while (offset + 4 < buffer.length) {
+      if (buffer[offset] !== 0xff) { offset++; continue; }
+      while (buffer[offset] === 0xff) offset++;
+      const marker = buffer[offset++];
+      if (marker === 0xd9 || marker === 0xda) break;
+      if (marker >= 0xd0 && marker <= 0xd7 || marker === 0x01) continue;
+      if (offset + 2 > buffer.length) break;
+      const length = buffer.readUInt16BE(offset);
+      if (length < 2 || offset + length > buffer.length) break;
+      if (frameMarkers.has(marker) && length >= 7) {
+        height = buffer.readUInt16BE(offset + 3);
+        width = buffer.readUInt16BE(offset + 5);
+        break;
+      }
+      offset += length;
+    }
+  }
+  if (width !== 1600 || height !== 240) throw new Error('A imagem do banner precisa ter exatamente 1600 × 240 px.');
+  return {buffer,extension,type};
 }
 
 async function tmdbRequest(endpoint) {
@@ -853,6 +900,14 @@ if (startupYoutubeSnapshot.length) youtubeVideosCache = {videos:startupYoutubeSn
 
 async function handle(req, res) {
   const url = new URL(req.url, 'http://localhost');
+  const profileBannerAssetMatch = req.method === 'GET' && /^\/api\/profile-banners\/([a-f0-9-]{36}\.(?:png|jpg))$/i.exec(url.pathname);
+  if (profileBannerAssetMatch) {
+    try {
+      const data = await readFile(path.join(profileBannersDir,profileBannerAssetMatch[1]));
+      res.writeHead(200,{'content-type':profileBannerAssetMatch[1].endsWith('.jpg') ? 'image/jpeg' : 'image/png','cache-control':'public, max-age=31536000, immutable'});
+      return res.end(data);
+    } catch { return json(res,404,{error:'Imagem de banner não encontrada.'}); }
+  }
   if (req.method === 'GET' && url.pathname === '/auth/twitch/start') {
     const {clientId,redirectUri,configured} = twitchConfig();
     if (!configured) return redirect(res, '/?twitch=not-configured#inicio');
@@ -1199,6 +1254,72 @@ async function handle(req, res) {
     const profile = {id:member.id,login:member.login,displayName:member.displayName,profileImageUrl:member.profileImageUrl,joinedAt:member.joinedAt,vicoins:await getVicoinsBalance(memberId),banner:bannerInventory.equipped};
     return json(res,200,{profile,favorites,redemptions,achievements});
   }
+  if (req.method === 'GET' && url.pathname === '/api/shop/profile-banners') {
+    const store = await readVicoinsStore();
+    const banners = getProfileBannerRewards(store).map(({id,name,imageUrl,paymentType,amount,coinCost}) => ({id,name,imageUrl,paymentType,amount,coinCost}));
+    return json(res,200,{banners});
+  }
+  if (req.method === 'GET' && url.pathname === '/api/admin/profile-banners') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode gerenciar banners.'});
+    const store = await readVicoinsStore();
+    return privateJson(res,200,{banners:store.customProfileBanners});
+  }
+  if (req.method === 'POST' && url.pathname === '/api/admin/profile-banners') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode adicionar banners.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req,5_700_000); }
+    catch (error) { return privateJson(res,400,{error:error.message}); }
+    const name = String(body.name || '').trim().slice(0,60);
+    const coinCost = Number(body.coinCost);
+    if (!name || !Number.isSafeInteger(coinCost) || coinCost < 1 || coinCost > 1_000_000) return privateJson(res,400,{error:'Informe um nome e um custo de 1 a 1.000.000 Vicoins.'});
+    let image;
+    try { image = decodeProfileBannerImage(body.image); }
+    catch (error) { return privateJson(res,400,{error:error.message}); }
+    const id = randomUUID();
+    const filename = `${id}.${image.extension}`;
+    try {
+      await writeFile(path.join(profileBannersDir,filename),image.buffer,{flag:'wx'});
+      const banner = {id,name,coinCost,imageUrl:`/api/profile-banners/${filename}`,paymentType:'vicoins',custom:true,createdAt:new Date().toISOString()};
+      const banners = await updateVicoinsStore(store => {
+        store.customProfileBanners = Array.isArray(store.customProfileBanners) ? store.customProfileBanners : [];
+        store.customProfileBanners.push(banner);
+        return store.customProfileBanners;
+      });
+      return privateJson(res,201,{banner,banners});
+    } catch (error) {
+      try { await unlink(path.join(profileBannersDir,filename)); } catch {}
+      return privateJson(res,500,{error:error.message || 'Não foi possível salvar o banner.'});
+    }
+  }
+  const adminBannerDeleteMatch = /^\/api\/admin\/profile-banners\/([a-f0-9-]{36})$/i.exec(url.pathname);
+  if (req.method === 'DELETE' && adminBannerDeleteMatch) {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode excluir banners.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    const id = adminBannerDeleteMatch[1];
+    try {
+      const result = await updateVicoinsStore(store => {
+        store.customProfileBanners = Array.isArray(store.customProfileBanners) ? store.customProfileBanners : [];
+        const index = store.customProfileBanners.findIndex(item => item.id === id);
+        if (index < 0) throw new Error('Banner manual não encontrado.');
+        const [banner] = store.customProfileBanners.splice(index,1);
+        for (const inventory of Object.values(store.profileBannerInventory || {})) {
+          if (!inventory || typeof inventory !== 'object') continue;
+          inventory.owned = Array.isArray(inventory.owned) ? inventory.owned.filter(ownedId => ownedId !== id) : [];
+          if (inventory.equipped === id) inventory.equipped = '';
+        }
+        return {banner,banners:store.customProfileBanners};
+      });
+      const filename = /^\/api\/profile-banners\/([a-f0-9-]{36}\.(?:png|jpg))$/i.exec(result.banner.imageUrl)?.[1];
+      if (filename) { try { await unlink(path.join(profileBannersDir,filename)); } catch {} }
+      return privateJson(res,200,result);
+    } catch (error) { return privateJson(res,404,{error:error.message || 'Não foi possível excluir este banner.'}); }
+  }
   if (req.method === 'GET' && url.pathname === '/api/account/profile') {
     const profile = await getAuthenticatedProfile(req,res);
     if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para abrir seu perfil.'});
@@ -1233,7 +1354,7 @@ async function handle(req, res) {
         store.profileBannerInventory = store.profileBannerInventory || {};
         const saved = store.profileBannerInventory[profile.id] || {owned:[],equipped:''};
         saved.owned = Array.isArray(saved.owned) ? saved.owned : [];
-        if (!profileBannerRewards.some(item => item.id === bannerId) || !saved.owned.includes(bannerId)) throw new Error('Esse banner ainda não foi liberado no seu perfil.');
+        if (!getProfileBannerRewards(store).some(item => item.id === bannerId) || !saved.owned.includes(bannerId)) throw new Error('Esse banner ainda não foi liberado no seu perfil.');
         saved.equipped = bannerId;
         store.profileBannerInventory[profile.id] = saved;
         return getProfileBannerInventory(store,profile.id);
@@ -1280,21 +1401,25 @@ async function handle(req, res) {
     let body;
     try { body = await readRequestJson(req); }
     catch (error) { return privateJson(res,400,{error:error.message}); }
-    const reward = profileBannerRewards.find(item => item.id === String(body.bannerId || ''));
+    const bannerId = String(body.bannerId || '');
+    const initialStore = await readVicoinsStore();
+    const reward = getProfileBannerRewards(initialStore).find(item => item.id === bannerId);
     if (!reward || reward.paymentType !== 'vicoins') return privateJson(res,400,{error:'Este banner não pode ser resgatado com Vicoins.'});
     try {
       const result = await updateVicoinsStore(store => {
+        const currentReward = getProfileBannerRewards(store).find(item => item.id === bannerId);
+        if (!currentReward || currentReward.paymentType !== 'vicoins') throw new Error('Este banner não está mais disponível.');
         store.profileBannerInventory = store.profileBannerInventory || {};
         const inventory = store.profileBannerInventory[profile.id] || {owned:[],equipped:''};
         inventory.owned = Array.isArray(inventory.owned) ? inventory.owned : [];
-        if (inventory.owned.includes(reward.id)) {
-          inventory.equipped = reward.id;
+        if (inventory.owned.includes(currentReward.id)) {
+          inventory.equipped = currentReward.id;
           store.profileBannerInventory[profile.id] = inventory;
           return {balance:Number(store.balances[profile.id]) || 0,inventory:getProfileBannerInventory(store,profile.id),alreadyOwned:true};
         }
-        const balance = applyVicoinsTransaction(store,{userId:profile.id,amount:-reward.coinCost,type:'profile-banner',referenceId:reward.id,description:`Banner de perfil: ${reward.name}`});
-        inventory.owned.push(reward.id);
-        inventory.equipped = reward.id;
+        const balance = applyVicoinsTransaction(store,{userId:profile.id,amount:-currentReward.coinCost,type:'profile-banner',referenceId:currentReward.id,description:`Banner de perfil: ${currentReward.name}`});
+        inventory.owned.push(currentReward.id);
+        inventory.equipped = currentReward.id;
         store.profileBannerInventory[profile.id] = inventory;
         return {balance,inventory:getProfileBannerInventory(store,profile.id),alreadyOwned:false};
       });
