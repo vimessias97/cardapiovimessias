@@ -49,16 +49,14 @@
     const ratingCount = Math.max(0,Number(achievements.ratings) || 0);
     const redemptionCount = Math.max(0,Number(achievements.redemptions) || 0);
     const rows = [
-      {id:'heart',icon:'♥',name:'Coração',value:Math.floor(favoriteCount / 5) * 5,progress:favoriteCount,goal:5,label:'favoritos'},
-      {id:'star',icon:'★',name:'Estrela',value:Math.floor(ratingCount / 5) * 5,progress:ratingCount,goal:5,label:'avaliações'},
-      {id:'clapper',icon:'🎬',name:'Claquete',value:redemptionCount,progress:redemptionCount,goal:1,label:'resgates'}
+      {id:'heart',icon:'♥',name:'Coração',value:favoriteCount,label:'favoritos'},
+      {id:'star',icon:'★',name:'Estrela',value:ratingCount,label:'avaliações'},
+      {id:'clapper',icon:'🎬',name:'Claquete',value:redemptionCount,label:'resgates'}
     ];
     achievementsRoot.innerHTML = rows.map(item => {
-      const unlocked = item.progress >= item.goal;
-      const description = item.id === 'clapper'
-        ? `${item.progress} ${item.progress === 1 ? 'resgate aprovado' : 'resgates aprovados'}`
-        : unlocked ? `${item.value} ${item.label} alcançados` : `${item.progress}/${item.goal} ${item.label}`;
-      const badgeCount = item.id === 'clapper' ? item.value : item.value || item.goal;
+      const unlocked = item.value > 0;
+      const description = `${item.value} ${item.label}`;
+      const badgeCount = item.value;
       return `<article class="community-achievement${unlocked ? ' is-unlocked' : ''}" aria-label="${safe(item.name)}: ${safe(description)}"><span class="community-achievement-icon" aria-hidden="true"><span>${item.icon}</span><small>${badgeCount}</small></span><span class="community-achievement-copy"><strong>${safe(item.name)}</strong><span>${safe(description)}</span></span></article>`;
     }).join('');
   }
@@ -82,9 +80,23 @@
   function renderTitles(container,items,emptyText,showDate = false) {
     if (!items.length) {
       container.innerHTML = `<p class="community-members-empty">${safe(emptyText)}</p>`;
+      updateCarouselControls(container);
       return;
     }
     container.innerHTML = items.map(item => `<article class="community-member-title-card">${item.posterUrl ? `<img src="${safe(item.posterUrl)}" alt="Pôster de ${safe(item.title)}" loading="lazy">` : '<span class="community-member-title-poster" aria-hidden="true">✦</span>'}<div class="community-member-title-copy"><strong>${safe(item.title)}</strong><small>${safe(item.mediaType === 'tv' ? 'Série' : 'Filme')}${item.durationLabel ? ` · ${safe(item.durationLabel)}` : ''}</small>${showDate && item.scheduledAt ? `<small>Agendado: ${safe(new Date(item.scheduledAt).toLocaleDateString('pt-BR'))}</small>` : ''}</div></article>`).join('');
+    requestAnimationFrame(() => updateCarouselControls(container));
+  }
+
+  function updateCarouselControls(container) {
+    const maxScroll = Math.max(0,container.scrollWidth - container.clientWidth);
+    document.querySelectorAll(`[data-carousel-target="${container.id}"]`).forEach(button => {
+      const direction = Number(button.dataset.carouselDirection);
+      button.disabled = maxScroll < 2 || (direction < 0 ? container.scrollLeft < 2 : container.scrollLeft >= maxScroll - 2);
+    });
+  }
+
+  function moveCarousel(container,direction) {
+    container.scrollBy({left:direction * Math.max(130,container.clientWidth * 0.82),behavior:'smooth'});
   }
 
   async function openProfile(memberId) {
@@ -99,6 +111,8 @@
     renderAchievements();
     redemptions.replaceChildren();
     favorites.replaceChildren();
+    updateCarouselControls(redemptions);
+    updateCarouselControls(favorites);
     try {
       const ownProfile = String(window.CardapioAuth?.getUser()?.id || '') === String(memberId);
       const data = await api(ownProfile ? '/api/account/profile' : `/api/community/members/${encodeURIComponent(memberId)}`);
@@ -179,6 +193,16 @@
   });
   close.addEventListener('click',() => dialog.close());
   dialog.addEventListener('click',event => { if (event.target === dialog) dialog.close(); });
+  dialog.addEventListener('click',event => {
+    const button = event.target.closest('[data-carousel-target]');
+    if (!button) return;
+    const container = document.getElementById(button.dataset.carouselTarget);
+    if (container) moveCarousel(container,Number(button.dataset.carouselDirection));
+  });
+  for (const container of [redemptions,favorites]) {
+    container.addEventListener('scroll',() => updateCarouselControls(container),{passive:true});
+    window.addEventListener('resize',() => updateCarouselControls(container));
+  }
   dialogVicoinsLink.addEventListener('click',() => dialog.close());
   sidebarProfileButton.addEventListener('click',() => openProfile(window.CardapioAuth?.getUser()?.id));
   window.addEventListener('cardapio:auth-updated',event => loadMyVicoins(event.detail?.user || null));
