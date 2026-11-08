@@ -13,6 +13,7 @@ await mkdir(dataRoot, {recursive:true});
 const favoritesFile = path.join(dataRoot, 'favorites.json');
 const ratingsFile = path.join(dataRoot, 'ratings.json');
 const redemptionsFile = path.join(dataRoot, 'redemptions.json');
+const youtubeVideosFile = path.join(dataRoot, 'youtube-videos.json');
 if (dataRoot !== root) {
   for (const name of ['favorites.json','ratings.json']) {
     const destination = path.join(dataRoot,name);
@@ -598,31 +599,57 @@ async function getPatreonPosts() {
   return posts;
 }
 
+async function readYoutubeVideoSnapshot() {
+  try {
+    const value = JSON.parse(await readFile(youtubeVideosFile,'utf8'));
+    return Array.isArray(value) ? value.filter(video => video && /^[\w-]{11}$/.test(String(video.id || '')) && typeof video.title === 'string').slice(0,5) : [];
+  } catch { return []; }
+}
+
 async function getLatestYoutubeVideos() {
   if (youtubeVideosCache.expiresAt > Date.now()) return youtubeVideosCache.videos;
-  if (!youtubeChannelId) {
-    const channelResponse = await fetch('https://www.youtube.com/@ViMessiasReacts', {headers:{accept:'text/html','user-agent':'Mozilla/5.0 (compatible; CardapioVimessias/1.0)'},signal:AbortSignal.timeout(12000)});
-    if (!channelResponse.ok) throw new Error('Não consegui abrir o canal do YouTube agora.');
-    const channelHtml = await channelResponse.text();
-    const channelMatch = channelHtml.match(/(?:externalId|channelId)"?\s*:\s*"(UC[\w-]{22})/i) || channelHtml.match(/youtube\.com\/channel\/(UC[\w-]{22})/i);
-    if (!channelMatch) throw new Error('Não consegui identificar o canal do YouTube pelo endereço público.');
-    youtubeChannelId = channelMatch[1];
+  try {
+    if (!youtubeChannelId) {
+      const channelResponse = await fetch('https://www.youtube.com/@ViMessiasReacts', {headers:{accept:'text/html','user-agent':'Mozilla/5.0 (compatible; VimessiasPlay/1.0)'},signal:AbortSignal.timeout(12000)});
+      if (!channelResponse.ok) throw new Error('Não consegui abrir o canal do YouTube agora.');
+      const channelHtml = await channelResponse.text();
+      const channelMatch = channelHtml.match(/(?:externalId|channelId)"?\s*:\s*"(UC[\w-]{22})/i) || channelHtml.match(/youtube\.com\/channel\/(UC[\w-]{22})/i);
+      if (!channelMatch) throw new Error('Não consegui identificar o canal do YouTube pelo endereço público.');
+      youtubeChannelId = channelMatch[1];
+    }
+    const feedResponse = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(youtubeChannelId)}`, {headers:{accept:'application/atom+xml,application/xml,text/xml'},signal:AbortSignal.timeout(12000)});
+    if (!feedResponse.ok) throw new Error('Não consegui carregar os vídeos recentes do YouTube.');
+    const feed = await feedResponse.text();
+    const videos = [...feed.matchAll(/<entry\b[^>]*>([\s\S]*?)<\/entry>/gi)].map(([,entry]) => {
+      const videoId = entry.match(/<yt:videoId>([\s\S]*?)<\/yt:videoId>/i)?.[1]?.trim() || '';
+      const rawTitle = entry.match(/<title>([\s\S]*?)<\/title>/i)?.[1] || '';
+      const title = decodeHtml(rawTitle.replace(/^<!\[CDATA\[/,'').replace(/\]\]>$/,'').trim());
+      const published = entry.match(/<published>([\s\S]*?)<\/published>/i)?.[1]?.trim() || '';
+      if (!/^[\w-]{11}$/.test(videoId) || !title) return null;
+      return {id:videoId,title,publishedAt:published,thumbnailUrl:`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,url:`https://www.youtube.com/watch?v=${videoId}`};
+    }).filter(Boolean).slice(0,5);
+    if (!videos.length) throw new Error('O feed do canal não retornou vídeos públicos.');
+    youtubeVideosCache = {videos,expiresAt:Date.now() + 300000};
+    try {
+      const temporaryFile = `${youtubeVideosFile}.${randomUUID()}.tmp`;
+      await writeFile(temporaryFile,JSON.stringify(videos,null,2),'utf8');
+      await rename(temporaryFile,youtubeVideosFile);
+    } catch (error) { console.error('Não foi possível salvar o cache persistente do YouTube:',error.message); }
+    return videos;
+  } catch (error) {
+    const savedVideos = await readYoutubeVideoSnapshot();
+    const fallbackVideos = savedVideos.length ? savedVideos : youtubeVideosCache.videos;
+    if (fallbackVideos.length) {
+      youtubeVideosCache = {videos:fallbackVideos,expiresAt:Date.now() + 60000};
+      console.warn('YouTube indisponível; exibindo o último cache válido.');
+      return fallbackVideos;
+    }
+    throw error;
   }
-  const feedResponse = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(youtubeChannelId)}`, {headers:{accept:'application/atom+xml,application/xml,text/xml'},signal:AbortSignal.timeout(12000)});
-  if (!feedResponse.ok) throw new Error('Não consegui carregar os vídeos recentes do YouTube.');
-  const feed = await feedResponse.text();
-  const videos = [...feed.matchAll(/<entry\b[^>]*>([\s\S]*?)<\/entry>/gi)].map(([,entry]) => {
-    const videoId = entry.match(/<yt:videoId>([\s\S]*?)<\/yt:videoId>/i)?.[1]?.trim() || '';
-    const rawTitle = entry.match(/<title>([\s\S]*?)<\/title>/i)?.[1] || '';
-    const title = decodeHtml(rawTitle.replace(/^<!\[CDATA\[/,'').replace(/\]\]>$/,'').trim());
-    const published = entry.match(/<published>([\s\S]*?)<\/published>/i)?.[1]?.trim() || '';
-    if (!/^[\w-]{11}$/.test(videoId) || !title) return null;
-    return {id:videoId,title,publishedAt:published,thumbnailUrl:`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,url:`https://www.youtube.com/watch?v=${videoId}`};
-  }).filter(Boolean).slice(0,5);
-  if (!videos.length) throw new Error('O feed do canal não retornou vídeos públicos.');
-  youtubeVideosCache = {videos,expiresAt:Date.now() + 300000};
-  return videos;
 }
+
+const startupYoutubeSnapshot = await readYoutubeVideoSnapshot();
+if (startupYoutubeSnapshot.length) youtubeVideosCache = {videos:startupYoutubeSnapshot,expiresAt:Date.now() + 300000};
 
 async function handle(req, res) {
   const url = new URL(req.url, 'http://localhost');
@@ -689,12 +716,25 @@ async function handle(req, res) {
     return res.end();
   }
   if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, {ok:true,mode:'consulta'});
+  if (req.method === 'GET' && url.pathname === '/api/redemptions/week') {
+    const from = Date.parse(url.searchParams.get('from') || '');
+    const to = Date.parse(url.searchParams.get('to') || '');
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || to - from > 8 * 24 * 60 * 60 * 1000) return json(res,400,{error:'Intervalo inválido para o calendário de reacts.'});
+    const entries = (await readRedemptions())
+      .filter(entry => {
+        const scheduled = Date.parse(entry.scheduledAt || '');
+        return entry.status === 'approved' && Number.isFinite(scheduled) && scheduled >= from && scheduled < to;
+      })
+      .sort((a,b) => Date.parse(a.scheduledAt) - Date.parse(b.scheduledAt))
+      .map(entry => ({id:entry.id,title:entry.title,mediaType:entry.mediaType,scheduledAt:entry.scheduledAt}));
+    return json(res,200,{redemptions:entries});
+  }
   if (req.method === 'GET' && url.pathname === '/api/redemptions/recent') {
     const entries = (await readRedemptions())
       .filter(entry => entry.status === 'approved')
       .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
       .slice(0,5)
-      .map(({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt}) => ({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt}));
+      .map(entry => ({id:entry.id,title:entry.title,mediaType:entry.mediaType,posterUrl:entry.posterUrl,durationMinutes:entry.durationMinutes,durationLabel:entry.durationLabel,scheduledAt:entry.scheduledAt,requester:{login:entry.requester?.login || '',displayName:entry.requester?.displayName || ''}}));
     return json(res,200,{redemptions:entries});
   }
   if (req.method === 'POST' && url.pathname === '/api/redemptions') {
@@ -705,13 +745,23 @@ async function handle(req, res) {
     catch (error) { return privateJson(res,400,{error:error.message}); }
     const type = String(body.mediaType || '');
     const id = Number(body.id);
-    if (!['movie','tv'].includes(type) || !Number.isSafeInteger(id) || id <= 0) return privateJson(res,400,{error:'Título inválido para solicitar o resgate.'});
+    const manual = body.manual && typeof body.manual === 'object' ? body.manual : null;
+    if (!['movie','tv'].includes(type) || (!manual && (!Number.isSafeInteger(id) || id <= 0))) return privateJson(res,400,{error:'Título inválido para solicitar o resgate.'});
     let scheduledAt;
     try { scheduledAt = parseScheduledAt(body.scheduledAt); }
     catch (error) { return privateJson(res,400,{error:error.message}); }
     let title;
-    try { title = await getCatalogTitle(type,id); }
-    catch (error) { return privateJson(res,502,{error:error.message || 'Não foi possível confirmar o título no catálogo.'}); }
+    if (manual) {
+      const manualTitle = String(manual.title || '').trim();
+      const manualDuration = Number(manual.durationMinutes);
+      if (!manualTitle || manualTitle.length > 120 || !Number.isSafeInteger(manualDuration) || manualDuration < 1 || manualDuration > 59999) return privateJson(res,400,{error:'Informe um título e uma duração manual válida.'});
+      const hours = Math.floor(manualDuration / 60);
+      const minutes = manualDuration % 60;
+      title = {title:manualTitle,posterUrl:'',durationMinutes:manualDuration,durationLabel:hours ? `${hours}h ${String(minutes).padStart(2,'0')}min` : `${minutes} min`};
+    } else {
+      try { title = await getCatalogTitle(type,id); }
+      catch (error) { return privateJson(res,502,{error:error.message || 'Não foi possível confirmar o título no catálogo.'}); }
+    }
     const redemption = {
       id:randomUUID(),
       title:title.title,
@@ -760,15 +810,29 @@ async function handle(req, res) {
       try { scheduledAt = parseScheduledAt(body.scheduledAt); }
       catch (error) { return privateJson(res,400,{error:error.message}); }
     }
-    if (!id || !['edit','approve','reject'].includes(action)) return privateJson(res,400,{error:'Ação administrativa inválida.'});
+    if (!id || !['edit','approve','reject','delete'].includes(action)) return privateJson(res,400,{error:'Ação administrativa inválida.'});
     try {
       const redemptions = await updateRedemptions(entries => {
-        const item = entries.find(entry => entry.id === id);
-        if (!item) return null;
-        if (item.status !== 'pending') throw new Error('Só é possível editar solicitações pendentes.');
-        if (action === 'edit') { item.scheduledAt = scheduledAt; item.updatedAt = new Date().toISOString(); }
-        if (action === 'approve') { item.status = 'approved'; item.approvedAt = new Date().toISOString(); item.approvedBy = profile.id; }
-        if (action === 'reject') { item.status = 'rejected'; item.rejectedAt = new Date().toISOString(); item.rejectedBy = profile.id; }
+        const itemIndex = entries.findIndex(entry => entry.id === id);
+        if (itemIndex < 0) return null;
+        if (action === 'delete') {
+          entries.splice(itemIndex,1);
+          return entries.sort((a,b) => Number(b.status === 'pending') - Number(a.status === 'pending') || Date.parse(a.scheduledAt) - Date.parse(b.scheduledAt));
+        }
+        const item = entries[itemIndex];
+        if (action === 'edit') {
+          if (!['pending','approved'].includes(item.status)) throw new Error('Não é possível alterar a data de um pedido rejeitado.');
+          item.scheduledAt = scheduledAt;
+          item.updatedAt = new Date().toISOString();
+        }
+        if (action === 'approve') {
+          if (item.status !== 'pending') throw new Error('Só é possível aprovar pedidos pendentes.');
+          item.status = 'approved'; item.approvedAt = new Date().toISOString(); item.approvedBy = profile.id;
+        }
+        if (action === 'reject') {
+          if (item.status !== 'pending') throw new Error('Só é possível rejeitar pedidos pendentes.');
+          item.status = 'rejected'; item.rejectedAt = new Date().toISOString(); item.rejectedBy = profile.id;
+        }
         return entries.sort((a,b) => Number(b.status === 'pending') - Number(a.status === 'pending') || Date.parse(a.scheduledAt) - Date.parse(b.scheduledAt));
       });
       if (!redemptions) return privateJson(res,404,{error:'Solicitação não encontrada.'});
@@ -945,4 +1009,4 @@ async function handle(req, res) {
   }
 }
 
-http.createServer((req, res) => { handle(req, res).catch(() => json(res, 500, {error:'Erro interno.'})); }).listen(port, '0.0.0.0', () => console.log(`Cardápio Vimessias em http://localhost:${port}`));
+http.createServer((req, res) => { handle(req, res).catch(() => json(res, 500, {error:'Erro interno.'})); }).listen(port, '0.0.0.0', () => console.log(`Vimessias Play em http://localhost:${port}`));

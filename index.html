@@ -2,8 +2,8 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#09080d"><meta name="description" content="Cardápio Vimessias — consulte informações sobre filmes, séries e animes.">
-  <title>Cardápio Vimessias — Consulta de títulos</title>
+  <meta name="theme-color" content="#09080d"><meta name="description" content="Vimessias Play — descubra filmes, séries e animes para assistir nas lives.">
+  <title>Vimessias Play</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
@@ -18,16 +18,18 @@
   <link rel="stylesheet" href="promotions.css">
   <link rel="stylesheet" href="ratings.css">
   <link rel="stylesheet" href="recent-redemptions.css">
+  <link rel="stylesheet" href="react-week.css">
   <link rel="stylesheet" href="youtube-latest.css">
   <link rel="stylesheet" href="readability.css">
   <link rel="stylesheet" href="twitch-auth.css">
   <link rel="stylesheet" href="user-profile.css">
   <link rel="stylesheet" href="redemption-flow.css">
+  <link rel="stylesheet" href="brand.css">
 </head>
 <body class="catalog-home">
   <div class="app-shell">
     <aside class="sidebar">
-      <a class="side-brand" href="#inicio" aria-label="Cardápio Vimessias"><span class="clapper">▰<b>▶</b></span><strong>CARDÁPIO<br><em>VIMESSIAS</em></strong><small>FILMES · SÉRIES · ANIMES</small></a>
+      <a class="side-brand" href="#inicio" aria-label="Vimessias Play — início"><img class="brand-emblem" src="assets/vimessias-play-mark.svg" alt=""><strong>VIMESSIAS<br><em>PLAY</em></strong><small>FILMES · SÉRIES · ANIMES</small></a>
       <nav class="side-nav" aria-label="Navegação principal">
         <a class="selected" href="#inicio" data-page="home"><span>⌂</span>Início</a>
         <a href="#sorteador" data-page="sorteador"><span>⚄</span>Sorteador</a>
@@ -46,7 +48,6 @@
         </nav>
         <button class="sidebar-user-logout" id="sidebarUserLogout" type="button">Sair da conta</button>
       </section>
-      <div class="sidebar-foot">UMA COMUNIDADE.<br>MUITAS HISTÓRIAS.</div>
     </aside>
 
     <div class="workspace">
@@ -57,8 +58,8 @@
       </header>
       <main class="home-layout" id="inicio">
         <div class="home-main">
-          <section class="home-hero" aria-label="Cardápio Vimessias">
-            <div class="home-hero-shade"></div><div class="hero-copy"><div class="hero-crown">♕</div><div class="hero-title-mark">CARDÁPIO</div><h1>VIMESSIAS</h1><p>ESCOLHA · RESGATE · ASSISTA NA LIVE</p></div>
+          <section class="home-hero" aria-label="Vimessias Play">
+            <div class="home-hero-shade"></div><div class="hero-copy"><img class="hero-mark" src="assets/vimessias-play-mark.svg" alt=""><div class="hero-title-mark">VIMESSIAS</div><h1>PLAY</h1><p>ESCOLHA · RESGATE · ASSISTA NA LIVE</p></div>
             <div class="hero-corner">INFORMAÇÕES DE FILMES, SÉRIES E ANIMES</div>
           </section>
           <section class="feature-strip" aria-label="Como usar o catálogo">
@@ -74,15 +75,21 @@
             <details class="manual-estimate">
               <summary>Não encontrou? Calcule o resgate manualmente</summary>
               <div class="manual-estimate-body">
+                <form class="manual-redemption-form" id="manualRedemptionForm">
                 <label class="manual-title-label" for="manualEstimateTitle">Título do filme ou série</label>
-                <input class="manual-estimate-title" id="manualEstimateTitle" type="text" maxlength="120" placeholder="Digite o título que gostaria de resgatar">
+                <input class="manual-estimate-title" id="manualEstimateTitle" type="text" maxlength="120" placeholder="Digite o título que gostaria de resgatar" required>
+                <label class="manual-type-label" for="manualEstimateType">Tipo de conteúdo<select class="manual-estimate-type" id="manualEstimateType"><option value="movie">Filme</option><option value="tv">Série</option></select></label>
                 <div class="manual-duration-fields">
                   <span class="manual-duration-heading">Duração</span><span aria-hidden="true"></span>
                   <label for="manualEstimateHours">Horas<input id="manualEstimateHours" type="number" min="0" max="999" step="1" inputmode="numeric" placeholder="0"></label>
                   <label for="manualEstimateMinutes">Minutos<input id="manualEstimateMinutes" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="0"></label>
                 </div>
                 <div class="manual-estimate-result" aria-live="polite"><span id="manualEstimateLabel">Informe o título e a duração para calcular.</span><strong id="manualEstimatePrice">—</strong></div>
-                <p class="manual-estimate-note">R$ 5,00 por cada bloco iniciado de 30 minutos, arredondado para cima. Esta estimativa não envia um pedido nem realiza pagamento.</p>
+                <div class="redemption-schedule-fields manual-redemption-schedule"><label>Dia / mês / ano<input type="date" id="manualEstimateDate" required></label><label>Horário<input type="time" id="manualEstimateTime" required></label></div>
+                <p class="manual-estimate-note">R$ 5,00 por cada bloco iniciado de 30 minutos, arredondado para cima.</p>
+                <p class="manual-redemption-feedback" id="manualRedemptionFeedback" aria-live="polite">Preencha os dados para enviar o pedido de resgate.</p>
+                <button class="redemption-link manual-redemption-submit" type="submit">Resgate no LivePix <span aria-hidden="true">↗</span></button>
+                </form>
               </div>
             </details>
             <div class="search-results" id="searchResults"></div>
@@ -102,14 +109,15 @@
           </section>
         </div>
         <aside class="right-rail">
-          <section class="rail-card consultation-card"><div class="rail-heading"><span class="rail-icon">ⓘ</span><h2>Como resgatar</h2></div><p>Pesquise o filme ou a série que deseja resgatar. O valor estimado é calculado pela duração, considerando R$ 5,00 para cada 30 minutos de conteúdo.</p><a class="patreon-cta twitch-live-cta" href="https://www.twitch.tv/vimessias_" target="_blank" rel="noopener noreferrer">Acessar live na Twitch <span>↗</span></a><a class="patreon-cta" href="https://www.patreon.com/cw/vimessias" target="_blank" rel="noopener noreferrer">Acessar Patreon <span>↗</span></a></section>
+          <section class="rail-card consultation-card"><div class="rail-heading"><span class="rail-icon">ⓘ</span><h2>Como resgatar</h2></div><p>Pesquise o filme ou a série que deseja resgatar. O valor estimado é calculado pela duração, considerando R$ 5,00 para cada 30 minutos de conteúdo.</p><a class="patreon-cta twitch-live-cta" href="https://www.twitch.tv/vimessias_" target="_blank" rel="noopener noreferrer">Acessar live na Twitch <span>↗</span></a><a class="patreon-cta" href="https://www.patreon.com/cw/vimessias" target="_blank" rel="noopener noreferrer">Acessar Patreon <span>↗</span></a><details class="tmdb-credit-details"><summary>Créditos dos dados</summary><div class="tmdb-credit-copy"><a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer"><img src="https://www.themoviedb.org/assets/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.svg" alt="The Movie Database (TMDB)"></a><p>Dados e imagens de filmes e séries fornecidos pelo TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</p></div></details></section>
           <section class="rail-card recent-redemptions-card" aria-labelledby="recentRedemptionsHeading"><div class="rail-heading"><span class="rail-icon">▣</span><h2 id="recentRedemptionsHeading">Últimos resgates</h2></div><div class="recent-redemptions-list" id="recentRedemptionsList" aria-live="polite"><p class="rail-empty">Carregando resgates…</p></div></section>
+          <section class="rail-card react-week-card" aria-labelledby="reactWeekHeading"><div class="rail-heading"><span class="rail-icon">▦</span><h2 id="reactWeekHeading">Calendário de Reacts</h2><small class="react-week-range">Próximos 7 dias</small></div><div class="react-week-list" id="reactWeekList" aria-live="polite"><p class="rail-empty">Carregando agenda…</p></div><a class="rail-link" href="#calendario" data-page="calendario">Ver calendário completo <span>→</span></a></section>
           <section class="rail-card top-rated-card" aria-labelledby="topRatedHeading"><div class="rail-heading"><span class="rail-icon">★</span><h2 id="topRatedHeading">Mais bem avaliados</h2></div><p>Notas da comunidade para títulos com react no Patreon.</p><div class="top-rated-feedback" id="topRatedFeedback" aria-live="polite">Carregando avaliações…</div><ol class="top-rated-list" id="topRatedList"></ol></section>
           <section class="rail-card youtube-latest-card" aria-labelledby="youtubeLatestHeading"><div class="rail-heading"><span class="rail-icon">▶</span><h2 id="youtubeLatestHeading">Reacts do YouTube</h2></div><p class="youtube-channel-link"><a href="https://www.youtube.com/@ViMessiasReacts" target="_blank" rel="noopener noreferrer">YouTube · ViMessiasReacts ↗</a></p><div class="youtube-latest-feedback" id="youtubeLatestFeedback" aria-live="polite">Carregando vídeos…</div><ol class="youtube-latest-list" id="youtubeLatestList"></ol></section>
         </aside>
       </main>
       <main class="randomizer-page hidden" id="sorteador" aria-labelledby="randomizerHeading">
-        <div class="randomizer-intro"><span class="eyebrow muted">DESCUBRA ALGO NOVO</span><h1 id="randomizerHeading">Sorteador <em>de títulos</em></h1><p>Escolha o formato e deixe o Cardápio encontrar uma sugestão para você.</p></div>
+        <div class="randomizer-intro"><span class="eyebrow muted">DESCUBRA ALGO NOVO</span><h1 id="randomizerHeading">Sorteador <em>de títulos</em></h1><p>Escolha o formato e deixe o Vimessias Play encontrar uma sugestão para você.</p></div>
         <section class="randomizer-panel" aria-label="Opções do sorteador">
           <div class="randomizer-options"><span>Quero sortear:</span><div class="randomizer-types" role="group" aria-label="Tipo de conteúdo"><button type="button" class="random-type active" data-type="movie" aria-pressed="true">▣ Filme</button><button type="button" class="random-type" data-type="tv" aria-pressed="false">▤ Série</button></div></div>
           <div class="randomizer-genre-section"><span class="randomizer-genre-label">Escolha um gênero:</span><div class="randomizer-genres" id="genreOptions" role="group" aria-label="Gênero do conteúdo"><span class="genre-loading">Carregando gêneros…</span></div></div>
@@ -186,7 +194,7 @@
         <div class="admin-redemptions-feedback" id="adminRedemptionsFeedback" aria-live="polite">Carregando solicitações…</div>
         <div class="admin-redemptions-list" id="adminRedemptionsList"></div>
       </main>
-      <footer class="home-footer"><a class="brand" href="#inicio"><span class="brand-mark">V<span>•</span></span><span class="brand-copy"><strong>VIMESSIAS</strong><small>CONSULTA DE TÍTULOS</small></span></a><div class="tmdb-attribution"><a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer"><img src="https://www.themoviedb.org/assets/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.svg" alt="The Movie Database (TMDB)"></a><span>This product uses the TMDB API but is not endorsed or certified by TMDB.</span></div><a href="#inicio">VOLTAR AO TOPO ↑</a></footer>
+      <footer class="home-footer"><a class="footer-brand-thumb" href="#inicio" aria-label="Vimessias Play — início"><img src="assets/vimessias-play-mark.svg" alt=""><span>VIMESSIAS<br><strong>PLAY</strong></span></a></footer>
     </div>
   </div>
   <div class="toast" id="toast" role="status"></div>
@@ -222,6 +230,7 @@
   <script src="favorites.js" defer></script>
   <script src="ratings.js" defer></script>
   <script src="recent-redemptions.js" defer></script>
+  <script src="react-week.js" defer></script>
   <script src="youtube-latest.js" defer></script>
   <script src="calculator.js" defer></script>
   <script src="suggestions.js" defer></script>

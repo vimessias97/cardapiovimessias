@@ -1,0 +1,26 @@
+.side-brand .brand-emblem{display:block;width:57px;height:57px;margin:0 0 4px;filter:drop-shadow(0 0 12px #a03ff866)}
+.side-brand strong{font-size:22px;line-height:.94;letter-spacing:.02em}
+.side-brand strong em{font-size:29px;letter-spacing:.07em}
+.side-brand small{font-size:7px;letter-spacing:.09em}
+.home-hero{background-image:linear-gradient(90deg,#08070b1c,#09070d15 40%,#09070d29),url('assets/vimessias-play-hero.png');background-position:center,center;background-size:cover,cover}
+.home-hero .hero-mark{display:block;width:48px;height:48px;margin:0 auto 7px;filter:drop-shadow(0 0 15px #b15bea77)}
+.home-hero .hero-title-mark{font-size:28px;letter-spacing:3px}
+.home-hero h1{font-size:clamp(54px,5.5vw,76px);letter-spacing:2px}
+.home-footer{min-height:74px;justify-content:flex-start}
+.footer-brand-thumb{display:inline-flex;align-items:center;gap:8px;padding:5px 9px;border:1px solid #33233f;border-radius:9px;background:linear-gradient(135deg,#16111b,#0c0a0f);color:#eee6f4;text-align:left}
+.footer-brand-thumb img{width:36px;height:36px;filter:drop-shadow(0 0 7px #a03ff866)}
+.footer-brand-thumb span{font:500 8px/1.05 var(--serif);letter-spacing:.08em}
+.footer-brand-thumb strong{font-size:11px;letter-spacing:.14em;color:#d7a5f4}
+.tmdb-credit-details{margin-top:12px;padding-top:8px;border-top:1px solid #2d2433;color:#a99eae;font-size:9px}
+.tmdb-credit-details summary{width:max-content;color:#c7b4d3;cursor:pointer;font-size:9px}
+.tmdb-credit-copy{display:grid;justify-items:start;gap:6px;margin-top:8px}
+.tmdb-credit-copy a{display:block;padding:3px 6px;border-radius:4px;background:#f5f5f5}
+.tmdb-credit-copy img{display:block;width:72px;height:auto}
+.tmdb-credit-copy p{margin:0;color:#a99eae;font-size:9px;line-height:1.45}
+.manual-redemption-form{display:grid;gap:10px}
+.manual-type-label{display:grid;gap:5px;margin-top:10px;color:#bcb1c4;font-size:11px;font-weight:600}
+.manual-estimate-type{width:100%;height:36px;padding:0 9px;border:1px solid #493853;border-radius:6px;background:#0b0910;color:#f2edf6;font-size:12px}
+.manual-redemption-schedule{margin-top:2px}
+.manual-redemption-feedback{min-height:16px;margin:0;color:#a99fb0;font-size:10px;line-height:1.45}
+.manual-redemption-submit{width:100%;margin:0;cursor:pointer}
+.manual-redemption-submit:disabled{opacity:.65;cursor:wait}

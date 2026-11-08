@@ -1,4 +1,4 @@
-# Cardápio Vimessias
+# Vimessias Play
 
 Página informativa gratuita para consultar filmes, séries e animes. A busca usa a API do TMDB e pode mostrar pôster, sinopse, ano e duração disponíveis na base. O login Twitch identifica os usuários e habilita favoritos, avaliações elegíveis e jogos; não há pagamentos, pedidos ou dados financeiros no site.
 
@@ -28,7 +28,7 @@ Reinicie o servidor depois de salvar. O site usa o fluxo OAuth de código de aut
 
 O cargo **admin** é atribuído à conta **vimessias_** por padrão. **TWITCH_ADMIN_USER_ID** pode ser definido com o ID imutável da sua conta Twitch; quando preenchido, ele tem prioridade sobre o login configurado em **TWITCH_ADMIN_LOGIN**. As demais contas autenticadas recebem o cargo **user**. Favoritos e avaliações usam o ID verificado da Twitch, e o servidor exige uma sessão válida para gravar essas ações. Usuários precisam entrar para jogar. Visitantes continuam podendo consultar o catálogo e ver os rankings públicos. A lista pessoal está em **/api/account/favorites**.
 
-Ao solicitar um resgate no detalhe de um título, a pessoa precisa escolher data futura e horário. O servidor cria uma solicitação pendente, vinculada à conta Twitch; depois de registrar, o navegador segue para o LivePix. O painel administrativo só é exibido para a conta administradora e permite ajustar a data, aprovar ou rejeitar. Somente aprovados são publicados em **Últimos resgates**; o usuário vê o estado em **Filmes que resgatei**. O LivePix ainda não envia confirmação ao servidor, então confirme o pagamento no LivePix antes de aprovar. As solicitações ficam em **redemptions.json** junto dos outros arquivos de dados.
+Ao solicitar um resgate no detalhe de um título ou pela estimativa manual, a pessoa precisa escolher data futura e horário. O servidor cria uma solicitação pendente, vinculada à conta Twitch; depois de registrar, o navegador segue para o LivePix. O painel administrativo só é exibido para a conta administradora e permite alterar datas, aprovar, rejeitar ou excluir solicitações canceladas. Somente aprovados são publicados em **Últimos resgates** e no calendário de reacts; o usuário vê o estado em **Filmes que resgatei**. O LivePix ainda não envia confirmação ao servidor, então confirme o pagamento no LivePix antes de aprovar.
 
 Para produção, cadastre a URL HTTPS pública exata como redirect e use HTTPS. As rotas são **/auth/twitch/start**, **/auth/twitch/callback**, **/api/auth/me** e **/api/auth/logout**.
 
@@ -36,9 +36,9 @@ Para produção, cadastre a URL HTTPS pública exata como redirect e use HTTPS. 
 
 O projeto precisa de um serviço Node.js (não é somente um site estático). No Render, conecte um repositório GitHub privado, escolha um Web Service, use `npm install` como build command, `npm start` como start command e `/api/health` como health check. O servidor escuta a porta `PORT` fornecida pela hospedagem.
 
-Para manter favoritos, avaliações e solicitações de resgate entre reinicializações, anexe um persistent disk com mount path **/var/data** e defina **DATA_DIR=/var/data** nas variáveis do serviço. No Render, discos persistentes estão disponíveis em serviços pagos; sem disco, o armazenamento local é temporário. Antes de publicar, configure também as credenciais do TMDB e da Twitch no painel do serviço. O redirect da Twitch deve usar a URL HTTPS pública exata, por exemplo **https://seu-site.onrender.com/auth/twitch/callback**.
+Para manter favoritos, avaliações, solicitações de resgate e a cópia dos últimos vídeos do YouTube entre reinicializações, anexe um persistent disk com mount path **/var/data** e defina **DATA_DIR=/var/data** nas variáveis do serviço. No Render, discos persistentes estão disponíveis em serviços pagos; sem disco, o armazenamento local é temporário. Antes de publicar, configure também as credenciais do TMDB e da Twitch no painel do serviço. O redirect da Twitch deve usar a URL HTTPS pública exata, por exemplo **https://seu-site.onrender.com/auth/twitch/callback**.
 
-Não envie os arquivos **.env**, **favorites.json**, **ratings.json** ou **redemptions.json** ao GitHub. O arquivo de exclusões ignora esses dados e o servidor não os disponibiliza como arquivos públicos. Se quiser levar favoritos, avaliações e solicitações que já existem no computador para o serviço hospedado, será preciso copiá-los para o disco persistente uma vez.
+Não envie os arquivos **.env**, **favorites.json**, **ratings.json**, **redemptions.json** ou **youtube-videos.json** ao GitHub. O arquivo de exclusões ignora esses dados e o servidor não os disponibiliza como arquivos públicos. Se quiser levar favoritos, avaliações e solicitações que já existem no computador para o serviço hospedado, será preciso copiá-los para o disco persistente uma vez.
 
 Ao buscar um título, o servidor também consulta o mapa público de posts do Patreon Vimessias, em cache por cerca de dois minutos. Quando o título original ou localizado do TMDB coincide com um post, a interface troca a estimativa por um link direto ao react. A correspondência é por título exato normalizado para evitar links para reacts errados.
 

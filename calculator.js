@@ -214,6 +214,12 @@ function bindRedemptionForm(target,item) {
       feedbackText.textContent = 'Escolha uma data e um horário futuros.';
       return;
     }
+    const livepixTab = window.open('about:blank','_blank');
+    if (livepixTab) {
+      livepixTab.opener = null;
+      livepixTab.document.write('<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Abrindo LivePix</title><body style="margin:0;padding:32px;background:#100d14;color:#f4eafa;font:16px system-ui">Registrando o resgate e abrindo o LivePix…</body></html>');
+      livepixTab.document.close();
+    }
     submitButton.disabled = true;
     feedbackText.textContent = 'Registrando sua solicitação…';
     try {
@@ -226,8 +232,14 @@ function bindRedemptionForm(target,item) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Não foi possível registrar o resgate.');
       window.dispatchEvent(new CustomEvent('cardapio:redemptions-updated'));
-      location.assign('https://livepix.gg/vimessias');
+      if (livepixTab && !livepixTab.closed) {
+        livepixTab.location.replace('https://livepix.gg/vimessias');
+        feedbackText.textContent = 'Solicitação registrada. O LivePix foi aberto em outra guia.';
+      } else {
+        feedbackText.innerHTML = 'Solicitação registrada. <a href="https://livepix.gg/vimessias" target="_blank" rel="noopener noreferrer">Clique aqui para abrir o LivePix em outra guia</a>.';
+      }
     } catch (error) {
+      if (livepixTab && !livepixTab.closed) livepixTab.close();
       feedbackText.textContent = error.message || 'Não foi possível registrar o pedido.';
       submitButton.disabled = false;
     }
@@ -402,8 +414,13 @@ catalogTitleDialog.addEventListener('close', () => dialogTitleBox.querySelectorA
 const manualEstimateTitle = document.querySelector('#manualEstimateTitle');
 const manualEstimateHours = document.querySelector('#manualEstimateHours');
 const manualEstimateMinutes = document.querySelector('#manualEstimateMinutes');
+const manualEstimateType = document.querySelector('#manualEstimateType');
 const manualEstimateLabel = document.querySelector('#manualEstimateLabel');
 const manualEstimatePrice = document.querySelector('#manualEstimatePrice');
+const manualRedemptionForm = document.querySelector('#manualRedemptionForm');
+const manualEstimateDate = document.querySelector('#manualEstimateDate');
+const manualEstimateTime = document.querySelector('#manualEstimateTime');
+const manualRedemptionFeedback = document.querySelector('#manualRedemptionFeedback');
 
 function updateManualEstimate() {
   const title = manualEstimateTitle.value.trim();
@@ -428,3 +445,49 @@ function updateManualEstimate() {
 }
 
 [manualEstimateTitle,manualEstimateHours,manualEstimateMinutes].forEach(field => field.addEventListener('input',updateManualEstimate));
+
+const manualToday = new Date();
+manualEstimateDate.min = `${manualToday.getFullYear()}-${String(manualToday.getMonth()+1).padStart(2,'0')}-${String(manualToday.getDate()).padStart(2,'0')}`;
+manualRedemptionForm.addEventListener('submit',async event => {
+  event.preventDefault();
+  if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para solicitar um resgate.')) return;
+  if (!manualRedemptionForm.reportValidity()) return;
+  const title = manualEstimateTitle.value.trim();
+  const hours = manualEstimateHours.value === '' ? 0 : Number(manualEstimateHours.value);
+  const minutes = manualEstimateMinutes.value === '' ? 0 : Number(manualEstimateMinutes.value);
+  const durationMinutes = hours * 60 + minutes;
+  if (!title || !Number.isInteger(hours) || hours < 0 || hours > 999 || !Number.isInteger(minutes) || minutes < 0 || minutes > 59 || durationMinutes <= 0) {
+    manualRedemptionFeedback.textContent = 'Informe um título e uma duração válida antes de continuar.';
+    return;
+  }
+  const scheduledAt = new Date(`${manualEstimateDate.value}T${manualEstimateTime.value}:00`);
+  if (Number.isNaN(scheduledAt.getTime()) || scheduledAt <= new Date()) {
+    manualRedemptionFeedback.textContent = 'Escolha uma data e um horário futuros.';
+    return;
+  }
+  const submitButton = manualRedemptionForm.querySelector('[type="submit"]');
+  const livepixTab = window.open('about:blank','_blank');
+  if (livepixTab) {
+    livepixTab.opener = null;
+    livepixTab.document.write('<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Abrindo LivePix</title><body style="margin:0;padding:32px;background:#100d14;color:#f4eafa;font:16px system-ui">Registrando o resgate e abrindo o LivePix…</body></html>');
+    livepixTab.document.close();
+  }
+  submitButton.disabled = true;
+  manualRedemptionFeedback.textContent = 'Registrando sua solicitação…';
+  try {
+    const response = await fetchCatalogApi('/api/redemptions',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({mediaType:manualEstimateType.value,manual:{title,durationMinutes},scheduledAt:scheduledAt.toISOString()})});
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Não foi possível registrar o resgate.');
+    window.dispatchEvent(new CustomEvent('cardapio:redemptions-updated'));
+    if (livepixTab && !livepixTab.closed) {
+      livepixTab.location.replace('https://livepix.gg/vimessias');
+      manualRedemptionFeedback.textContent = 'Solicitação registrada. O LivePix foi aberto em outra guia.';
+    } else {
+      manualRedemptionFeedback.innerHTML = 'Solicitação registrada. <a href="https://livepix.gg/vimessias" target="_blank" rel="noopener noreferrer">Clique aqui para abrir o LivePix em outra guia</a>.';
+    }
+  } catch (error) {
+    if (livepixTab && !livepixTab.closed) livepixTab.close();
+    manualRedemptionFeedback.textContent = error.message || 'Não foi possível registrar o resgate.';
+    submitButton.disabled = false;
+  }
+});

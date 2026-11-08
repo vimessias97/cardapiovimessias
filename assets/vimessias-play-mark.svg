@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="frame" x1="21" y1="17" x2="105" y2="111" gradientUnits="userSpaceOnUse"><stop stop-color="#F0D6FF"/><stop offset=".48" stop-color="#B65CF1"/><stop offset="1" stop-color="#6522A2"/></linearGradient>
+    <linearGradient id="play" x1="46" y1="37" x2="87" y2="94" gradientUnits="userSpaceOnUse"><stop stop-color="#F4D9FF"/><stop offset="1" stop-color="#A43FEA"/></linearGradient>
+    <filter id="glow" x="0" y="0" width="128" height="128" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="4" result="blur"/><feComposite in="SourceGraphic" in2="blur" operator="over"/></filter>
+  </defs>
+  <rect x="16" y="16" width="96" height="96" rx="25" fill="#100B16" stroke="url(#frame)" stroke-width="4"/>
+  <path d="M30 31h12m44 0h12M30 97h12m44 0h12" stroke="#C98AF5" stroke-linecap="round" stroke-width="4" opacity=".68"/>
+  <path d="M51 39.5c-3.333-1.925-7.5.481-7.5 4.33v40.34c0 3.85 4.167 6.255 7.5 4.33l35-20.17c3.333-1.925 3.333-6.735 0-8.66l-35-20.17Z" fill="url(#play)" filter="url(#glow)"/>
+  <path d="m52 48 25 14-25 14V48Z" fill="#160D20" opacity=".55"/>
+  <circle cx="100" cy="28" r="5" fill="#D395FF"/>
+</svg>

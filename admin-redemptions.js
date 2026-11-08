@@ -43,7 +43,13 @@
       return;
     }
     feedback.textContent = '';
-    list.innerHTML = redemptions.map((item,index) => `<article class="admin-redemption-card status-${safe(item.status)}" data-redemption-card="${index}">${item.posterUrl ? `<img class="admin-redemption-poster" src="${safe(item.posterUrl)}" alt="Pôster de ${safe(item.title)}" loading="lazy">` : '<span class="admin-redemption-poster admin-no-poster" aria-hidden="true">✦</span>'}<div class="admin-redemption-main"><div class="admin-redemption-title-row"><div><h2>${safe(item.title)}</h2><p>${safe(item.mediaType === 'tv' ? 'Série' : 'Filme')} · ${safe(item.durationLabel || 'Duração não informada')}</p></div><span class="admin-redemption-status status-${safe(item.status)}">${item.status === 'approved' ? 'Aprovado' : item.status === 'rejected' ? 'Rejeitado' : 'Pendente'}</span></div><p class="admin-redemption-requester">Pedido por <strong>${safe(item.requester?.displayName || item.requester?.login || 'Usuário Twitch')}</strong> · @${safe(item.requester?.login || '')}</p><p class="admin-redemption-requested-date">Solicitado em ${safe(dateLabel(item.createdAt))}</p>${item.status === 'pending' ? `<form class="admin-redemption-edit" data-admin-edit="${safe(item.id)}"><label>Data e horário<input type="datetime-local" name="scheduledAt" required value="${safe(localDateTime(item.scheduledAt))}"></label><button type="submit" class="admin-action secondary">Salvar data</button><button type="button" class="admin-action approve" data-admin-action="approve" data-redemption-id="${safe(item.id)}">Aprovar</button><button type="button" class="admin-action reject" data-admin-action="reject" data-redemption-id="${safe(item.id)}">Rejeitar</button></form>` : `<p class="admin-redemption-final-date">Data do resgate: ${safe(dateLabel(item.scheduledAt))}</p>`}</div></article>`).join('');
+    list.innerHTML = redemptions.map((item,index) => {
+      const removeButton = `<button type="button" class="admin-action delete" data-redemption-id="${safe(item.id)}" data-admin-action="delete">Excluir</button>`;
+      const controls = item.status === 'rejected'
+        ? `<p class="admin-redemption-final-date">Data do resgate: ${safe(dateLabel(item.scheduledAt))}</p><div class="admin-redemption-edit">${removeButton}</div>`
+        : `<form class="admin-redemption-edit" data-admin-edit="${safe(item.id)}"><label>Data e horário<input type="datetime-local" name="scheduledAt" required value="${safe(localDateTime(item.scheduledAt))}"></label><button type="submit" class="admin-action secondary">Salvar data</button>${item.status === 'pending' ? `<button type="button" class="admin-action approve" data-redemption-id="${safe(item.id)}" data-admin-action="approve">Aprovar</button><button type="button" class="admin-action reject" data-redemption-id="${safe(item.id)}" data-admin-action="reject">Rejeitar</button>` : ''}${removeButton}</form>`;
+      return `<article class="admin-redemption-card status-${safe(item.status)}" data-redemption-card="${index}">${item.posterUrl ? `<img class="admin-redemption-poster" src="${safe(item.posterUrl)}" alt="Pôster de ${safe(item.title)}" loading="lazy">` : '<span class="admin-redemption-poster admin-no-poster" aria-hidden="true">✦</span>'}<div class="admin-redemption-main"><div class="admin-redemption-title-row"><div><h2>${safe(item.title)}</h2><p>${safe(item.mediaType === 'tv' ? 'Série' : 'Filme')} · ${safe(item.durationLabel || 'Duração não informada')}</p></div><span class="admin-redemption-status status-${safe(item.status)}">${item.status === 'approved' ? 'Aprovado' : item.status === 'rejected' ? 'Rejeitado' : 'Pendente'}</span></div><p class="admin-redemption-requester">Solicitante: <strong>@${safe(item.requester?.login || 'login indisponível')}</strong>${item.requester?.displayName ? ` · ${safe(item.requester.displayName)}` : ''}</p><p class="admin-redemption-requested-date">Solicitado em ${safe(dateLabel(item.createdAt))}</p>${controls}</div></article>`;
+    }).join('');
     list.querySelectorAll('[data-admin-edit]').forEach(form => form.addEventListener('submit',event => {
       event.preventDefault();
       const value = new Date(form.elements.scheduledAt.value);
@@ -57,6 +63,10 @@
   }
 
   async function update(id,action,scheduledAt,control) {
+    if (action === 'delete') {
+      const title = redemptions.find(item => item.id === id)?.title || 'este resgate';
+      if (!window.confirm(`Excluir o resgate de "${title}"? Esta ação não pode ser desfeita.`)) return;
+    }
     if (control) control.querySelectorAll('button,input').forEach(element => { element.disabled = true; });
     feedback.textContent = 'Atualizando pedido…';
     try {
@@ -64,7 +74,7 @@
       redemptions = Array.isArray(data.redemptions) ? data.redemptions : [];
       render();
       window.dispatchEvent(new CustomEvent('cardapio:redemptions-updated'));
-      feedback.textContent = action === 'approve' ? 'Resgate aprovado e publicado em Últimos resgates.' : action === 'reject' ? 'Solicitação rejeitada.' : 'Data do resgate atualizada.';
+      feedback.textContent = action === 'approve' ? 'Resgate aprovado e publicado em Últimos resgates e no calendário.' : action === 'reject' ? 'Solicitação rejeitada.' : action === 'delete' ? 'Resgate excluído.' : 'Data do resgate atualizada.';
     } catch (error) {
       feedback.textContent = error.message || 'Não foi possível atualizar este pedido.';
       if (control) control.querySelectorAll('button,input').forEach(element => { element.disabled = false; });
