@@ -14,6 +14,7 @@ const favoritesFile = path.join(dataRoot, 'favorites.json');
 const ratingsFile = path.join(dataRoot, 'ratings.json');
 const redemptionsFile = path.join(dataRoot, 'redemptions.json');
 const communityMembersFile = path.join(dataRoot, 'community-members.json');
+const promotionsFile = path.join(dataRoot, 'promotions.json');
 const youtubeVideosFile = path.join(dataRoot, 'youtube-videos.json');
 if (dataRoot !== root) {
   for (const name of ['favorites.json','ratings.json']) {
@@ -38,6 +39,12 @@ let favoritesWriteQueue = Promise.resolve();
 let ratingsWriteQueue = Promise.resolve();
 let redemptionsWriteQueue = Promise.resolve();
 let communityMembersWriteQueue = Promise.resolve();
+let promotionsWriteQueue = Promise.resolve();
+const defaultPromotionCollections = [
+  {id:'lotr',name:'Trilogia O Senhor dos Anéis',discountPercent:30,titles:[{id:120,mediaType:'movie'},{id:121,mediaType:'movie'},{id:122,mediaType:'movie'}]},
+  {id:'hobbit',name:'Trilogia O Hobbit',discountPercent:30,titles:[{id:49051,mediaType:'movie'},{id:57158,mediaType:'movie'},{id:122917,mediaType:'movie'}]},
+  {id:'harry-potter',name:'Coleção completa Harry Potter',discountPercent:30,titles:[{id:671,mediaType:'movie'},{id:672,mediaType:'movie'},{id:673,mediaType:'movie'},{id:674,mediaType:'movie'},{id:675,mediaType:'movie'},{id:767,mediaType:'movie'},{id:12444,mediaType:'movie'},{id:12445,mediaType:'movie'}]}
+];
 function twitchConfig() {
   const clientId = process.env.TWITCH_CLIENT_ID || '';
   const clientSecret = process.env.TWITCH_CLIENT_SECRET || '';
@@ -206,6 +213,26 @@ async function saveCommunityMember(profile) {
     await rename(temporary,communityMembersFile);
   });
   communityMembersWriteQueue = operation.catch(() => {});
+  return operation;
+}
+
+async function readPromotions() {
+  try {
+    const value = JSON.parse(await readFile(promotionsFile,'utf8'));
+    return Array.isArray(value) ? value : [];
+  } catch { return structuredClone(defaultPromotionCollections); }
+}
+
+async function updatePromotions(update) {
+  const operation = promotionsWriteQueue.then(async () => {
+    const collections = await readPromotions();
+    const result = update(collections);
+    const temporary = `${promotionsFile}.tmp`;
+    await writeFile(temporary,JSON.stringify(collections,null,2),'utf8');
+    await rename(temporary,promotionsFile);
+    return result;
+  });
+  promotionsWriteQueue = operation.catch(() => {});
   return operation;
 }
 
@@ -756,6 +783,60 @@ async function handle(req, res) {
     return res.end();
   }
   if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, {ok:true,mode:'consulta'});
+  if (req.method === 'GET' && url.pathname === '/api/promotions') {
+    return json(res,200,{promotions:await readPromotions()});
+  }
+  if (req.method === 'POST' && url.pathname === '/api/admin/promotions') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode gerenciar promoções.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req); }
+    catch (error) { return privateJson(res,400,{error:error.message}); }
+    const action = String(body.action || '');
+    const id = String(body.id || '');
+    if (action === 'delete') {
+      if (!id) return privateJson(res,400,{error:'Selecione uma promoção para excluir.'});
+      try {
+        const promotions = await updatePromotions(collections => {
+          const index = collections.findIndex(item => item.id === id);
+          if (index >= 0) collections.splice(index,1);
+          return collections;
+        });
+        return privateJson(res,200,{promotions});
+      } catch { return privateJson(res,500,{error:'Não foi possível excluir a promoção.'}); }
+    }
+    if (action !== 'save') return privateJson(res,400,{error:'Ação de promoção inválida.'});
+    const name = String(body.name || '').trim();
+    const description = String(body.description || '').trim().slice(0,240);
+    const discountPercent = Number(body.discountPercent);
+    const titles = Array.isArray(body.titles) ? body.titles : [];
+    if (!name || name.length > 100) return privateJson(res,400,{error:'Informe um título de coleção com até 100 caracteres.'});
+    if (!Number.isFinite(discountPercent) || discountPercent < 1 || discountPercent > 100) return privateJson(res,400,{error:'O desconto precisa estar entre 1% e 100%.'});
+    if (!titles.length || titles.length > 30) return privateJson(res,400,{error:'Adicione de 1 a 30 filmes ou séries à coleção.'});
+    const normalizedTitles = [];
+    const titleKeys = new Set();
+    for (const item of titles) {
+      const titleId = Number(item?.id);
+      const mediaType = String(item?.mediaType || '');
+      const key = `${mediaType}:${titleId}`;
+      if (!['movie','tv'].includes(mediaType) || !Number.isSafeInteger(titleId) || titleId <= 0 || titleKeys.has(key)) return privateJson(res,400,{error:'A coleção contém um título inválido ou repetido.'});
+      titleKeys.add(key);
+      normalizedTitles.push({id:titleId,mediaType});
+    }
+    const savedId = id || randomUUID();
+    try {
+      const promotions = await updatePromotions(collections => {
+        const index = collections.findIndex(item => item.id === savedId);
+        const collection = {id:savedId,name,description,discountPercent,titles:normalizedTitles};
+        if (index >= 0) collections[index] = collection;
+        else collections.unshift(collection);
+        return collections;
+      });
+      return privateJson(res,200,{promotions});
+    } catch { return privateJson(res,500,{error:'Não foi possível salvar a promoção.'}); }
+  }
   if (req.method === 'GET' && url.pathname === '/api/redemptions/week') {
     const from = Date.parse(url.searchParams.get('from') || '');
     const to = Date.parse(url.searchParams.get('to') || '');

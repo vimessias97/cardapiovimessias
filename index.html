@@ -92,9 +92,9 @@
             <button class="search-more-button hidden" id="searchMoreButton" type="button">Ver mais</button>
             <article class="selected-title hidden" id="selectedTitle"></article>
           </section>
-          <section class="home-promo-teaser" aria-labelledby="homePromoHeading">
+          <section class="home-promo-teaser" id="homePromoTeaser" aria-labelledby="homePromoHeading">
             <div class="home-promo-mark" aria-hidden="true">％</div>
-            <div class="home-promo-copy"><span class="home-promo-kicker">PROMOÇÕES POR COLEÇÃO</span><h2 id="homePromoHeading">Coleções completas com <em>30% OFF</em></h2><p>O Senhor dos Anéis · O Hobbit · Harry Potter</p></div>
+            <div class="home-promo-copy"><span class="home-promo-kicker">PROMOÇÕES POR COLEÇÃO</span><h2 id="homePromoHeading">Coleções completas com <em id="homePromoDiscount">desconto</em></h2><p id="homePromoNames">Confira as coleções disponíveis na página de promoções.</p></div>
             <a class="home-promo-link" href="#promocoes" data-page="promocoes">Ver promoções <span aria-hidden="true">→</span></a>
           </section>
           <section class="suggestions-section" aria-labelledby="suggestionsHeading">
@@ -186,6 +186,22 @@
       </main>
       <main class="admin-page hidden" id="admin" aria-labelledby="adminHeading">
         <header class="admin-page-intro"><span class="eyebrow muted">ÁREA PRIVADA · ADMINISTRADOR</span><h1 id="adminHeading">Painel <em>administrativo</em></h1><p>Revise os pedidos, ajuste a data e horário e aprove ou rejeite cada resgate.</p></header>
+        <section class="admin-promotion-manager" aria-labelledby="adminPromotionsHeading">
+          <div class="admin-promotion-manager-heading"><div><span class="eyebrow muted">OFERTAS DA COMUNIDADE</span><h2 id="adminPromotionsHeading">Gerenciar promoções</h2><p>Monte uma coleção, escolha os títulos e defina o percentual de desconto. O site soma os valores estimados e aplica o desconto automaticamente.</p></div><button class="admin-promotion-new" id="adminPromotionNew" type="button">+ Nova promoção</button></div>
+          <p class="admin-promotion-feedback" id="adminPromotionFeedback" aria-live="polite">Carregando promoções…</p>
+          <div class="admin-promotion-list" id="adminPromotionList"></div>
+          <form class="admin-promotion-form hidden" id="adminPromotionForm">
+            <input type="hidden" name="id">
+            <div class="admin-promotion-form-heading"><h3 id="adminPromotionFormHeading">Nova promoção</h3><button type="button" id="adminPromotionCancel" aria-label="Fechar formulário">×</button></div>
+            <label>Nome da coleção<input name="name" maxlength="100" placeholder="Ex.: Coleção Matrix" required></label>
+            <div class="admin-promotion-fields"><label>Desconto (%)<input name="discountPercent" type="number" min="1" max="100" step="0.5" value="30" required><small>Informe entre 1% e 100%.</small></label><label>Descrição (opcional)<textarea name="description" maxlength="240" rows="2" placeholder="Ex.: Assista à coleção completa com desconto."></textarea></label></div>
+            <label>Adicionar filmes ou séries<input id="adminPromotionSearch" type="search" minlength="2" placeholder="Digite um título para buscar no TMDB…" autocomplete="off"></label>
+            <div class="admin-promotion-search-results" id="adminPromotionSearchResults" role="listbox" aria-label="Resultados da busca"></div>
+            <h4>Títulos da coleção <span id="adminPromotionTitleCount">0</span></h4>
+            <div class="admin-promotion-selected" id="adminPromotionSelected"><p>Busque e selecione os títulos da coleção.</p></div>
+            <div class="admin-promotion-form-actions"><button type="submit" class="admin-promotion-save">Salvar promoção</button><button type="button" class="admin-promotion-cancel" id="adminPromotionCancelBottom">Cancelar</button></div>
+          </form>
+        </section>
         <p class="admin-payment-note">Antes de aprovar, confirme o pagamento no LivePix. Esta fila registra os pedidos e ainda não recebe confirmação automática do provedor.</p>
         <div class="admin-redemptions-feedback" id="adminRedemptionsFeedback" aria-live="polite">Carregando solicitações…</div>
         <div class="admin-redemptions-list" id="adminRedemptionsList"></div>
@@ -244,5 +260,6 @@
   <script src="twitch-auth.js" defer></script>
   <script src="user-profile.js" defer></script>
   <script src="admin-redemptions.js" defer></script>
+  <script src="promotions-admin.js" defer></script>
 </body>
 </html>

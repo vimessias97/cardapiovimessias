@@ -1,10 +1,7 @@
 const promotionCollections = document.querySelector('#promotionCollections');
+const homePromotionTeaser = document.querySelector('#homePromoTeaser');
 const promotionApiBases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
-const promotionOffers = [
-  {id:'lotr',name:'Trilogia O Senhor dos Anéis',discountPercent:30,titles:[{id:120,mediaType:'movie'},{id:121,mediaType:'movie'},{id:122,mediaType:'movie'}]},
-  {id:'hobbit',name:'Trilogia O Hobbit',discountPercent:30,titles:[{id:49051,mediaType:'movie'},{id:57158,mediaType:'movie'},{id:122917,mediaType:'movie'}]},
-  {id:'harry-potter',name:'Coleção completa Harry Potter',discountPercent:30,titles:[{id:671,mediaType:'movie'},{id:672,mediaType:'movie'},{id:673,mediaType:'movie'},{id:674,mediaType:'movie'},{id:675,mediaType:'movie'},{id:767,mediaType:'movie'},{id:12444,mediaType:'movie'},{id:12445,mediaType:'movie'}]}
-];
+let promotionOffers = [];
 
 function promotionSafe(value = '') {
   return String(value).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
@@ -14,6 +11,18 @@ function promotionMoney(value) {
   return Number(value).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 }
 
+function updateHomePromotionTeaser() {
+  if (!homePromotionTeaser) return;
+  if (!promotionOffers.length) {
+    homePromotionTeaser.classList.add('hidden');
+    return;
+  }
+  homePromotionTeaser.classList.remove('hidden');
+  const discounts = [...new Set(promotionOffers.map(offer => Number(offer.discountPercent)))];
+  document.querySelector('#homePromoDiscount').textContent = discounts.length === 1 ? `${discounts[0]}% OFF` : 'descontos especiais';
+  document.querySelector('#homePromoNames').textContent = promotionOffers.slice(0,3).map(offer => offer.name).join(' · ');
+}
+
 function getPromotionPrice(minutes) {
   return Math.ceil(Number(minutes) / 30) * 5;
 }
@@ -21,7 +30,7 @@ function getPromotionPrice(minutes) {
 function promotionShell(offer) {
   const id = promotionSafe(offer.id);
   const name = promotionSafe(offer.name);
-  return `<section class="promotion-collection" aria-labelledby="${id}PromotionHeading"><div class="promotion-collection-head"><div><span class="promotion-kicker">COLEÇÃO COMPLETA</span><h2 id="${id}PromotionHeading">${name}</h2><p>Resgate os ${offer.titles.length} filmes juntos e ganhe ${offer.discountPercent}% de desconto sobre a estimativa individual.</p></div><span class="promotion-discount">${offer.discountPercent}% OFF</span></div><p class="promotion-feedback" id="${id}PromotionFeedback" aria-live="polite">Carregando detalhes e duração dos filmes…</p><div class="promotion-titles" id="${id}PromotionTitles"></div><div class="promotion-summary hidden" id="${id}PromotionSummary"></div><a class="promotion-redemption hidden" id="${id}PromotionRedeem" href="https://livepix.gg/vimessias" target="_blank" rel="noopener noreferrer">Consultar resgate pelo LivePix <span aria-hidden="true">↗</span></a><p class="promotion-note">Estimativa informativa baseada na duração do TMDB. O site não processa pagamentos; confirme o pacote e o valor promocional ao resgatar pelo LivePix.</p></section>`;
+  return `<section class="promotion-collection" aria-labelledby="${id}PromotionHeading"><div class="promotion-collection-head"><div><span class="promotion-kicker">COLEÇÃO COMPLETA</span><h2 id="${id}PromotionHeading">${name}</h2><p>${promotionSafe(offer.description || `Resgate os ${offer.titles.length} títulos juntos e ganhe ${offer.discountPercent}% de desconto sobre a estimativa individual.`)}</p></div><span class="promotion-discount">${offer.discountPercent}% OFF</span></div><p class="promotion-feedback" id="${id}PromotionFeedback" aria-live="polite">Carregando detalhes e duração dos filmes…</p><div class="promotion-titles" id="${id}PromotionTitles"></div><div class="promotion-summary hidden" id="${id}PromotionSummary"></div><a class="promotion-redemption hidden" id="${id}PromotionRedeem" href="https://livepix.gg/vimessias" target="_blank" rel="noopener noreferrer">Resgate pelo LivePix <span aria-hidden="true">↗</span></a><p class="promotion-note">Estimativa informativa baseada na duração do TMDB. O site não processa pagamentos; confirme o pacote e o valor promocional ao resgatar pelo LivePix.</p></section>`;
 }
 
 async function getPromotionTitle(item) {
@@ -77,5 +86,34 @@ async function loadPromotion(offer) {
   }
 }
 
-promotionCollections.innerHTML = promotionOffers.map(promotionShell).join('');
-promotionOffers.forEach(loadPromotion);
+async function loadPromotionOffers() {
+  try {
+    let response;
+    for (const base of promotionApiBases) {
+      try {
+        response = await fetch(`${base}/api/promotions`,{cache:'no-store'});
+        if (response.status === 404 && base !== promotionApiBases.at(-1)) continue;
+        break;
+      } catch (error) {
+        if (!(error instanceof TypeError)) throw error;
+      }
+    }
+    if (!response) throw new Error('Não foi possível conectar ao servidor para carregar as promoções.');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Não foi possível carregar as promoções.');
+    promotionOffers = Array.isArray(data.promotions) ? data.promotions : [];
+    updateHomePromotionTeaser();
+    if (!promotionOffers.length) {
+      promotionCollections.innerHTML = '<p class="promotion-feedback">Nenhuma promoção disponível no momento.</p>';
+      return;
+    }
+    promotionCollections.innerHTML = promotionOffers.map(promotionShell).join('');
+    promotionOffers.forEach(loadPromotion);
+  } catch (error) {
+    updateHomePromotionTeaser();
+    promotionCollections.innerHTML = `<p class="promotion-feedback">${promotionSafe(error.message || 'Não foi possível carregar as promoções agora.')}</p>`;
+  }
+}
+
+loadPromotionOffers();
+window.addEventListener('cardapio:promotions-updated',loadPromotionOffers);
