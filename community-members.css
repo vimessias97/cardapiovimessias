@@ -40,6 +40,21 @@
 .vicoins-balance.sidebar-vicoins{display:flex;flex-direction:row;justify-items:initial;align-items:center;gap:5px;margin:7px 0 7px 2px}
 .vicoins-balance.sidebar-vicoins>img{width:24px;height:24px}
 .vicoins-balance.sidebar-vicoins>span{font-size:11px}
+.community-ranking-caption{margin:6px 0 7px;color:#aaa0b0;font-size:10px;line-height:1.4}
+.community-ranking-list{display:grid;gap:0;margin:7px 0 0;padding:0;list-style:none}
+.community-ranking-row{display:grid;grid-template-columns:19px minmax(0,1fr) auto;gap:6px;align-items:center;min-height:40px;padding:5px 0;border-top:1px solid #29232f}
+.community-ranking-position{color:#c997e4;font:600 13px var(--serif);text-align:center}
+.community-ranking-profile{display:flex;align-items:center;gap:7px;min-width:0;padding:0;border:0;background:transparent;color:#e9e1ec;text-align:left;cursor:pointer}
+.community-ranking-profile:hover span:last-child{color:#e7bfff;text-decoration:underline}
+.community-ranking-profile>img,.community-ranking-avatar-fallback{width:25px;height:25px;flex:none;border:1px solid #493653;border-radius:50%;object-fit:cover;background:#201727}
+.community-ranking-avatar-fallback{display:grid;place-items:center;color:#d3a1ed;font-size:11px}
+.community-ranking-profile>span:last-child{overflow:hidden;font-size:10px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
+.community-ranking-value{display:grid;justify-items:end;gap:2px;color:#f1dfad;white-space:nowrap}
+.community-ranking-value.is-vicoins{display:flex;align-items:center;gap:4px}
+.community-ranking-value>img{width:16px;height:16px;object-fit:contain;vertical-align:middle}
+.community-ranking-value strong{font-size:10px;font-variant-numeric:tabular-nums}
+.community-ranking-value small{color:#9c91a2;font-size:8px}
+.community-ranking-empty{padding:10px 2px;color:#8e8796;text-align:center;font-size:10px;line-height:1.5}
 .community-member-dialog-head.has-profile-banner{position:relative;padding:10px 12px 17px;border-radius:10px 10px 0 0;border-bottom-color:#826f87;background-image:linear-gradient(90deg,#0d0b10c4 0%,#0d0b1077 52%,#0d0b10b8 100%),var(--community-profile-banner);background-position:center 46%;background-size:cover}
 .community-member-dialog-head.has-profile-banner .community-member-identity>img{box-shadow:0 2px 14px #000a}
 .community-member-dialog-head.has-profile-banner .community-member-identity h2,.community-member-dialog-head.has-profile-banner .community-member-identity p{ text-shadow:0 2px 8px #000}

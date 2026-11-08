@@ -1,5 +1,7 @@
 (() => {
   const list = document.querySelector('#communityMembersList');
+  const vicoinsRankingList = document.querySelector('#communityVicoinsRankList');
+  const redeemersRankingList = document.querySelector('#communityRedeemersRankList');
   const dialog = document.querySelector('#communityMemberDialog');
   const close = document.querySelector('#communityMemberClose');
   const avatar = document.querySelector('#communityMemberAvatar');
@@ -14,7 +16,7 @@
   const dialogVicoinsLink = document.querySelector('#communityMemberVicoinsLink');
   const sidebarProfileButton = document.querySelector('#sidebarUserOpenProfile');
   const dialogHead = document.querySelector('.community-member-dialog-head');
-  const profileBannerImages = {'halloween-michael':'/assets/profile-banners/halloween-michael-1600x240.png?v=2'};
+  const profileBannerImages = {'vimessias':'/assets/profile-banners/vimessias-1600x240.png?v=1','halloween-michael':'/assets/profile-banners/halloween-michael-1600x240.png?v=2'};
   const bases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
 
   function safe(value = '') {
@@ -108,6 +110,32 @@
     }
   }
 
+  function renderRanking(target,items,type) {
+    if (!Array.isArray(items) || !items.length) {
+      target.innerHTML = '<li class="community-ranking-empty">Ainda não há dados para este ranking.</li>';
+      return;
+    }
+    target.innerHTML = items.map((member,index) => {
+      const avatarMarkup = member.profileImageUrl ? `<img src="${safe(member.profileImageUrl)}" alt="" loading="lazy">` : '<span class="community-ranking-avatar-fallback" aria-hidden="true">✦</span>';
+      const value = type === 'vicoins'
+        ? `<span class="community-ranking-value is-vicoins"><img src="assets/vicoins-coin.png" alt=""><strong>${Number(member.balance || 0).toLocaleString('pt-BR')}</strong></span>`
+        : `<span class="community-ranking-value"><strong>${Number(member.totalValue || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong><small>${Number(member.redemptionCount || 0)} ${Number(member.redemptionCount) === 1 ? 'resgate' : 'resgates'}</small></span>`;
+      return `<li class="community-ranking-row"><span class="community-ranking-position">${index + 1}</span><button type="button" class="community-ranking-profile" data-profile-id="${safe(member.id)}">${avatarMarkup}<span>${safe(member.displayName || 'Usuário Twitch')}</span></button>${value}</li>`;
+    }).join('');
+  }
+
+  async function loadRankings() {
+    try {
+      const data = await api('/api/community/rankings');
+      renderRanking(vicoinsRankingList,data.vicoins,'vicoins');
+      renderRanking(redeemersRankingList,data.redemptionSpenders,'redemptions');
+    } catch (error) {
+      const message = safe(error.message || 'Não foi possível carregar este ranking.');
+      vicoinsRankingList.innerHTML = `<li class="community-ranking-empty">${message}</li>`;
+      redeemersRankingList.innerHTML = `<li class="community-ranking-empty">${message}</li>`;
+    }
+  }
+
   async function loadMyVicoins(user) {
     if (!user) {
       setVicoins(0);
@@ -123,13 +151,20 @@
     const button = event.target.closest('[data-member-id]');
     if (button) openProfile(button.dataset.memberId);
   });
+  for (const ranking of [vicoinsRankingList,redeemersRankingList]) ranking.addEventListener('click',event => {
+    const button = event.target.closest('[data-profile-id]');
+    if (button) openProfile(button.dataset.profileId);
+  });
   close.addEventListener('click',() => dialog.close());
   dialog.addEventListener('click',event => { if (event.target === dialog) dialog.close(); });
   dialogVicoinsLink.addEventListener('click',() => dialog.close());
   sidebarProfileButton.addEventListener('click',() => openProfile(window.CardapioAuth?.getUser()?.id));
   window.addEventListener('cardapio:auth-updated',event => loadMyVicoins(event.detail?.user || null));
-  window.addEventListener('cardapio:vicoins-updated',event => setVicoins(event.detail?.balance));
+  window.addEventListener('cardapio:vicoins-updated',event => { setVicoins(event.detail?.balance); loadRankings(); });
+  window.addEventListener('cardapio:redemptions-updated',loadRankings);
   window.CardapioCommunityProfiles = {open:openProfile};
   loadMembers();
+  loadRankings();
+  window.setInterval(() => { if (!document.hidden) loadRankings(); },60000);
   window.CardapioAuth?.ready.then(user => loadMyVicoins(user));
 })();

@@ -68,6 +68,7 @@
 .right-rail .queue-title strong{font-size:11px!important}
 .right-rail .queue-title small,.right-rail .queue-status{font-size:9px!important}
 .right-rail .rail-button{font-size:11px!important}
+.right-rail .community-ranking-caption{font-size:11px!important;line-height:1.45!important}
 .feature-strip{min-height:98px!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:0!important;margin:8px 0 20px!important;padding:8px 10px!important;border:1px solid #33243e!important;border-radius:22px!important;background:linear-gradient(105deg,#100d14,#17101d 52%,#100d14)!important;box-shadow:inset 0 1px #ffffff0b,0 8px 28px #8c39ca1c!important}
 .feature-strip>div,.feature-strip>a{display:flex!important;align-items:center!important;justify-content:center!important;gap:14px!important;min-width:0;padding:12px 14px!important;border:0!important;border-right:1px solid #382a42!important;color:#eee9f2!important;text-decoration:none!important}
 .feature-strip>:last-child{border-right:0!important}

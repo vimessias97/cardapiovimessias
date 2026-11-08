@@ -1,6 +1,6 @@
 import http from 'node:http';
 import {constants as fsConstants} from 'node:fs';
-import {readFile,stat,writeFile,rename,mkdir,copyFile} from 'node:fs/promises';
+import {readFile,stat,writeFile,rename,mkdir,copyFile,unlink} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomBytes,randomUUID} from 'node:crypto';
@@ -58,7 +58,8 @@ const vicoinsRewards = [
   {id:'content-30',contentLimit:30,coinCost:800}
 ];
 const profileBannerRewards = [
-  {id:'halloween-michael',name:'Halloween · Michael Myers',imageUrl:'/assets/profile-banners/halloween-michael-1600x240.png',coinCost:100}
+  {id:'vimessias',name:'ViMessias',imageUrl:'/assets/profile-banners/vimessias-1600x240.png',paymentType:'livepix',amount:5},
+  {id:'halloween-michael',name:'Halloween · Michael Myers',imageUrl:'/assets/profile-banners/halloween-michael-1600x240.png',paymentType:'vicoins',coinCost:100}
 ];
 function twitchConfig() {
   const clientId = process.env.TWITCH_CLIENT_ID || '';
@@ -249,15 +250,21 @@ async function saveForumAttachment(attachment) {
   return {url:`/api/forum/uploads/${filename}`,type,name:safeName};
 }
 
+async function deleteForumAttachment(attachment) {
+  const match = /^\/api\/forum\/uploads\/([a-f0-9-]{36}\.(?:jpg|png|webp|gif))$/i.exec(String(attachment?.url || ''));
+  if (!match) return;
+  try { await unlink(path.join(forumUploadsDir,match[1])); } catch {}
+}
+
 async function readVicoinsStore() {
   try {
     const value = JSON.parse(await readFile(vicoinsFile,'utf8'));
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return {balances:{},transactions:[],orders:[],dailyClaims:{},profileBannerInventory:{}};
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {balances:{},transactions:[],orders:[],bannerOrders:[],dailyClaims:{},profileBannerInventory:{}};
     if (value.balances && typeof value.balances === 'object' && !Array.isArray(value.balances)) {
-      return {balances:value.balances,transactions:Array.isArray(value.transactions) ? value.transactions : [],orders:Array.isArray(value.orders) ? value.orders : [],dailyClaims:value.dailyClaims && typeof value.dailyClaims === 'object' && !Array.isArray(value.dailyClaims) ? value.dailyClaims : {},profileBannerInventory:value.profileBannerInventory && typeof value.profileBannerInventory === 'object' && !Array.isArray(value.profileBannerInventory) ? value.profileBannerInventory : {}};
+      return {balances:value.balances,transactions:Array.isArray(value.transactions) ? value.transactions : [],orders:Array.isArray(value.orders) ? value.orders : [],bannerOrders:Array.isArray(value.bannerOrders) ? value.bannerOrders : [],dailyClaims:value.dailyClaims && typeof value.dailyClaims === 'object' && !Array.isArray(value.dailyClaims) ? value.dailyClaims : {},profileBannerInventory:value.profileBannerInventory && typeof value.profileBannerInventory === 'object' && !Array.isArray(value.profileBannerInventory) ? value.profileBannerInventory : {}};
     }
-    return {balances:value,transactions:[],orders:[],dailyClaims:{},profileBannerInventory:{}};
-  } catch { return {balances:{},transactions:[],orders:[],dailyClaims:{},profileBannerInventory:{}}; }
+    return {balances:value,transactions:[],orders:[],bannerOrders:[],dailyClaims:{},profileBannerInventory:{}};
+  } catch { return {balances:{},transactions:[],orders:[],bannerOrders:[],dailyClaims:{},profileBannerInventory:{}}; }
 }
 
 function getProfileBannerInventory(store,userId) {
@@ -936,6 +943,47 @@ async function handle(req, res) {
       return privateJson(res,201,{topic});
     } catch (error) { return privateJson(res,400,{error:error.message || 'Não foi possível criar o tópico.'}); }
   }
+  const forumTopicMatch = /^\/api\/forum\/topics\/([a-f0-9-]{36})$/i.exec(url.pathname);
+  if (forumTopicMatch && ['PATCH','DELETE'].includes(req.method)) {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para editar o fórum.'});
+    const origin = req.headers.origin;
+    if (origin && origin !== 'null' && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    try {
+      let body = {};
+      if (req.method === 'PATCH') {
+        try { body = await readRequestJson(req,64 * 1024); }
+        catch (error) { return privateJson(res,400,{error:error.message}); }
+        if (!body || typeof body !== 'object' || Array.isArray(body)) return privateJson(res,400,{error:'Os dados do tópico são inválidos.'});
+      }
+      const result = await updateForumTopics(topics => {
+        const index = topics.findIndex(item => item.id === forumTopicMatch[1]);
+        const topic = topics[index];
+        if (!topic) throw Object.assign(new Error('Este tópico não existe mais.'),{statusCode:404});
+        if (profile.role !== 'admin' && topic.author?.id !== profile.id) throw Object.assign(new Error('Você só pode editar ou apagar seus próprios tópicos.'),{statusCode:403});
+        if (req.method === 'DELETE') {
+          const attachments = [topic.attachment,...(Array.isArray(topic.comments) ? topic.comments.map(comment => comment.attachment) : [])].filter(Boolean);
+          topics.splice(index,1);
+          return {deleted:true,attachments};
+        }
+        const title = String(body.title || '').trim();
+        const content = String(body.content || '').trim();
+        const category = String(body.category || 'geral');
+        if (title.length < 3 || title.length > 120 || content.length < 3 || content.length > 6000) throw Object.assign(new Error('Informe um título de 3 a 120 caracteres e uma mensagem de 3 a 6.000 caracteres.'),{statusCode:400});
+        if (!['geral','filmes','series','animes','jogos','outros'].includes(category)) throw Object.assign(new Error('Escolha uma categoria válida para o tópico.'),{statusCode:400});
+        topic.title = title;
+        topic.content = content;
+        topic.category = category;
+        const removedAttachment = body.removeAttachment === true ? topic.attachment : null;
+        if (removedAttachment) topic.attachment = null;
+        topic.updatedAt = new Date().toISOString();
+        topic.editedAt = topic.updatedAt;
+        return {topic,removedAttachment};
+      });
+      await Promise.all((result.attachments || [result.removedAttachment]).filter(Boolean).map(deleteForumAttachment));
+      return privateJson(res,200,result.deleted ? {deleted:true} : {topic:result.topic});
+    } catch (error) { return privateJson(res,error.statusCode || 500,{error:error.message || 'Não foi possível atualizar o tópico.'}); }
+  }
   const forumCommentMatch = /^\/api\/forum\/topics\/([a-f0-9-]{36})\/comments$/i.exec(url.pathname);
   if (req.method === 'POST' && forumCommentMatch) {
     const profile = await getAuthenticatedProfile(req,res);
@@ -962,6 +1010,47 @@ async function handle(req, res) {
       });
       return privateJson(res,201,{topic});
     } catch (error) { return privateJson(res,error.message === 'Este tópico não existe mais.' ? 404 : 400,{error:error.message || 'Não foi possível publicar o comentário.'}); }
+  }
+  const forumCommentEditMatch = /^\/api\/forum\/topics\/([a-f0-9-]{36})\/comments\/([a-f0-9-]{36})$/i.exec(url.pathname);
+  if (forumCommentEditMatch && ['PATCH','DELETE'].includes(req.method)) {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para editar comentários.'});
+    const origin = req.headers.origin;
+    if (origin && origin !== 'null' && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    try {
+      let body = {};
+      if (req.method === 'PATCH') {
+        try { body = await readRequestJson(req,32 * 1024); }
+        catch (error) { return privateJson(res,400,{error:error.message}); }
+        if (!body || typeof body !== 'object' || Array.isArray(body)) return privateJson(res,400,{error:'Os dados do comentário são inválidos.'});
+      }
+      const result = await updateForumTopics(topics => {
+        const topic = topics.find(item => item.id === forumCommentEditMatch[1]);
+        if (!topic) throw Object.assign(new Error('Este tópico não existe mais.'),{statusCode:404});
+        const comments = Array.isArray(topic.comments) ? topic.comments : [];
+        const index = comments.findIndex(item => item.id === forumCommentEditMatch[2]);
+        const comment = comments[index];
+        if (!comment) throw Object.assign(new Error('Este comentário não existe mais.'),{statusCode:404});
+        if (profile.role !== 'admin' && comment.author?.id !== profile.id) throw Object.assign(new Error('Você só pode editar ou apagar seus próprios comentários.'),{statusCode:403});
+        if (req.method === 'DELETE') {
+          const attachment = comment.attachment;
+          comments.splice(index,1);
+          topic.comments = comments;
+          topic.updatedAt = new Date().toISOString();
+          return {deleted:true,attachment};
+        }
+        const content = String(body.content || '').trim();
+        if (content.length < 1 || content.length > 3000) throw Object.assign(new Error('O comentário precisa ter até 3.000 caracteres.'),{statusCode:400});
+        comment.content = content;
+        const removedAttachment = body.removeAttachment === true ? comment.attachment : null;
+        if (removedAttachment) comment.attachment = null;
+        comment.editedAt = new Date().toISOString();
+        topic.updatedAt = comment.editedAt;
+        return {comment,removedAttachment};
+      });
+      await deleteForumAttachment(result.attachment || result.removedAttachment);
+      return privateJson(res,200,result.deleted ? {deleted:true} : {comment:result.comment});
+    } catch (error) { return privateJson(res,error.statusCode || 500,{error:error.message || 'Não foi possível atualizar o comentário.'}); }
   }
   if (req.method === 'GET' && url.pathname === '/api/promotions') {
     return json(res,200,{promotions:await readPromotions()});
@@ -1045,6 +1134,40 @@ async function handle(req, res) {
       .map(({id,login,displayName,profileImageUrl,joinedAt}) => ({id,login,displayName,profileImageUrl,joinedAt}));
     return json(res,200,{members});
   }
+  if (req.method === 'GET' && url.pathname === '/api/community/rankings') {
+    const members = await readCommunityMembers();
+    const memberById = new Map(members.map(member => [member.id,member]));
+    try { await reconcileApprovedRedemptionVicoins(); }
+    catch { return json(res,500,{error:'Não foi possível atualizar o ranking de Vicoins.'}); }
+    const store = await readVicoinsStore();
+    const vicoins = Object.entries(store.balances)
+      .map(([id,value]) => {
+        const member = memberById.get(id) || {};
+        return {id,displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',balance:Number(value) || 0};
+      })
+      .filter(member => member.balance > 0)
+      .sort((a,b) => b.balance - a.balance || a.displayName.localeCompare(b.displayName,'pt-BR'))
+      .slice(0,5);
+    const totals = new Map();
+    for (const entry of await readRedemptions()) {
+      const userId = String(entry.requester?.id || '');
+      const minutes = Number(entry.durationMinutes);
+      if (entry.status !== 'approved' || !userId || !Number.isFinite(minutes) || minutes <= 0) continue;
+      const amount = Math.ceil(minutes / 30) * 5;
+      const current = totals.get(userId) || {totalValue:0,redemptionCount:0};
+      current.totalValue += amount;
+      current.redemptionCount++;
+      totals.set(userId,current);
+    }
+    const redemptionSpenders = [...totals.entries()]
+      .map(([id,value]) => {
+        const member = memberById.get(id) || {};
+        return {id,displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',...value};
+      })
+      .sort((a,b) => b.totalValue - a.totalValue || b.redemptionCount - a.redemptionCount || a.displayName.localeCompare(b.displayName,'pt-BR'))
+      .slice(0,5);
+    return json(res,200,{vicoins,redemptionSpenders,redemptionValueRule:'R$ 5 por bloco iniciado de 30 minutos; considera apenas resgates aprovados.'});
+  }
   if (req.method === 'GET' && url.pathname.startsWith('/api/community/members/')) {
     const memberId = url.pathname.slice('/api/community/members/'.length);
     if (!/^\d{1,32}$/.test(memberId)) return json(res,400,{error:'Perfil inválido.'});
@@ -1080,6 +1203,37 @@ async function handle(req, res) {
     const store = await readVicoinsStore();
     return privateJson(res,200,getProfileBannerInventory(store,profile.id));
   }
+  if (req.method === 'GET' && url.pathname === '/api/account/profile-banner-orders') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para consultar seus pedidos de banner.'});
+    const store = await readVicoinsStore();
+    const orders = store.bannerOrders.filter(order => order.requester?.id === profile.id).sort((a,b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0,10);
+    return privateJson(res,200,{orders});
+  }
+  if (req.method === 'POST' && url.pathname === '/api/shop/profile-banner-orders') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para solicitar um banner.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req); }
+    catch (error) { return privateJson(res,400,{error:error.message}); }
+    const reward = profileBannerRewards.find(item => item.id === String(body.bannerId || ''));
+    if (!reward || reward.paymentType !== 'livepix') return privateJson(res,400,{error:'Banner inválido para solicitação.'});
+    try {
+      const result = await updateVicoinsStore(store => {
+        store.bannerOrders = Array.isArray(store.bannerOrders) ? store.bannerOrders : [];
+        const inventory = getProfileBannerInventory(store,profile.id);
+        if (inventory.owned.includes(reward.id)) throw new Error('Este banner já foi liberado no seu perfil.');
+        const pending = store.bannerOrders.find(order => order.requester?.id === profile.id && order.bannerId === reward.id && order.status === 'pending');
+        if (pending) return {order:pending,alreadyPending:true};
+        const order = {id:randomUUID(),bannerId:reward.id,bannerName:reward.name,amount:reward.amount,currency:'BRL',paymentUrl:'https://livepix.gg/vimessias',status:'pending',requester:{id:profile.id,login:profile.login,displayName:profile.displayName,profileImageUrl:profile.profileImageUrl || profile.profile_image_url || ''},createdAt:new Date().toISOString()};
+        store.bannerOrders.push(order);
+        return {order,alreadyPending:false};
+      });
+      return privateJson(res,201,result);
+    } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível solicitar este banner.'}); }
+  }
   if (req.method === 'POST' && url.pathname === '/api/shop/profile-banners') {
     const profile = await getAuthenticatedProfile(req,res);
     if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para resgatar um banner.'});
@@ -1089,7 +1243,7 @@ async function handle(req, res) {
     try { body = await readRequestJson(req); }
     catch (error) { return privateJson(res,400,{error:error.message}); }
     const reward = profileBannerRewards.find(item => item.id === String(body.bannerId || ''));
-    if (!reward) return privateJson(res,400,{error:'Banner inválido para resgate.'});
+    if (!reward || reward.paymentType !== 'vicoins') return privateJson(res,400,{error:'Este banner não pode ser resgatado com Vicoins.'});
     try {
       const result = await updateVicoinsStore(store => {
         store.profileBannerInventory = store.profileBannerInventory || {};
@@ -1231,6 +1385,53 @@ async function handle(req, res) {
       });
       return privateJson(res,201,result);
     } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível resgatar esta oferta.'}); }
+  }
+  if (req.method === 'GET' && url.pathname === '/api/admin/profile-banner-orders') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode ver os pedidos de banner.'});
+    const store = await readVicoinsStore();
+    const orders = store.bannerOrders.slice().sort((a,b) => Number(a.status !== 'pending') - Number(b.status !== 'pending') || Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    return privateJson(res,200,{orders});
+  }
+  if (req.method === 'POST' && url.pathname === '/api/admin/profile-banner-orders') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode atualizar pedidos de banner.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req); }
+    catch (error) { return privateJson(res,400,{error:error.message}); }
+    const id = String(body.id || '');
+    const action = String(body.action || '');
+    if (!id || !['approve','reject'].includes(action)) return privateJson(res,400,{error:'Ação inválida para o pedido de banner.'});
+    try {
+      const result = await updateVicoinsStore(store => {
+        store.bannerOrders = Array.isArray(store.bannerOrders) ? store.bannerOrders : [];
+        const order = store.bannerOrders.find(item => item.id === id);
+        if (!order) throw new Error('Pedido de banner não encontrado.');
+        if (order.status !== 'pending') throw new Error('Este pedido já foi finalizado.');
+        const now = new Date().toISOString();
+        if (action === 'approve') {
+          const reward = profileBannerRewards.find(item => item.id === order.bannerId && item.paymentType === 'livepix');
+          if (!reward) throw new Error('O banner desta solicitação não está disponível.');
+          store.profileBannerInventory = store.profileBannerInventory || {};
+          const inventory = store.profileBannerInventory[order.requester.id] || {owned:[],equipped:''};
+          inventory.owned = Array.isArray(inventory.owned) ? inventory.owned : [];
+          if (!inventory.owned.includes(reward.id)) inventory.owned.push(reward.id);
+          inventory.equipped = reward.id;
+          store.profileBannerInventory[order.requester.id] = inventory;
+          order.status = 'approved';
+          order.approvedAt = now;
+          order.approvedBy = profile.id;
+        } else {
+          order.status = 'rejected';
+          order.rejectedAt = now;
+          order.rejectedBy = profile.id;
+        }
+        return {orders:store.bannerOrders.slice().sort((a,b) => Number(a.status !== 'pending') - Number(b.status !== 'pending') || Date.parse(b.createdAt) - Date.parse(a.createdAt))};
+      });
+      return privateJson(res,200,result);
+    } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível atualizar o pedido.'}); }
   }
   if (req.method === 'GET' && url.pathname === '/api/admin/vicoins-orders') {
     const profile = await getAuthenticatedProfile(req,res);

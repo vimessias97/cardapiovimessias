@@ -42,6 +42,23 @@
 .forum-author-button:hover{text-decoration:underline;color:#efd8ff}
 .forum-category-tag{padding:4px 7px;border:1px solid #4d3659;border-radius:12px;color:#d2aee4;font-size:9px}
 .forum-topic-time{margin-left:auto;color:#928998;font-size:9px;white-space:nowrap}
+.forum-item-actions{display:flex;align-items:center;gap:5px;flex:none}
+.forum-item-actions button,.forum-edit-actions button{min-height:27px;padding:0 8px;border:1px solid #5a4168;border-radius:5px;background:#21172a;color:#d9b8eb;font-size:9px;font-weight:700;cursor:pointer}
+.forum-item-actions button:hover,.forum-edit-actions button:hover{background:#382348}
+.forum-item-actions button.is-danger{border-color:#65404a;background:#26171b;color:#e5b5bf}
+.forum-item-actions button.is-danger:hover{background:#3a2027}
+.forum-edited-tag{color:#92899a;font-size:9px;font-style:italic}
+.forum-edit-topic-form{display:grid;gap:10px;margin-top:12px;padding:13px;border:1px solid #493653;border-radius:9px;background:#100d14}
+.forum-edit-topic-form>label{display:grid;gap:5px;color:#d4c8dc;font-size:10px;font-weight:600}
+.forum-edit-topic-form input[type=text],.forum-edit-topic-form select,.forum-edit-topic-form textarea,.forum-edit-comment-form textarea{width:100%;min-width:0;min-height:36px;padding:8px 10px;border:1px solid #403147;border-radius:6px;background:#0d0b11;color:#f4eff7;font:11px var(--sans)}
+.forum-edit-topic-form textarea,.forum-edit-comment-form textarea{min-height:70px;resize:vertical;line-height:1.5}
+.forum-remove-attachment{display:flex;align-items:center;gap:7px;color:#bcaec4;font-size:10px}
+.forum-edit-actions{display:flex;gap:7px;flex-wrap:wrap}
+.forum-edit-actions button{min-height:31px;padding:0 11px;border:1px solid #8551a3;border-radius:6px;background:#382047;color:#f0dff8;font-size:10px;font-weight:700;cursor:pointer}
+.forum-edit-actions button.is-secondary{border-color:#44394b;background:#1a161e;color:#bdb3c5}
+.forum-comment-main{min-width:0}
+.forum-comment-meta .forum-item-actions{margin-left:auto}
+.forum-edit-comment-form{display:grid;gap:7px;margin-top:8px}
 .forum-topic-title{margin:13px 0 7px;color:#f5eff8;font:600 20px var(--serif);overflow-wrap:anywhere}
 .forum-post-text{margin:0;color:#d0c8d5;font-size:12px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
 .forum-post-attachment{display:block;max-width:100%;max-height:480px;margin-top:12px;border:1px solid #342b3b;border-radius:8px;object-fit:contain;object-position:left;background:#09080d}
@@ -63,6 +80,7 @@
 .forum-comment-actions .forum-attachment-name{overflow:hidden;max-width:45%;text-overflow:ellipsis;white-space:nowrap}
 .forum-comment-actions>button{min-height:31px;margin-left:auto;padding:0 12px;border:1px solid #8551a3;border-radius:6px;background:#382047;color:#f0dff8;font-size:10px;font-weight:700;cursor:pointer}
 .forum-comment-actions>button:disabled,.forum-composer-actions>button:disabled{opacity:.55;cursor:wait}
+.forum-edit-actions button:disabled{opacity:.55;cursor:wait}
 .forum-comment-login{margin:10px 0 0;color:#a79cab;font-size:10px}
 .forum-comment-login a{color:#d19af0;text-decoration:underline}
 .forum-empty{padding:30px 16px;border:1px dashed #3a3041;border-radius:10px;color:#a99eae;text-align:center;font-size:12px;line-height:1.6}

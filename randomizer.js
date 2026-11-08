@@ -61,6 +61,7 @@ function showPage(view, link = null, updateHistory = true) {
   if (view === 'resgatados') window.CardapioUserProfile?.loadRedemptions();
   if (view === 'admin') window.CardapioAdminRedemptions?.load();
   if (view === 'admin') window.CardapioAdminVicoins?.load();
+  if (view === 'admin') window.CardapioAdminProfileBanners?.load();
   if (view === 'lojinha') window.CardapioVicoinsShop?.load();
   if (view === 'forum') window.CardapioForum?.load();
   window.scrollTo({top:0,behavior:'smooth'});

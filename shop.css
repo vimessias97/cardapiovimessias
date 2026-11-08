@@ -84,6 +84,12 @@
 .shop-banner-details .shop-reward-cost{margin:6px 0}
 .shop-banner-details .shop-reward-cost img{width:25px;height:25px}
 .shop-banner-details .shop-reward-cost strong{font-size:16px}
+.shop-banner-price{display:grid;gap:2px;margin:6px 0;color:#f4e9fb}
+.shop-banner-price strong{font:700 17px var(--serif)}
+.shop-banner-price span{color:#baabbf;font-size:10px}
+.shop-banner-order-feedback{min-height:0!important;margin:7px 0 0!important;color:#c9b8d2!important;font-size:10px!important;line-height:1.45!important}
+.shop-banner-order-feedback a{color:#d792ff;font-weight:700;text-decoration:underline;text-underline-offset:2px}
+.admin-banner-livepix{display:inline-flex;align-items:center;min-height:34px;padding:0 11px;border:1px solid #55376a;border-radius:6px;background:#211625;color:#e5c8f8;font-size:10px;font-weight:700;text-decoration:none}
 .shop-banner-redeem{min-height:32px;padding:0 11px;border:1px solid #a25fc3;border-radius:7px;background:linear-gradient(110deg,#763498,#4c2162);color:#fff;font-size:10px;font-weight:700;cursor:pointer}
 .shop-banner-redeem:hover:not(:disabled){filter:brightness(1.15)}
 .shop-banner-redeem:disabled{border-color:#393136;background:#211d22;color:#847c86;cursor:not-allowed}
