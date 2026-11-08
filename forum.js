@@ -74,7 +74,7 @@
   function renderComments(topic) {
     const comments = Array.isArray(topic.comments) ? topic.comments : [];
     const commentsHtml = comments.length ? comments.map(comment => renderComment(topic,comment)).join('') : '<p class="forum-comment-login">Ainda não há comentários. Comece a conversa.</p>';
-    return `<section class="forum-comments"><h3 class="forum-comments-heading">Comentários · ${comments.length}</h3><div class="forum-comment-list">${commentsHtml}</div>${commentForm(topic)}</section>`;
+    return `<details class="forum-comments" open><summary class="forum-comments-heading">Comentários <span>${comments.length}</span><span class="forum-comments-chevron" aria-hidden="true">⌄</span></summary><div class="forum-comments-box"><div class="forum-comment-list">${commentsHtml}</div>${commentForm(topic)}</div></details>`;
   }
 
   function renderTopicEditor(topic) {
@@ -93,7 +93,13 @@
       const editing = editingTopicId === topic.id;
       const actions = canManage(topic.author) && !editing ? `<div class="forum-item-actions"><button type="button" data-forum-edit-topic="${safe(topic.id)}">Editar</button><button type="button" class="is-danger" data-forum-delete-topic="${safe(topic.id)}">Apagar</button></div>` : '';
       const content = editing ? renderTopicEditor(topic) : `<h2 class="forum-topic-title">${safe(topic.title)}</h2><p class="forum-post-text">${safe(topic.content)}</p>${attachmentMarkup(topic.attachment)}`;
-      return `<article class="forum-topic-card" data-topic-id="${safe(topic.id)}"><div class="forum-topic-content"><div class="forum-topic-meta">${authorMarkup(topic.author)}<span class="forum-category-tag">${safe(categoryLabels[topic.category] || 'Geral')}</span><time class="forum-topic-time" datetime="${safe(topic.createdAt)}">${safe(formatDate(topic.createdAt))}</time>${topic.editedAt ? '<small class="forum-edited-tag">editado</small>' : ''}${actions}</div>${content}<div class="forum-topic-stats"><span aria-hidden="true">☷</span>${comments.length} ${comments.length === 1 ? 'comentário' : 'comentários'}<span>·</span>Atividade ${safe(formatDate(topic.updatedAt || topic.createdAt))}</div></div>${renderComments(topic)}</article>`;
+      const likeCount = Number(topic.likeCount) || 0;
+      const liked = Boolean(topic.likedByMe);
+      const shareUrl = new URL(location.href);
+      shareUrl.searchParams.set('forumTopic',topic.id);
+      shareUrl.hash = 'forum';
+      const postActions = `<div class="forum-post-actions"><button type="button" class="forum-like-button${liked ? ' is-liked' : ''}" data-forum-like="${safe(topic.id)}" aria-pressed="${liked}" aria-label="${liked ? 'Remover curtida' : 'Curtir'} (${likeCount})"><span aria-hidden="true">${liked ? '♥' : '♡'}</span> Curtir <strong>${likeCount}</strong></button><button type="button" class="forum-share-button" data-forum-share="${safe(topic.id)}" data-share-url="${safe(shareUrl.href)}"><span aria-hidden="true">↗</span> Compartilhar</button></div>`;
+      return `<article class="forum-topic-card" data-topic-id="${safe(topic.id)}"><div class="forum-topic-content"><div class="forum-topic-meta">${authorMarkup(topic.author)}<span class="forum-category-tag">${safe(categoryLabels[topic.category] || 'Geral')}</span><time class="forum-topic-time" datetime="${safe(topic.createdAt)}">${safe(formatDate(topic.createdAt))}</time>${topic.editedAt ? '<small class="forum-edited-tag">editado</small>' : ''}${actions}</div>${content}<div class="forum-topic-stats"><span aria-hidden="true">☷</span>${comments.length} ${comments.length === 1 ? 'comentário' : 'comentários'}<span>·</span>Atividade ${safe(formatDate(topic.updatedAt || topic.createdAt))}</div>${postActions}</div>${renderComments(topic)}</article>`;
     }).join('');
   }
 
@@ -115,6 +121,8 @@
       topics = Array.isArray(data.topics) ? data.topics : [];
       pageFeedback.textContent = '';
       renderTopics();
+      const sharedTopicId = new URL(location.href).searchParams.get('forumTopic');
+      if (sharedTopicId && location.hash === '#forum') setTimeout(() => document.querySelector(`[data-topic-id="${CSS.escape(sharedTopicId)}"]`)?.scrollIntoView({behavior:'smooth',block:'center'}),250);
     } catch (error) {
       if (currentRequest !== requestId) return;
       pageFeedback.textContent = error.message || 'Não foi possível carregar o fórum.';
@@ -249,6 +257,27 @@
   });
 
   topicList.addEventListener('click',async event => {
+    const likeButton = event.target.closest('[data-forum-like]');
+    if (likeButton) {
+      if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para curtir tópicos.')) return;
+      likeButton.disabled = true;
+      try { await api(`/api/forum/topics/${encodeURIComponent(likeButton.dataset.forumLike)}/like`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'}); await load(); }
+      catch (error) { pageFeedback.textContent = error.message || 'Não foi possível registrar a curtida.'; likeButton.disabled = false; }
+      return;
+    }
+    const shareButton = event.target.closest('[data-forum-share]');
+    if (shareButton) {
+      const shareData = {title:'Fórum ViMessias Play',text:'Veja esta conversa no fórum ViMessias Play',url:shareButton.dataset.shareUrl};
+      try {
+        if (navigator.share) await navigator.share(shareData);
+        else { await navigator.clipboard.writeText(shareData.url); pageFeedback.textContent = 'Link do tópico copiado para compartilhar.'; }
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+        try { await navigator.clipboard.writeText(shareData.url); pageFeedback.textContent = 'Link do tópico copiado para compartilhar.'; }
+        catch { pageFeedback.textContent = `Copie este link para compartilhar: ${shareData.url}`; }
+      }
+      return;
+    }
     const cancel = event.target.closest('[data-forum-cancel-edit]');
     if (cancel) {
       editingTopicId = '';

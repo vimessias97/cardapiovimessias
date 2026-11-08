@@ -17,19 +17,20 @@
   const dialogVicoinsLink = document.querySelector('#communityMemberVicoinsLink');
   const sidebarProfileButton = document.querySelector('#sidebarUserOpenProfile');
   const dialogHead = document.querySelector('.community-member-dialog-head');
-  const profileBannerImages = {'vimessias':'/assets/profile-banners/vimessias-1600x240.png?v=1','halloween-michael':'/assets/profile-banners/halloween-michael-1600x240.png?v=2','terrifier-natal':'/assets/profile-banners/terrifier-natal-1600x240.png?v=1'};
+  const profileBannerImages = {'vimessias':'/assets/profile-banners/vimessias-1600x240.png?v=1'};
   const bases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
 
   function safe(value = '') {
     return String(value).replace(/[&<>"']/g,character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
   }
 
-  function setVicoins(value,dialogOnly = false) {
+  function setVicoins(value,dialogOnly = false,infinite = false) {
     const balance = Number.isSafeInteger(Number(value)) && Number(value) >= 0 ? Number(value) : 0;
     const counters = dialogOnly ? [dialogVicoinsCount] : [sidebarVicoinsCount,shopVicoinsCount];
     const links = dialogOnly ? [dialogVicoinsLink] : [sidebarVicoinsLink];
-    for (const counter of counters) if (counter) counter.textContent = balance.toLocaleString('pt-BR');
-    for (const link of links) if (link) link.setAttribute('aria-label',`Vicoins: ${balance.toLocaleString('pt-BR')}. Abrir lojinha`);
+    const label = infinite ? '∞' : balance.toLocaleString('pt-BR');
+    for (const counter of counters) if (counter) counter.textContent = label;
+    for (const link of links) if (link) link.setAttribute('aria-label',`${infinite ? 'Vicoins ilimitados' : `Vicoins: ${balance.toLocaleString('pt-BR')}`}. Abrir lojinha`);
     return balance;
   }
 
@@ -84,7 +85,7 @@
       updateCarouselControls(container);
       return;
     }
-    container.innerHTML = items.map(item => `<article class="community-member-title-card">${item.posterUrl ? `<img src="${safe(item.posterUrl)}" alt="Pôster de ${safe(item.title)}" loading="lazy">` : '<span class="community-member-title-poster" aria-hidden="true">✦</span>'}<div class="community-member-title-copy"><strong>${safe(item.title)}</strong><small>${safe(item.mediaType === 'tv' ? 'Série' : 'Filme')}${item.durationLabel ? ` · ${safe(item.durationLabel)}` : ''}</small>${showDate && item.scheduledAt ? `<small>Agendado: ${safe(new Date(item.scheduledAt).toLocaleDateString('pt-BR'))}</small>` : ''}</div></article>`).join('');
+    container.innerHTML = items.map(item => `<article class="community-member-title-card">${item.posterUrl ? `<img src="${safe(item.posterUrl)}" alt="Pôster de ${safe(item.title)}" loading="lazy">` : '<span class="community-member-title-poster" aria-hidden="true">✦</span>'}<div class="community-member-title-copy"><strong>${safe(item.title)}</strong><small>${safe(item.mediaType === 'tv' ? 'Série' : item.mediaType === 'other' ? 'Outro' : 'Filme')}${item.durationLabel ? ` · ${safe(item.durationLabel)}` : ''}</small>${showDate && item.scheduledAt ? `<small>Agendado: ${safe(new Date(item.scheduledAt).toLocaleDateString('pt-BR'))}</small>` : ''}</div></article>`).join('');
     requestAnimationFrame(() => updateCarouselControls(container));
   }
 
@@ -119,7 +120,7 @@
       const data = await api(ownProfile ? '/api/account/profile' : `/api/community/members/${encodeURIComponent(memberId)}`);
       const profile = data.profile || {};
       name.textContent = profile.displayName || profile.login || 'Perfil Twitch';
-      setVicoins(profile.vicoins,true);
+      setVicoins(profile.vicoins,true,profile.vicoinsInfinite);
       setProfileBanner(profile.banner);
       renderAchievements(data.achievements || {});
       if (profile.profileImageUrl) {
@@ -180,7 +181,7 @@
     }
     try {
       const data = await api('/api/account/vicoins');
-      setVicoins(data.balance);
+      setVicoins(data.balance,false,data.infinite);
     } catch { setVicoins(0); }
   }
 
@@ -207,7 +208,7 @@
   dialogVicoinsLink.addEventListener('click',() => dialog.close());
   sidebarProfileButton.addEventListener('click',() => openProfile(window.CardapioAuth?.getUser()?.id));
   window.addEventListener('cardapio:auth-updated',event => loadMyVicoins(event.detail?.user || null));
-  window.addEventListener('cardapio:vicoins-updated',event => { setVicoins(event.detail?.balance); loadRankings(); });
+  window.addEventListener('cardapio:vicoins-updated',event => { setVicoins(event.detail?.balance,false,event.detail?.infinite); loadRankings(); });
   window.addEventListener('cardapio:redemptions-updated',loadRankings);
   window.CardapioCommunityProfiles = {open:openProfile};
   loadMembers();

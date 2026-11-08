@@ -63,8 +63,13 @@
 .forum-post-text{margin:0;color:#d0c8d5;font-size:12px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
 .forum-post-attachment{display:block;max-width:100%;max-height:480px;margin-top:12px;border:1px solid #342b3b;border-radius:8px;object-fit:contain;object-position:left;background:#09080d}
 .forum-topic-stats{display:flex;align-items:center;gap:6px;margin-top:13px;padding-top:10px;border-top:1px solid #29232f;color:#a89eac;font-size:10px}
-.forum-comments{padding:12px 17px 15px;border-top:1px solid #2c2532;background:#0e0c12}
-.forum-comments-heading{margin:0 0 9px;color:#d5c8dc;font-size:11px;font-weight:700}
+.forum-comments{margin:0 12px 13px;border:1px solid #302638;border-radius:9px;background:#0c0a10;overflow:hidden}
+.forum-comments-heading{display:flex;align-items:center;gap:7px;padding:11px 13px;color:#d5c8dc;font-size:11px;font-weight:700;list-style:none;cursor:pointer}
+.forum-comments-heading::-webkit-details-marker{display:none}
+.forum-comments-heading>span:nth-child(1){display:grid;min-width:20px;height:20px;place-items:center;border:1px solid #46334f;border-radius:10px;background:#17121c;color:#c69ad9;font-size:9px}
+.forum-comments-chevron{margin-left:auto;color:#a58ab4;font-size:14px;transition:transform .16s}
+.forum-comments[open] .forum-comments-chevron{transform:rotate(180deg)}
+.forum-comments-box{padding:11px 12px 13px;border-top:1px solid #28212e;background:linear-gradient(145deg,#100d14,#0c0a10)}
 .forum-comment-list{display:grid;gap:9px}
 .forum-comment{display:grid;grid-template-columns:25px minmax(0,1fr);gap:8px;padding:9px;border:1px solid #29232f;border-radius:8px;background:#131016}
 .forum-comment .forum-author-button{max-width:100%;font-size:9px}
@@ -86,3 +91,19 @@
 .forum-empty{padding:30px 16px;border:1px dashed #3a3041;border-radius:10px;color:#a99eae;text-align:center;font-size:12px;line-height:1.6}
 @media(max-width:760px){.forum-page{min-height:0;padding:28px 15px 42px}.forum-intro h1{font-size:32px}.forum-login-notice{align-items:flex-start;flex-wrap:wrap}.forum-login-notice>a{margin-left:38px}.forum-composer,.forum-login-notice{padding:14px}.forum-topic-content{padding:13px}.forum-comments{padding:11px 13px 13px}.forum-topic-title{font-size:18px}}
 @media(max-width:520px){.forum-page{padding:22px 10px 32px}.forum-toolbar{align-items:flex-start;flex-direction:column}.forum-topic-meta{flex-wrap:wrap}.forum-topic-time{margin-left:0}.forum-author-button{max-width:68%}.forum-composer-actions>button{width:100%;margin-left:0}.forum-login-notice>div{flex-basis:calc(100% - 48px)}.forum-login-notice>a{margin-left:0;width:100%}}
+.forum-comments{margin:0 12px 13px;border:1px solid #302638;border-radius:9px;background:#0c0a10;overflow:hidden}
+.forum-comments-heading{display:flex;align-items:center;gap:7px;padding:11px 13px;color:#d5c8dc;font-size:11px;font-weight:700;list-style:none;cursor:pointer}
+.forum-comments-heading::-webkit-details-marker{display:none}
+.forum-comments-heading>span:nth-child(1){display:grid;min-width:20px;height:20px;place-items:center;border:1px solid #46334f;border-radius:10px;background:#17121c;color:#c69ad9;font-size:9px}
+.forum-comments-chevron{margin-left:auto;color:#a58ab4;font-size:14px;transition:transform .16s}
+.forum-comments[open] .forum-comments-chevron{transform:rotate(180deg)}
+.forum-comments-box{padding:11px 12px 13px;border-top:1px solid #28212e;background:linear-gradient(145deg,#100d14,#0c0a10)}
+.forum-post-actions{display:flex;align-items:center;gap:7px;margin-top:10px}
+.forum-post-actions button{display:inline-flex;align-items:center;gap:6px;min-height:31px;padding:0 10px;border:1px solid #382d41;border-radius:6px;background:#15111a;color:#bdb2c6;font-size:10px;font-weight:700;cursor:pointer;transition:background .14s,border-color .14s,color .14s}
+.forum-post-actions button:hover{border-color:#68477a;background:#211729;color:#ead9f4}
+.forum-like-button>span{font-size:16px;line-height:1}
+.forum-like-button>strong{color:#e8d9ed;font-size:10px;font-variant-numeric:tabular-nums}
+.forum-like-button.is-liked{border-color:#8d4eaa;background:#2b1835;color:#edc9ff}
+.forum-like-button.is-liked>span{color:#d48bf0}
+.forum-post-actions button:disabled{opacity:.6;cursor:wait}
+@media(max-width:760px){.forum-comments{margin:0 9px 10px}.forum-comments-box{padding:9px}}

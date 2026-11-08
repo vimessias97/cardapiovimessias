@@ -40,9 +40,13 @@
 .shop-order-status.status-delivered,.admin-vicoins-status.status-delivered{border-color:#3f7653;background:#17261c;color:#b9ebc8}
 .shop-order-status.status-cancelled,.admin-vicoins-status.status-cancelled{border-color:#70404b;background:#2b171b;color:#efb6bf}
 .shop-empty{margin:0;color:#9f96a5;font-size:12px}
-.admin-vicoins-orders{margin:25px 0 32px;padding:18px;border:1px solid #493554;border-radius:12px;background:linear-gradient(145deg,#17121c,#0e0c12 75%)}
-.admin-vicoins-orders>div:first-child h2{margin:5px 0;color:#f5eff8;font:600 24px var(--serif)}
-.admin-vicoins-orders>div:first-child p{margin:0;color:#b5adbb;font-size:12px;line-height:1.5}
+.admin-shop-orders{margin:12px 0 28px;padding:18px;border:1px solid #493554;border-radius:13px;background:linear-gradient(145deg,#17121c,#0e0c12 75%);box-shadow:0 12px 30px #0003}
+.admin-shop-orders-intro h2{margin:5px 0;color:#f5eff8;font:600 25px var(--serif)}
+.admin-shop-orders-intro>p{margin:0;color:#b5adbb;font-size:12px;line-height:1.5}
+.admin-shop-orders-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:15px}
+.admin-shop-order-group{min-width:0;padding:13px;border:1px solid #382d41;border-radius:9px;background:#100e14}
+.admin-shop-order-group>div:first-child h2{margin:4px 0;color:#f5eff8;font:600 18px var(--serif)}
+.admin-shop-order-group>div:first-child p{margin:0;color:#b5adbb;font-size:11px;line-height:1.45}
 .admin-vicoins-feedback{margin:12px 0;color:#b6adbf;font-size:12px;line-height:1.5}
 .admin-vicoins-list{display:grid;gap:8px}
 .admin-vicoins-empty{margin:0;color:#9f96a5;font-size:12px}
@@ -56,8 +60,22 @@
 .admin-vicoins-actions button{min-height:34px;padding:0 11px;border:1px solid #826025;border-radius:6px;background:#32240e;color:#f6dc9d;font-size:10px;font-weight:700;cursor:pointer}
 .admin-vicoins-actions button:last-child{border-color:#70404b;background:#2b171b;color:#efb6bf}
 .admin-vicoins-actions button:disabled{opacity:.6;cursor:wait}
+.admin-vicoins-adjustment{margin:0 0 28px;padding:18px;border:1px solid #493554;border-radius:13px;background:linear-gradient(145deg,#17121c,#0e0c12 75%);box-shadow:0 12px 30px #0003}
+.admin-vicoins-adjustment h2{margin:5px 0;color:#f5eff8;font:600 23px var(--serif)}
+.admin-vicoins-adjustment>div>p{margin:0;color:#b5adbb;font-size:12px;line-height:1.5}
+.admin-vicoins-adjustment-form{display:grid;grid-template-columns:1.2fr 1fr .8fr 1.2fr auto;align-items:end;gap:10px;margin-top:16px}
+.admin-vicoins-adjustment-form label{display:grid;gap:6px;color:#ded5e4;font-size:11px;font-weight:700}
+.admin-vicoins-adjustment-form input,.admin-vicoins-adjustment-form select{width:100%;height:39px;padding:0 10px;border:1px solid #493853;border-radius:7px;background:#0c0a10;color:#f2edf6;font:inherit;font-size:12px}
+.admin-vicoins-adjustment-form input:focus,.admin-vicoins-adjustment-form select:focus{outline:1px solid #a25ec6}
+.admin-vicoins-adjustment-form button{height:39px;padding:0 14px;border:1px solid #a358d3;border-radius:7px;background:linear-gradient(110deg,#7524a8,#4b1d6b);color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+.admin-vicoins-adjustment-form button:disabled{opacity:.6;cursor:wait}
+.admin-vicoins-adjustment-feedback{min-height:18px;margin:12px 0 0;color:#d9b6f2;font-size:12px;line-height:1.5}
+.admin-vicoins-adjustment-note{margin:0;color:#94899a;font-size:10px}
 @media(max-width:1000px){.shop-rewards{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:520px){.shop-rewards{grid-template-columns:1fr}.shop-reward-card>p{min-height:0}.shop-order-row{align-items:flex-start;flex-direction:column}.admin-vicoins-orders{padding:13px}.admin-vicoins-order{grid-template-columns:1fr}.admin-vicoins-actions{flex-direction:column}}
+@media(max-width:760px){.admin-shop-orders-list{grid-template-columns:1fr}}
+@media(max-width:900px){.admin-vicoins-adjustment-form{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-vicoins-adjustment-form button{grid-column:1/-1}}
+@media(max-width:520px){.admin-vicoins-adjustment{padding:13px}.admin-vicoins-adjustment-form{grid-template-columns:1fr}.admin-vicoins-adjustment-form button{grid-column:auto}}
+@media(max-width:520px){.shop-rewards{grid-template-columns:1fr}.shop-reward-card>p{min-height:0}.shop-order-row{align-items:flex-start;flex-direction:column}.admin-shop-orders{padding:13px}.admin-shop-order-group{padding:10px}.admin-vicoins-order{grid-template-columns:1fr}.admin-vicoins-actions{flex-direction:column}}
 .shop-requested-title-label{display:grid;gap:6px;max-width:720px;margin-top:16px;color:#d6cbdc;font-size:12px;font-weight:700}
 .shop-requested-title-label small{color:#968c9b;font-size:10px;font-weight:400}
 .shop-requested-title-label input{height:40px;padding:0 11px;border:1px solid #493853;border-radius:7px;background:#0c0a10;color:#f2edf6;font-size:12px}
@@ -83,6 +101,21 @@
 .shop-cosmetics{max-width:960px;margin-top:29px}
 .shop-cosmetics-heading h2{margin:5px 0;color:#f5eff8;font:600 24px var(--serif)}
 .shop-cosmetics-heading p{margin:0;color:#b5adbb;font-size:12px;line-height:1.5}
+.shop-banner-featured-grid{display:grid;grid-template-columns:minmax(0,1fr) 210px;align-items:center;gap:13px;margin-top:13px;max-width:720px}
+.shop-more-banners-card{display:grid;align-content:center;justify-items:center;gap:8px;width:100%;aspect-ratio:1;padding:16px;border:1px solid #654778;border-radius:12px;background:radial-gradient(ellipse at 50% 10%,#653c7744,transparent 62%),linear-gradient(145deg,#1b1520,#100e14 75%);color:#eadcf1;text-align:center;cursor:pointer;transition:border-color .16s,transform .16s,box-shadow .16s}
+.shop-more-banners-card:hover{transform:translateY(-2px);border-color:#bd7cdd;box-shadow:0 10px 25px #0006,0 0 20px #8d49ad33}
+.shop-more-banners-icon{color:#ce91eb;font-size:34px;line-height:1}
+.shop-more-banners-card strong{font:600 17px var(--serif)}
+.shop-more-banners-card small{color:#ad9db5;font-size:10px}
+.shop-more-banners-action{margin-top:3px;color:#d798f5;font-size:11px;font-weight:700}
+.shop-more-banners-dialog{width:min(900px,calc(100vw - 28px));max-width:none;max-height:min(86vh,800px);margin:auto;padding:20px;border:1px solid #533b60;border-radius:15px;background:linear-gradient(150deg,#17121c,#0d0b10 75%);color:#eee8f2;box-shadow:0 24px 90px #000b;overflow:auto}
+.shop-more-banners-dialog::backdrop{background:#050408d9;backdrop-filter:blur(6px)}
+.shop-more-banners-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.shop-more-banners-head h2{margin:4px 0;color:#f5eff8;font:600 25px var(--serif)}
+.shop-more-banners-head button{display:grid;width:36px;height:36px;place-items:center;border:1px solid #493653;border-radius:8px;background:#17121c;color:#e6d9ed;font-size:25px;cursor:pointer}
+.shop-more-banners-dialog>p{margin:5px 0 12px;color:#b5adbb;font-size:12px}
+.shop-more-banners-dialog .shop-banner-grid{margin-top:0;grid-auto-columns:minmax(260px,calc((100% - 12px)/2))}
+.shop-more-banners-empty{grid-column:1/-1;align-self:center;padding:26px 10px;text-align:center}
 .shop-banner-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,minmax(0,1fr));grid-auto-columns:minmax(270px,calc((100% - 12px)/2));gap:10px;margin-top:13px;padding:2px 2px 8px;overflow-x:auto;overflow-y:hidden;scrollbar-color:#5d4268 #17131a;scrollbar-width:thin;scroll-snap-type:x mandatory}
 .shop-banner-card{overflow:hidden;min-width:0;border:1px solid #513c5d;border-radius:10px;background:linear-gradient(145deg,#1b1520,#100e14 75%);box-shadow:0 8px 22px #0004}
 .shop-banner-card{scroll-snap-align:start}
@@ -105,8 +138,9 @@
 .shop-banner-redeem:hover:not(:disabled){filter:brightness(1.15)}
 .shop-banner-redeem:disabled{border-color:#393136;background:#211d22;color:#847c86;cursor:not-allowed}
 @media(max-width:760px){.shop-wallet-row{gap:10px}.shop-wallet-row .shop-wallet{flex:1 1 320px}.shop-daily-claim{flex:1 1 190px}.shop-vicoins-guide{flex:1 1 100%}}
-@media(max-width:760px){.shop-banner-grid{grid-auto-columns:minmax(250px,calc((100% - 10px)/2))}}
+@media(max-width:760px){.shop-banner-featured-grid{grid-template-columns:minmax(0,1fr) 190px;gap:10px}.shop-banner-grid{grid-auto-columns:minmax(250px,calc((100% - 10px)/2))}}
 @media(max-width:480px){.shop-banner-grid{grid-auto-columns:minmax(230px,82vw)}}
+@media(max-width:520px){.shop-banner-featured-grid{grid-template-columns:1fr;max-width:100%}.shop-more-banners-card{width:min(100%,180px);aspect-ratio:1;justify-self:center}.shop-more-banners-dialog{padding:15px}.shop-more-banners-dialog .shop-banner-grid{grid-auto-columns:minmax(230px,82vw)}}
 .admin-shop-banners{margin:25px 0 32px;padding:18px;border:1px solid #493554;border-radius:12px;background:linear-gradient(145deg,#17121c,#0e0c12 75%)}
 .admin-shop-banners>div:first-child h2{margin:5px 0;color:#f5eff8;font:600 24px var(--serif)}
 .admin-shop-banners>div:first-child p{margin:0;color:#b5adbb;font-size:12px;line-height:1.5}

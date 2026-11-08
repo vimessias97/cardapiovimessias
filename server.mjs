@@ -39,6 +39,7 @@ let youtubeVideosCache = {expiresAt:0,videos:[]};
 let youtubeChannelId = '';
 const twitchOAuthStates = new Map();
 const twitchSessions = new Map();
+const infiniteVicoinsUserIds = new Set();
 let patreonPostsCache = {expiresAt:0,posts:[]};
 const manualPatreonLinksFile = path.join(root, 'patreon-links.json');
 let favoritesWriteQueue = Promise.resolve();
@@ -60,9 +61,7 @@ const vicoinsRewards = [
   {id:'content-30',contentLimit:30,coinCost:800}
 ];
 const profileBannerRewards = [
-  {id:'vimessias',name:'ViMessias',imageUrl:'/assets/profile-banners/vimessias-1600x240.png',paymentType:'livepix',amount:5},
-  {id:'halloween-michael',name:'Halloween · Michael Myers',imageUrl:'/assets/profile-banners/halloween-michael-1600x240.png',paymentType:'vicoins',coinCost:100},
-  {id:'terrifier-natal',name:'Terrifier Natal',imageUrl:'/assets/profile-banners/terrifier-natal-1600x240.png',paymentType:'vicoins',coinCost:100}
+  {id:'vimessias',name:'ViMessias',imageUrl:'/assets/profile-banners/vimessias-1600x240.png',paymentType:'livepix',amount:5}
 ];
 function twitchConfig() {
   const clientId = process.env.TWITCH_CLIENT_ID || '';
@@ -171,7 +170,9 @@ async function getAuthenticatedProfile(req, res) {
         session.communityMemberSavedAt = Date.now();
       } catch (error) { console.warn('Não foi possível atualizar o perfil da comunidade:',error.message); }
     }
-    return {...session.profile,role:getTwitchRole(session.profile)};
+    const role = getTwitchRole(session.profile);
+    if (role === 'admin') infiniteVicoinsUserIds.add(session.profile.id);
+    return {...session.profile,role};
   } catch {
     twitchSessions.delete(sessionId);
     res.setHeader('set-cookie', `cardapio_twitch_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${cookieOptions(req)}`);
@@ -299,6 +300,7 @@ async function updateVicoinsStore(update) {
 }
 
 function applyVicoinsTransaction(store,{userId,amount,type,referenceId,description}) {
+  if (infiniteVicoinsUserIds.has(String(userId))) return Number.MAX_SAFE_INTEGER;
   store.balances = store.balances || {};
   store.transactions = Array.isArray(store.transactions) ? store.transactions : [];
   const existing = store.transactions.find(item => item.userId === userId && item.type === type && item.referenceId === referenceId);
@@ -311,13 +313,15 @@ function applyVicoinsTransaction(store,{userId,amount,type,referenceId,descripti
   return next;
 }
 
-async function getVicoinsBalance(userId) {
+async function getVicoinsBalance(userId,infinite = false) {
+  if (infinite || infiniteVicoinsUserIds.has(String(userId))) return Number.MAX_SAFE_INTEGER;
   const store = await readVicoinsStore();
   const balance = Number(store.balances[userId]);
   return Number.isSafeInteger(balance) && balance >= 0 ? balance : 0;
 }
 
 async function awardActivityVicoins({userId,type,referenceId,description}) {
+  if (infiniteVicoinsUserIds.has(String(userId))) return {awarded:0,balance:Number.MAX_SAFE_INTEGER};
   return updateVicoinsStore(store => {
     store.transactions = Array.isArray(store.transactions) ? store.transactions : [];
     const exists = store.transactions.some(item => item.userId === userId && item.type === type && item.referenceId === referenceId);
@@ -985,10 +989,34 @@ async function handle(req, res) {
     } catch { return json(res,404,{error:'Imagem não encontrada.'}); }
   }
   if (req.method === 'GET' && url.pathname === '/api/forum/topics') {
+    const viewer = await getAuthenticatedProfile(req,res);
     const topics = (await readForumTopics())
       .sort((a,b) => Date.parse(b.updatedAt || b.createdAt) - Date.parse(a.updatedAt || a.createdAt))
       .slice(0,100);
-    return json(res,200,{topics});
+    return json(res,200,{topics:topics.map(topic => {
+      const likedBy = Array.isArray(topic.likedBy) ? topic.likedBy : [];
+      return {...topic,likeCount:likedBy.length,likedByMe:Boolean(viewer && likedBy.includes(viewer.id)),likedBy:undefined};
+    })});
+  }
+  const forumLikeMatch = /^\/api\/forum\/topics\/([a-f0-9-]{36})\/like$/i.exec(url.pathname);
+  if (req.method === 'POST' && forumLikeMatch) {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para curtir tópicos no fórum.'});
+    const origin = req.headers.origin;
+    if (origin && origin !== 'null' && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    try {
+      const result = await updateForumTopics(topics => {
+        const topic = topics.find(item => item.id === forumLikeMatch[1]);
+        if (!topic) throw Object.assign(new Error('Este tópico não existe mais.'),{statusCode:404});
+        topic.likedBy = Array.isArray(topic.likedBy) ? topic.likedBy : [];
+        const index = topic.likedBy.indexOf(profile.id);
+        const liked = index < 0;
+        if (liked) topic.likedBy.push(profile.id);
+        else topic.likedBy.splice(index,1);
+        return {likeCount:topic.likedBy.length,likedByMe:liked};
+      });
+      return privateJson(res,200,result);
+    } catch (error) { return privateJson(res,error.statusCode || 500,{error:error.message || 'Não foi possível registrar a curtida.'}); }
   }
   if (req.method === 'POST' && url.pathname === '/api/forum/topics') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -1212,9 +1240,9 @@ async function handle(req, res) {
     const vicoins = Object.entries(store.balances)
       .map(([id,value]) => {
         const member = memberById.get(id) || {};
-        return {id,displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',balance:Number(value) || 0};
+        return {id,displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',balance:Number(value) || 0,isAdmin:getTwitchRole(member) === 'admin'};
       })
-      .filter(member => member.balance > 0)
+      .filter(member => member.balance > 0 && !member.isAdmin)
       .sort((a,b) => b.balance - a.balance || a.displayName.localeCompare(b.displayName,'pt-BR'))
       .slice(0,5);
     const totals = new Map();
@@ -1251,7 +1279,8 @@ async function handle(req, res) {
     const achievements = {favorites:favorites.length,ratings:userRatingCount(await readRatings(),memberId),redemptions:redemptions.length};
     const vicoinsStore = await readVicoinsStore();
     const bannerInventory = getProfileBannerInventory(vicoinsStore,memberId);
-    const profile = {id:member.id,login:member.login,displayName:member.displayName,profileImageUrl:member.profileImageUrl,joinedAt:member.joinedAt,vicoins:await getVicoinsBalance(memberId),banner:bannerInventory.equipped};
+    const isAdmin = getTwitchRole(member) === 'admin';
+    const profile = {id:member.id,login:member.login,displayName:member.displayName,profileImageUrl:member.profileImageUrl,joinedAt:member.joinedAt,vicoins:await getVicoinsBalance(memberId,isAdmin),vicoinsInfinite:isAdmin,banner:bannerInventory.equipped};
     return json(res,200,{profile,favorites,redemptions,achievements});
   }
   if (req.method === 'GET' && url.pathname === '/api/shop/profile-banners') {
@@ -1332,7 +1361,7 @@ async function handle(req, res) {
     const achievements = {favorites:favorites.length,ratings:userRatingCount(await readRatings(),profile.id),redemptions:redemptions.length};
     const vicoinsStore = await readVicoinsStore();
     const bannerInventory = getProfileBannerInventory(vicoinsStore,profile.id);
-    return privateJson(res,200,{profile:{...profile,vicoins:await getVicoinsBalance(profile.id),banner:bannerInventory.equipped},favorites,redemptions,achievements});
+    return privateJson(res,200,{profile:{...profile,vicoins:await getVicoinsBalance(profile.id,profile.role === 'admin'),vicoinsInfinite:profile.role === 'admin',banner:bannerInventory.equipped},favorites,redemptions,achievements});
   }
   if (req.method === 'GET' && url.pathname === '/api/account/profile-banner') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -1435,7 +1464,7 @@ async function handle(req, res) {
     const type = String(body.mediaType || '');
     const id = Number(body.id);
     const manual = body.manual && typeof body.manual === 'object' ? body.manual : null;
-    if (!['movie','tv'].includes(type) || (!manual && (!Number.isSafeInteger(id) || id <= 0))) return privateJson(res,400,{error:'Título inválido para solicitar o resgate.'});
+    if (!['movie','tv','other'].includes(type) || (type === 'other' && !manual) || (!manual && (!Number.isSafeInteger(id) || id <= 0))) return privateJson(res,400,{error:'Título inválido para solicitar o resgate.'});
     let scheduledAt;
     try { scheduledAt = parseScheduledAt(body.scheduledAt); }
     catch (error) { return privateJson(res,400,{error:error.message}); }
@@ -1482,7 +1511,7 @@ async function handle(req, res) {
     if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para consultar seus Vicoins.'});
     try { await reconcileApprovedRedemptionVicoins(profile.id); }
     catch { return privateJson(res,500,{error:'Não foi possível atualizar seu saldo de Vicoins.'}); }
-    return privateJson(res,200,{balance:await getVicoinsBalance(profile.id)});
+    return privateJson(res,200,{balance:await getVicoinsBalance(profile.id,profile.role === 'admin'),infinite:profile.role === 'admin'});
   }
   if (req.method === 'GET' && url.pathname === '/api/account/vicoins/daily') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -1490,7 +1519,7 @@ async function handle(req, res) {
     const store = await readVicoinsStore();
     const lastClaim = Date.parse(store.dailyClaims[profile.id] || '');
     const availableAt = Number.isFinite(lastClaim) ? new Date(lastClaim + 24 * 60 * 60 * 1000).toISOString() : null;
-    return privateJson(res,200,{claimAmount:20,eligible:!availableAt || Date.now() >= Date.parse(availableAt),availableAt,balance:await getVicoinsBalance(profile.id)});
+    return privateJson(res,200,{claimAmount:20,eligible:!availableAt || Date.now() >= Date.parse(availableAt),availableAt,balance:await getVicoinsBalance(profile.id,profile.role === 'admin'),infinite:profile.role === 'admin'});
   }
   if (req.method === 'POST' && url.pathname === '/api/account/vicoins/daily') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -1522,7 +1551,7 @@ async function handle(req, res) {
     if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para ver seus pedidos da lojinha.'});
     const store = await readVicoinsStore();
     const orders = store.orders.filter(order => order.requester?.id === profile.id).sort((a,b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0,20);
-    return privateJson(res,200,{orders,balance:await getVicoinsBalance(profile.id)});
+    return privateJson(res,200,{orders,balance:await getVicoinsBalance(profile.id,profile.role === 'admin'),infinite:profile.role === 'admin'});
   }
   if (req.method === 'POST' && url.pathname === '/api/shop/vicoins-orders') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -1595,6 +1624,38 @@ async function handle(req, res) {
       });
       return privateJson(res,200,result);
     } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível atualizar o pedido.'}); }
+  }
+  if (req.method === 'POST' && url.pathname === '/api/admin/vicoins-adjustments') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode ajustar Vicoins.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req); }
+    catch (error) { return privateJson(res,400,{error:error.message}); }
+    const login = String(body.login || '').trim().replace(/^@/,'').toLowerCase();
+    const amount = Number(body.amount);
+    const action = String(body.action || '');
+    const reason = String(body.reason || '').trim().slice(0,120);
+    if (!/^[a-z0-9_]{1,25}$/.test(login)) return privateJson(res,400,{error:'Informe um usuário Twitch válido, sem espaços.'});
+    if (!Number.isSafeInteger(amount) || amount < 1 || amount > 1000000) return privateJson(res,400,{error:'Informe uma quantidade inteira entre 1 e 1.000.000 Vicoins.'});
+    if (!['add','remove'].includes(action)) return privateJson(res,400,{error:'Escolha adicionar ou remover Vicoins.'});
+    const target = (await readCommunityMembers()).find(member => String(member.login || '').toLowerCase() === login);
+    if (!target) return privateJson(res,404,{error:'Este usuário ainda não aparece na comunidade. Peça para entrar no site com a Twitch uma vez e tente novamente.'});
+    if (getTwitchRole(target) === 'admin') return privateJson(res,400,{error:'A conta administradora já tem Vicoins ilimitados.'});
+    const signedAmount = action === 'add' ? amount : -amount;
+    try {
+      const balance = await updateVicoinsStore(store => applyVicoinsTransaction(store,{
+        userId:target.id,
+        amount:signedAmount,
+        type:'admin-adjustment',
+        referenceId:randomUUID(),
+        description:`${action === 'add' ? 'Adição' : 'Remoção'} manual por @${profile.login}${reason ? ` · ${reason}` : ''}`
+      }));
+      return privateJson(res,200,{login:target.login,displayName:target.displayName || target.login,amount,balance,action});
+    } catch (error) {
+      return privateJson(res,409,{error:error.message || 'Não foi possível ajustar o saldo de Vicoins.'});
+    }
   }
   if (req.method === 'GET' && url.pathname === '/api/admin/vicoins-orders') {
     const profile = await getAuthenticatedProfile(req,res);

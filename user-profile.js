@@ -94,7 +94,7 @@
         return redemptions;
       }
       redemptionsFeedback.textContent = '';
-      redemptionsList.innerHTML = redemptions.map(item => `<article class="account-redemption-item">${item.posterUrl ? `<img src="${safe(item.posterUrl)}" alt="Pôster de ${safe(item.title)}" loading="lazy">` : '<span class="account-redemption-no-poster" aria-hidden="true">✦</span>'}<div><strong>${safe(item.title)}</strong><small>${safe(item.mediaType === 'tv' ? 'Série' : 'Filme')} · ${safe(item.durationLabel || 'Duração não informada')}</small><small>Data solicitada: ${safe(redemptionDate(item.scheduledAt))}</small></div><span class="account-redemption-status status-${safe(item.status)}">${item.status === 'approved' ? 'Aprovado' : item.status === 'rejected' ? 'Rejeitado' : 'Aguardando aprovação'}</span></article>`).join('');
+      redemptionsList.innerHTML = redemptions.map(item => `<article class="account-redemption-item">${item.posterUrl ? `<img src="${safe(item.posterUrl)}" alt="Pôster de ${safe(item.title)}" loading="lazy">` : '<span class="account-redemption-no-poster" aria-hidden="true">✦</span>'}<div><strong>${safe(item.title)}</strong><small>${safe(item.mediaType === 'tv' ? 'Série' : item.mediaType === 'other' ? 'Outro' : 'Filme')} · ${safe(item.durationLabel || 'Duração não informada')}</small><small>Data solicitada: ${safe(redemptionDate(item.scheduledAt))}</small></div><span class="account-redemption-status status-${safe(item.status)}">${item.status === 'approved' ? 'Aprovado' : item.status === 'rejected' ? 'Rejeitado' : 'Aguardando aprovação'}</span></article>`).join('');
       return redemptions;
     } catch (error) {
       redemptionsFeedback.textContent = error.message || 'Não foi possível carregar seus resgates.';
