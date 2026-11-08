@@ -1,0 +1,67 @@
+(() => {
+  const topRatedList = document.querySelector('#topRatedList');
+  const topRatedFeedback = document.querySelector('#topRatedFeedback');
+  const apiBases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
+
+  function safe(value = '') {
+    return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  async function api(path, options = {}) {
+    let lastError;
+    for (let index = 0; index < apiBases.length; index++) {
+      try {
+        const response = await fetch(`${apiBases[index]}${path}`, options);
+        if (response.status === 404 && index < apiBases.length - 1) continue;
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Não foi possível carregar as avaliações.');
+        return data;
+      } catch (error) {
+        if (!(error instanceof TypeError)) throw error;
+        lastError = error;
+      }
+    }
+    throw lastError || new Error('Não foi possível conectar ao servidor.');
+  }
+
+  function renderTopRated(items = []) {
+    if (!topRatedList || !topRatedFeedback) return;
+    if (!items.length) {
+      topRatedList.innerHTML = '';
+      topRatedFeedback.textContent = 'Ainda não há avaliações de títulos com react no Patreon.';
+      return;
+    }
+    topRatedFeedback.textContent = '';
+    topRatedList.innerHTML = items.map((item,index) => `<li class="top-rated-item"><span class="top-rated-rank">${String(index + 1).padStart(2,'0')}</span>${item.posterUrl ? `<img class="top-rated-poster" src="${safe(item.posterUrl)}" alt="" loading="lazy">` : '<span class="top-rated-poster top-rated-no-poster" aria-hidden="true">✦</span>'}<div class="top-rated-copy"><strong>${safe(item.title)}</strong><span class="top-rated-score"><span aria-hidden="true">★</span> ${Number(item.averageRating).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} <small>(${item.ratingCount})</small></span></div></li>`).join('');
+  }
+
+  async function refresh() {
+    try {
+      const data = await api('/api/catalog/ratings');
+      renderTopRated(data.topRated || []);
+      return data.topRated || [];
+    } catch (error) {
+      if (topRatedFeedback) topRatedFeedback.textContent = error.message || 'Não foi possível carregar o ranking.';
+      return [];
+    }
+  }
+
+  async function get(item) {
+    return api(`/api/catalog/rating?type=${encodeURIComponent(item.mediaType)}&id=${encodeURIComponent(item.id)}`);
+  }
+
+  async function rate(item, rating) {
+    if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para avaliar filmes e séries com react no Patreon.')) throw new Error('É necessário entrar com a Twitch para avaliar.');
+    const data = await api('/api/catalog/rating', {
+      method:'POST',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({rating,item:{id:item.id,mediaType:item.mediaType}})
+    });
+    renderTopRated(data.topRated || []);
+    window.dispatchEvent(new CustomEvent('cardapio:rating-updated'));
+    return data;
+  }
+
+  window.CardapioRatings = {ready:refresh(),refresh,get,rate,renderTopRated};
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+})();

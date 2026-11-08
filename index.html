@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#09080d"><meta name="description" content="Cardápio Vimessias — consulte informações sobre filmes, séries e animes.">
+  <title>Cardápio Vimessias — Consulta de títulos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="home-only.css">
+  <link rel="stylesheet" href="calculator.css">
+  <link rel="stylesheet" href="suggestions.css">
+  <link rel="stylesheet" href="randomizer.css">
+  <link rel="stylesheet" href="calendar.css">
+  <link rel="stylesheet" href="favorites.css">
+  <link rel="stylesheet" href="games.css">
+  <link rel="stylesheet" href="quote-game.css">
+  <link rel="stylesheet" href="promotions.css">
+  <link rel="stylesheet" href="ratings.css">
+  <link rel="stylesheet" href="recent-redemptions.css">
+  <link rel="stylesheet" href="youtube-latest.css">
+  <link rel="stylesheet" href="readability.css">
+  <link rel="stylesheet" href="twitch-auth.css">
+  <link rel="stylesheet" href="user-profile.css">
+  <link rel="stylesheet" href="redemption-flow.css">
+</head>
+<body class="catalog-home">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="side-brand" href="#inicio" aria-label="Cardápio Vimessias"><span class="clapper">▰<b>▶</b></span><strong>CARDÁPIO<br><em>VIMESSIAS</em></strong><small>FILMES · SÉRIES · ANIMES</small></a>
+      <nav class="side-nav" aria-label="Navegação principal">
+        <a class="selected" href="#inicio" data-page="home"><span>⌂</span>Início</a>
+        <a href="#sorteador" data-page="sorteador"><span>⚄</span>Sorteador</a>
+        <a href="#calendario" data-page="calendario"><span>▦</span>Calendário</a>
+        <a href="#sugestoes" data-page="sugestoes"><span>♡</span>Sugestões</a>
+        <a href="#jogos" data-page="jogos"><span>▣</span>Jogos</a>
+        <a href="#promocoes" data-page="promocoes"><span>％</span>Promoções</a>
+        <a class="hidden" id="adminPanelNav" href="#admin" data-page="admin"><span>⚙</span>Painel administrativo</a>
+      </nav>
+      <section class="sidebar-user-profile hidden" id="sidebarUserProfile" aria-label="Perfil da Twitch">
+        <div class="sidebar-user-heading"><img id="sidebarUserAvatar" alt=""><span><strong id="sidebarUserName"></strong><small id="sidebarUserLogin"></small></span></div>
+        <span class="sidebar-user-role" id="sidebarUserRole"></span>
+        <nav class="sidebar-user-links" aria-label="Minha conta">
+          <a href="#resgatados" data-page="resgatados"><span aria-hidden="true">▣</span>Filmes que resgatei</a>
+          <a href="#favoritos" data-page="favoritos"><span aria-hidden="true">♡</span>Filmes que favoritei</a>
+        </nav>
+        <button class="sidebar-user-logout" id="sidebarUserLogout" type="button">Sair da conta</button>
+      </section>
+      <div class="sidebar-foot">UMA COMUNIDADE.<br>MUITAS HISTÓRIAS.</div>
+    </aside>
+
+    <div class="workspace">
+      <header class="account-bar" aria-label="Conta do site">
+        <a class="twitch-login" id="twitchLogin" href="/auth/twitch/start"><span class="twitch-mark" aria-hidden="true">◉</span><span>Entrar com Twitch</span></a>
+        <div class="twitch-profile hidden" id="twitchProfile" aria-live="polite"><img id="twitchAvatar" alt=""><span class="twitch-profile-copy"><strong id="twitchDisplayName"></strong><small id="twitchLoginName"></small></span><button class="twitch-logout" id="twitchLogout" type="button">Sair</button></div>
+        <span class="twitch-auth-feedback" id="twitchAuthFeedback" aria-live="polite"></span>
+      </header>
+      <main class="home-layout" id="inicio">
+        <div class="home-main">
+          <section class="home-hero" aria-label="Cardápio Vimessias">
+            <div class="home-hero-shade"></div><div class="hero-copy"><div class="hero-crown">♕</div><div class="hero-title-mark">CARDÁPIO</div><h1>VIMESSIAS</h1><p>ESCOLHA · RESGATE · ASSISTA NA LIVE</p></div>
+            <div class="hero-corner">INFORMAÇÕES DE FILMES, SÉRIES E ANIMES</div>
+          </section>
+          <section class="feature-strip" aria-label="Como usar o catálogo">
+            <div><span aria-hidden="true"><svg viewBox="0 0 48 48"><rect x="5" y="9" width="38" height="30" rx="4"></rect><path d="m20 17 12 7-12 7z"></path><path d="M11 9v6m9-6v4m9-4v4m8-4v6M11 33v6m9-4v4m9-4v4m8-6v6"></path></svg></span><p>Encontre o título<br>que quer assistir</p></div>
+            <div><span aria-hidden="true"><svg viewBox="0 0 48 48"><path d="m24 4 20 20-20 20L4 24 24 4Z"></path><path d="m14 14 20 20m0-20L14 34"></path></svg></span><p>Consulte sinopse<br>e duração</p></div>
+            <div><span aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="19"></circle><path d="M24 13v12l8 5"></path></svg></span><p>Confira a estimativa<br>por tempo</p></div>
+            <a href="https://www.patreon.com/cw/vimessias" target="_blank" rel="noopener noreferrer"><span aria-hidden="true"><svg viewBox="0 0 48 48"><rect x="5" y="8" width="38" height="27" rx="3"></rect><path d="M17 42h14m-7-7v7"></path><path d="M20 16h11m-11 6h7"></path></svg></span><p>Encontre reacts<br>no Patreon <b class="feature-arrow">↗</b></p></a>
+          </section>
+          <section class="calculator-section" id="calculadora">
+            <div class="calculator-heading"><span class="calculator-mark">⌕</span><div><h2>Consulte <em>filmes, séries e animes</em></h2></div></div>
+            <label class="calculator-search"><span>⌕</span><input id="titleSearch" type="search" placeholder="Digite o nome de um filme, série ou anime..." autocomplete="off"><kbd>⌕</kbd></label>
+            <div class="calculator-feedback" id="searchFeedback" aria-live="polite">Comece digitando o título que você procura.</div>
+            <details class="manual-estimate">
+              <summary>Não encontrou? Calcule o resgate manualmente</summary>
+              <div class="manual-estimate-body">
+                <label class="manual-title-label" for="manualEstimateTitle">Título do filme ou série</label>
+                <input class="manual-estimate-title" id="manualEstimateTitle" type="text" maxlength="120" placeholder="Digite o título que gostaria de resgatar">
+                <div class="manual-duration-fields">
+                  <span class="manual-duration-heading">Duração</span><span aria-hidden="true"></span>
+                  <label for="manualEstimateHours">Horas<input id="manualEstimateHours" type="number" min="0" max="999" step="1" inputmode="numeric" placeholder="0"></label>
+                  <label for="manualEstimateMinutes">Minutos<input id="manualEstimateMinutes" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="0"></label>
+                </div>
+                <div class="manual-estimate-result" aria-live="polite"><span id="manualEstimateLabel">Informe o título e a duração para calcular.</span><strong id="manualEstimatePrice">—</strong></div>
+                <p class="manual-estimate-note">R$ 5,00 por cada bloco iniciado de 30 minutos, arredondado para cima. Esta estimativa não envia um pedido nem realiza pagamento.</p>
+              </div>
+            </details>
+            <div class="search-results" id="searchResults"></div>
+            <button class="search-more-button hidden" id="searchMoreButton" type="button">Ver mais</button>
+            <article class="selected-title hidden" id="selectedTitle"></article>
+          </section>
+          <section class="home-promo-teaser" aria-labelledby="homePromoHeading">
+            <div class="home-promo-mark" aria-hidden="true">％</div>
+            <div class="home-promo-copy"><span class="home-promo-kicker">PROMOÇÕES POR COLEÇÃO</span><h2 id="homePromoHeading">Coleções completas com <em>30% OFF</em></h2><p>O Senhor dos Anéis · O Hobbit · Harry Potter</p></div>
+            <a class="home-promo-link" href="#promocoes" data-page="promocoes">Ver promoções <span aria-hidden="true">→</span></a>
+          </section>
+          <section class="suggestions-section" aria-labelledby="suggestionsHeading">
+            <div class="suggestions-heading"><div><div class="eyebrow muted">SUGESTÕES · ÚLTIMOS LANÇAMENTOS</div><h2 id="suggestionsHeading">Tendências</h2></div><div class="trending-controls" role="group" aria-label="Período das tendências"><button type="button" class="trending-period active" data-period="day" aria-pressed="true">Hoje</button><button type="button" class="trending-period" data-period="week" aria-pressed="false">Nesta semana</button></div></div>
+            <div class="suggestions-subheading"><p class="suggestions-intro">Em alta no TMDB, com estreia, duração e estimativa informativa.</p><a href="https://www.themoviedb.org/trending" target="_blank" rel="noreferrer">Ver tendências ↗</a></div>
+            <div class="suggestions-feedback" id="suggestionsFeedback" aria-live="polite">Carregando sugestões…</div>
+            <div class="suggestions-grid" id="suggestionsGrid" aria-live="polite"></div>
+          </section>
+        </div>
+        <aside class="right-rail">
+          <section class="rail-card consultation-card"><div class="rail-heading"><span class="rail-icon">ⓘ</span><h2>Como resgatar</h2></div><p>Pesquise o filme ou a série que deseja resgatar. O valor estimado é calculado pela duração, considerando R$ 5,00 para cada 30 minutos de conteúdo.</p><a class="patreon-cta twitch-live-cta" href="https://www.twitch.tv/vimessias_" target="_blank" rel="noopener noreferrer">Acessar live na Twitch <span>↗</span></a><a class="patreon-cta" href="https://www.patreon.com/cw/vimessias" target="_blank" rel="noopener noreferrer">Acessar Patreon <span>↗</span></a></section>
+          <section class="rail-card recent-redemptions-card" aria-labelledby="recentRedemptionsHeading"><div class="rail-heading"><span class="rail-icon">▣</span><h2 id="recentRedemptionsHeading">Últimos resgates</h2></div><div class="recent-redemptions-list" id="recentRedemptionsList" aria-live="polite"><p class="rail-empty">Carregando resgates…</p></div></section>
+          <section class="rail-card top-rated-card" aria-labelledby="topRatedHeading"><div class="rail-heading"><span class="rail-icon">★</span><h2 id="topRatedHeading">Mais bem avaliados</h2></div><p>Notas da comunidade para títulos com react no Patreon.</p><div class="top-rated-feedback" id="topRatedFeedback" aria-live="polite">Carregando avaliações…</div><ol class="top-rated-list" id="topRatedList"></ol></section>
+          <section class="rail-card youtube-latest-card" aria-labelledby="youtubeLatestHeading"><div class="rail-heading"><span class="rail-icon">▶</span><h2 id="youtubeLatestHeading">Reacts do YouTube</h2></div><p class="youtube-channel-link"><a href="https://www.youtube.com/@ViMessiasReacts" target="_blank" rel="noopener noreferrer">YouTube · ViMessiasReacts ↗</a></p><div class="youtube-latest-feedback" id="youtubeLatestFeedback" aria-live="polite">Carregando vídeos…</div><ol class="youtube-latest-list" id="youtubeLatestList"></ol></section>
+        </aside>
+      </main>
+      <main class="randomizer-page hidden" id="sorteador" aria-labelledby="randomizerHeading">
+        <div class="randomizer-intro"><span class="eyebrow muted">DESCUBRA ALGO NOVO</span><h1 id="randomizerHeading">Sorteador <em>de títulos</em></h1><p>Escolha o formato e deixe o Cardápio encontrar uma sugestão para você.</p></div>
+        <section class="randomizer-panel" aria-label="Opções do sorteador">
+          <div class="randomizer-options"><span>Quero sortear:</span><div class="randomizer-types" role="group" aria-label="Tipo de conteúdo"><button type="button" class="random-type active" data-type="movie" aria-pressed="true">▣ Filme</button><button type="button" class="random-type" data-type="tv" aria-pressed="false">▤ Série</button></div></div>
+          <div class="randomizer-genre-section"><span class="randomizer-genre-label">Escolha um gênero:</span><div class="randomizer-genres" id="genreOptions" role="group" aria-label="Gênero do conteúdo"><span class="genre-loading">Carregando gêneros…</span></div></div>
+          <button type="button" class="randomize-button" id="randomizeButton"><span aria-hidden="true">⚄</span> Sortear conteúdo</button>
+          <p class="randomizer-feedback" id="randomizerFeedback" aria-live="polite">O sorteio consulta títulos do TMDB e não faz pagamentos.</p>
+          <article class="random-result hidden" id="randomResult" aria-live="polite"></article>
+        </section>
+      </main>
+      <main class="calendar-page hidden" id="calendario" aria-labelledby="calendarHeading">
+        <header class="calendar-page-heading">
+          <div><span class="eyebrow muted">DATAS DE ESTREIA NO BRASIL</span><h1 id="calendarHeading">Calendário <em>de filmes</em></h1><p>Explore os lançamentos de cinema previstos para cada mês.</p></div>
+          <div class="calendar-controls" aria-label="Navegar entre meses"><button type="button" id="calendarPrevious" aria-label="Mês anterior">←</button><button type="button" id="calendarToday">Este mês</button><button type="button" id="calendarNext" aria-label="Próximo mês">→</button></div>
+        </header>
+        <section class="calendar-panel" aria-label="Calendário de estreias">
+          <div class="calendar-month-heading"><h2 id="calendarMonthLabel" aria-live="polite"></h2><span>ESTREIAS DE CINEMA · BRASIL</span></div>
+          <p class="calendar-feedback" id="calendarFeedback" aria-live="polite">Escolha um mês para consultar as estreias.</p>
+          <div class="calendar-weekdays" aria-hidden="true"><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span></div>
+          <div class="calendar-grid" id="calendarGrid" role="grid" aria-label="Dias do mês"></div>
+          <p class="calendar-attribution">As datas e os pôsteres são fornecidos pelo TMDB e podem mudar. <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">Consultar no TMDB ↗</a></p>
+        </section>
+        <section class="calendar-day-panel" aria-labelledby="calendarDayHeading"><div class="calendar-day-heading"><span class="eyebrow muted">PROGRAMAÇÃO DO DIA</span><h2 id="calendarDayHeading">Selecione uma data</h2></div><div class="calendar-day-list" id="calendarDayList" aria-live="polite"></div></section>
+      </main>
+      <main class="suggestions-page hidden" id="sugestoes" aria-labelledby="communitySuggestionsHeading">
+        <div class="suggestions-page-intro"><span class="eyebrow muted">ESCOLHAS DA COMUNIDADE</span><h1 id="communitySuggestionsHeading">Sugestões</h1><p>Os títulos favoritos, organizados pelos corações recebidos. Toda sexta-feira, o filme que tiver mais corações será exibido gratuitamente na live.</p></div>
+        <div class="community-favorites-feedback" id="communityFavoritesFeedback" aria-live="polite">Carregando favoritos…</div>
+        <div class="community-favorites-grid" id="communityFavoritesGrid"></div>
+      </main>
+      <main class="games-page hidden" id="jogos" aria-labelledby="gamesHeading">
+        <div class="games-page-intro"><span class="eyebrow muted">DIVERSÃO DE CINEMA</span><h1 id="gamesHeading">Jogos</h1><p id="gamesAccessNote">Entre com a Twitch para jogar os desafios.</p></div>
+        <div class="games-grid">
+          <button class="game-card-button" type="button" data-emoji-game="movies" aria-haspopup="dialog" aria-controls="emojiGameDialog">
+            <span class="game-card-art" aria-hidden="true"><span>🎬</span><span>❓</span></span>
+            <span class="game-card-title">Adivinhe por emojis (filmes)</span>
+            <span class="game-card-description">Descubra o filme usando as pistas em emoji.</span>
+            <span class="game-card-cta">Jogar agora <span aria-hidden="true">→</span></span>
+          </button>
+          <button class="game-card-button" type="button" data-emoji-game="series" aria-haspopup="dialog" aria-controls="emojiGameDialog">
+            <span class="game-card-art" aria-hidden="true"><span>📺</span><span>❓</span></span>
+            <span class="game-card-title">Adivinhe por emojis (séries)</span>
+            <span class="game-card-description">Descubra a série usando as pistas em emoji.</span>
+            <span class="game-card-cta">Jogar agora <span aria-hidden="true">→</span></span>
+          </button>
+          <button class="game-card-button quote-game-card" id="quoteGameOpen" type="button" aria-haspopup="dialog" aria-controls="quoteGameDialog">
+            <span class="game-card-art" aria-hidden="true"><span>💬</span><span>🎬</span></span>
+            <span class="game-card-title">Quem disse isso? (filme)</span>
+            <span class="game-card-description">Leia uma frase famosa e descubra qual personagem a disse.</span>
+            <span class="game-card-cta">Jogar agora <span aria-hidden="true">→</span></span>
+          </button>
+          <button class="game-card-button troove-game-card" id="trooveGameOpen" type="button" aria-haspopup="dialog" aria-controls="trooveGameDialog">
+            <span class="game-card-art" aria-hidden="true"><span>🖼️</span><span>🔎</span></span>
+            <span class="game-card-title">10 filmes para encontrar</span>
+            <span class="game-card-description">Encontre os filmes escondidos na imagem do Mr Troove.</span>
+            <span class="game-card-cta">Jogar agora <span aria-hidden="true">→</span></span>
+          </button>
+        </div>
+      </main>
+      <main class="promotions-page hidden" id="promocoes" aria-labelledby="promotionsHeading">
+        <div class="promotions-intro"><span class="eyebrow muted">PACOTES ESPECIAIS</span><h1 id="promotionsHeading">Promoções</h1><p>Descontos para quem escolhe uma coleção completa.</p></div>
+        <div class="promotion-collections" id="promotionCollections" aria-live="polite"></div>
+      </main>
+      <main class="account-library-page hidden" id="favoritos" aria-labelledby="myFavoritesHeading">
+        <header class="account-library-intro"><span class="eyebrow muted">SUA CONTA · TWITCH</span><h1 id="myFavoritesHeading">Filmes que favoritei</h1><p>Seus títulos favoritos ficam salvos na sua conta Twitch.</p></header>
+        <p class="account-library-feedback" id="myFavoritesFeedback" aria-live="polite">Carregando seus favoritos…</p>
+        <div class="community-favorites-grid account-favorites-grid" id="myFavoritesGrid"></div>
+      </main>
+      <main class="account-library-page hidden" id="resgatados" aria-labelledby="myRedemptionsHeading">
+        <header class="account-library-intro"><span class="eyebrow muted">SUA CONTA · TWITCH</span><h1 id="myRedemptionsHeading">Filmes que resgatei</h1><p>Consulte os filmes e séries que você já resgatou.</p></header>
+        <p class="account-library-feedback" id="myRedemptionsFeedback" aria-live="polite">Carregando seus resgates…</p>
+        <div class="account-redemptions-list" id="myRedemptionsList"></div>
+      </main>
+      <main class="admin-page hidden" id="admin" aria-labelledby="adminHeading">
+        <header class="admin-page-intro"><span class="eyebrow muted">ÁREA PRIVADA · ADMINISTRADOR</span><h1 id="adminHeading">Painel <em>administrativo</em></h1><p>Revise os pedidos, ajuste a data e horário e aprove ou rejeite cada resgate.</p></header>
+        <p class="admin-payment-note">Antes de aprovar, confirme o pagamento no LivePix. Esta fila registra os pedidos e ainda não recebe confirmação automática do provedor.</p>
+        <div class="admin-redemptions-feedback" id="adminRedemptionsFeedback" aria-live="polite">Carregando solicitações…</div>
+        <div class="admin-redemptions-list" id="adminRedemptionsList"></div>
+      </main>
+      <footer class="home-footer"><a class="brand" href="#inicio"><span class="brand-mark">V<span>•</span></span><span class="brand-copy"><strong>VIMESSIAS</strong><small>CONSULTA DE TÍTULOS</small></span></a><div class="tmdb-attribution"><a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer"><img src="https://www.themoviedb.org/assets/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.svg" alt="The Movie Database (TMDB)"></a><span>This product uses the TMDB API but is not endorsed or certified by TMDB.</span></div><a href="#inicio">VOLTAR AO TOPO ↑</a></footer>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <dialog class="catalog-title-dialog" id="catalogTitleDialog" aria-label="Detalhes do título">
+    <button class="catalog-title-dialog-close" id="catalogTitleDialogClose" type="button" aria-label="Fechar detalhes">×</button>
+    <article class="selected-title" id="dialogTitle"></article>
+  </dialog>
+  <dialog class="emoji-game-dialog" id="emojiGameDialog" aria-labelledby="emojiGameTitle">
+    <div class="emoji-game-dialog-head"><div><span class="eyebrow muted">DESAFIO DE CINEMA E TV</span><h2 id="emojiGameTitle">Adivinhe por emojis</h2></div><button class="emoji-game-close" id="emojiGameClose" type="button" aria-label="Fechar jogo">×</button></div>
+    <div class="emoji-game-status"><span id="emojiGameProgress">Pergunta 1 de 10</span><span>Pontos: <strong id="emojiGameScore">0</strong></span></div>
+    <div class="emoji-clues" id="emojiClues" aria-label="Pistas em emoji"></div>
+    <form id="emojiGuessForm" class="emoji-guess-form" autocomplete="off">
+      <label for="emojiGuessInput">Qual é o filme ou a série?</label>
+      <div><input id="emojiGuessInput" type="text" placeholder="Digite seu palpite…" maxlength="100" required><button type="submit">Responder</button></div>
+    </form>
+    <p class="emoji-game-feedback" id="emojiGameFeedback" aria-live="polite">Acerte para avançar para a próxima pista.</p>
+    <button class="emoji-game-restart hidden" id="emojiGameRestart" type="button">Jogar novamente</button>
+  </dialog>
+  <dialog class="emoji-game-dialog quote-game-dialog" id="quoteGameDialog" aria-labelledby="quoteGameTitle">
+    <div class="emoji-game-dialog-head"><div><span class="eyebrow muted">DESAFIO DE CINEMA</span><h2 id="quoteGameTitle">Quem disse isso? (filme)</h2></div><button class="emoji-game-close" id="quoteGameClose" type="button" aria-label="Fechar jogo">×</button></div>
+    <div class="emoji-game-status"><span id="quoteGameProgress">Pergunta 1 de 10</span><span>Pontos: <strong id="quoteGameScore">0</strong></span></div>
+    <blockquote class="quote-game-prompt" id="quoteGamePrompt"></blockquote>
+    <div class="quote-game-options" id="quoteGameOptions" role="group" aria-label="Escolha quem disse a frase"></div>
+    <p class="emoji-game-feedback" id="quoteGameFeedback" aria-live="polite">Escolha uma das quatro alternativas.</p>
+    <button class="emoji-game-restart hidden" id="quoteGameRestart" type="button">Jogar novamente</button>
+  </dialog>
+  <dialog class="emoji-game-dialog troove-game-dialog" id="trooveGameDialog" aria-labelledby="trooveGameTitle">
+    <div class="emoji-game-dialog-head"><div><span class="eyebrow muted">QUIZ INCORPORADO</span><h2 id="trooveGameTitle">10 filmes para encontrar</h2></div><button class="emoji-game-close" id="trooveGameClose" type="button" aria-label="Fechar jogo">×</button></div>
+    <p class="troove-game-note">Este jogo é carregado diretamente do Mr Troove. Se não aparecer, abra o quiz pelo botão abaixo.</p>
+    <div class="troove-game-frame-wrap"><iframe id="trooveGameFrame" title="Quiz do Mr Troove: 10 filmes para encontrar" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="fullscreen" allowfullscreen></iframe></div>
+    <a class="troove-game-fallback" href="https://www.mrtroove.com/pt-br/quiz/48e03f" target="_blank" rel="noopener noreferrer">Abrir o quiz no Mr Troove ↗</a>
+  </dialog>
+  <script src="favorites.js" defer></script>
+  <script src="ratings.js" defer></script>
+  <script src="recent-redemptions.js" defer></script>
+  <script src="youtube-latest.js" defer></script>
+  <script src="calculator.js" defer></script>
+  <script src="suggestions.js" defer></script>
+  <script src="randomizer.js" defer></script>
+  <script src="calendar.js" defer></script>
+  <script src="emoji-game.js" defer></script>
+  <script src="quote-game.js" defer></script>
+  <script src="troove-game.js" defer></script>
+  <script src="promotions.js" defer></script>
+  <script src="twitch-auth.js" defer></script>
+  <script src="user-profile.js" defer></script>
+  <script src="admin-redemptions.js" defer></script>
+</body>
+</html>
