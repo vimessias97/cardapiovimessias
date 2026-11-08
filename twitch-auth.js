@@ -1,14 +1,9 @@
 const twitchLogin = document.querySelector('#twitchLogin');
-const twitchProfile = document.querySelector('#twitchProfile');
-const twitchAvatar = document.querySelector('#twitchAvatar');
-const twitchDisplayName = document.querySelector('#twitchDisplayName');
-const twitchLoginName = document.querySelector('#twitchLoginName');
-const twitchLogout = document.querySelector('#twitchLogout');
 const twitchAuthFeedback = document.querySelector('#twitchAuthFeedback');
+const sidebarLoginArea = document.querySelector('#sidebarLoginArea');
 const sidebarUserProfile = document.querySelector('#sidebarUserProfile');
 const sidebarUserAvatar = document.querySelector('#sidebarUserAvatar');
 const sidebarUserName = document.querySelector('#sidebarUserName');
-const sidebarUserLogin = document.querySelector('#sidebarUserLogin');
 const sidebarUserRole = document.querySelector('#sidebarUserRole');
 const sidebarUserLogout = document.querySelector('#sidebarUserLogout');
 const gamesAccessNote = document.querySelector('#gamesAccessNote');
@@ -25,8 +20,7 @@ function showTwitchFeedback(message) {
 function updateTwitchUi(profile) {
   currentTwitchUser = profile || null;
   const authenticated = Boolean(profile);
-  twitchLogin.classList.toggle('hidden', authenticated);
-  twitchProfile.classList.add('hidden');
+  sidebarLoginArea.classList.toggle('hidden', authenticated);
   sidebarUserProfile.classList.toggle('hidden', !authenticated);
   adminPanelNav?.classList.toggle('hidden', profile?.role !== 'admin');
   if (gamesAccessNote) gamesAccessNote.textContent = authenticated
@@ -34,19 +28,14 @@ function updateTwitchUi(profile) {
     : 'Entre com a Twitch para jogar os desafios.';
   if (authenticated) {
     const name = profile.displayName || profile.login;
-    twitchDisplayName.textContent = name;
-    twitchLoginName.textContent = `@${profile.login}`;
     sidebarUserName.textContent = name;
-    sidebarUserLogin.textContent = `@${profile.login}`;
     sidebarUserRole.textContent = profile.role === 'admin' ? 'ADMINISTRADOR' : 'USUÁRIO TWITCH';
     sidebarUserRole.classList.toggle('is-admin', profile.role === 'admin');
-    for (const avatar of [twitchAvatar,sidebarUserAvatar]) {
-      if (profile.profileImageUrl) {
-        avatar.src = profile.profileImageUrl;
-        avatar.alt = `Foto de perfil de ${name}`;
-        avatar.classList.remove('hidden');
-      } else avatar.classList.add('hidden');
-    }
+    if (profile.profileImageUrl) {
+      sidebarUserAvatar.src = profile.profileImageUrl;
+      sidebarUserAvatar.alt = `Foto de perfil de ${name}`;
+      sidebarUserAvatar.classList.remove('hidden');
+    } else sidebarUserAvatar.classList.add('hidden');
   }
   window.dispatchEvent(new CustomEvent('cardapio:auth-updated',{detail:{user:currentTwitchUser}}));
 }
@@ -66,7 +55,6 @@ async function loadTwitchAccount() {
 }
 
 async function logoutTwitch() {
-  twitchLogout.disabled = true;
   sidebarUserLogout.disabled = true;
   try {
     await fetch('/api/auth/logout', {method:'POST',credentials:'same-origin'});
@@ -78,12 +66,10 @@ async function logoutTwitch() {
   } catch {
     showTwitchFeedback('Não foi possível encerrar a sessão. Tente novamente.');
   } finally {
-    twitchLogout.disabled = false;
     sidebarUserLogout.disabled = false;
   }
 }
 
-twitchLogout.addEventListener('click',logoutTwitch);
 sidebarUserLogout.addEventListener('click',logoutTwitch);
 
 window.CardapioAuth = {

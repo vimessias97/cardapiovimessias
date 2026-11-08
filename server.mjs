@@ -13,6 +13,7 @@ await mkdir(dataRoot, {recursive:true});
 const favoritesFile = path.join(dataRoot, 'favorites.json');
 const ratingsFile = path.join(dataRoot, 'ratings.json');
 const redemptionsFile = path.join(dataRoot, 'redemptions.json');
+const communityMembersFile = path.join(dataRoot, 'community-members.json');
 const youtubeVideosFile = path.join(dataRoot, 'youtube-videos.json');
 if (dataRoot !== root) {
   for (const name of ['favorites.json','ratings.json']) {
@@ -36,6 +37,7 @@ const manualPatreonLinksFile = path.join(root, 'patreon-links.json');
 let favoritesWriteQueue = Promise.resolve();
 let ratingsWriteQueue = Promise.resolve();
 let redemptionsWriteQueue = Promise.resolve();
+let communityMembersWriteQueue = Promise.resolve();
 function twitchConfig() {
   const clientId = process.env.TWITCH_CLIENT_ID || '';
   const clientSecret = process.env.TWITCH_CLIENT_SECRET || '';
@@ -137,6 +139,12 @@ async function getAuthenticatedProfile(req, res) {
   }
   try {
     if (!await verifyTwitchSession(session)) throw new Error('Sessão inválida.');
+    if (!session.communityMemberSavedAt || Date.now() - session.communityMemberSavedAt > 60 * 60 * 1000) {
+      try {
+        await saveCommunityMember(session.profile);
+        session.communityMemberSavedAt = Date.now();
+      } catch (error) { console.warn('Não foi possível atualizar o perfil da comunidade:',error.message); }
+    }
     return {...session.profile,role:getTwitchRole(session.profile)};
   } catch {
     twitchSessions.delete(sessionId);
@@ -169,6 +177,36 @@ async function readRedemptions() {
     const value = JSON.parse(await readFile(redemptionsFile,'utf8'));
     return Array.isArray(value) ? value : [];
   } catch { return []; }
+}
+
+async function readCommunityMembers() {
+  try {
+    const value = JSON.parse(await readFile(communityMembersFile,'utf8'));
+    return Array.isArray(value) ? value : [];
+  } catch { return []; }
+}
+
+async function saveCommunityMember(profile) {
+  const operation = communityMembersWriteQueue.then(async () => {
+    const members = await readCommunityMembers();
+    const existing = members.find(member => member.id === profile.id);
+    const now = new Date().toISOString();
+    const record = {
+      id:profile.id,
+      login:profile.login,
+      displayName:profile.displayName || profile.login,
+      profileImageUrl:profile.profileImageUrl || '',
+      joinedAt:existing?.joinedAt || now,
+      lastSeenAt:now
+    };
+    if (existing) Object.assign(existing,record);
+    else members.push(record);
+    const temporary = `${communityMembersFile}.tmp`;
+    await writeFile(temporary,JSON.stringify(members,null,2),'utf8');
+    await rename(temporary,communityMembersFile);
+  });
+  communityMembersWriteQueue = operation.catch(() => {});
+  return operation;
 }
 
 async function updateRedemptions(update) {
@@ -685,6 +723,8 @@ async function handle(req, res) {
       const userData = await userResponse.json().catch(() => ({}));
       const user = userData.data?.[0];
       if (!userResponse.ok || !user || user.id !== validation.user_id) throw new Error('Não consegui carregar o perfil da Twitch.');
+      try { await saveCommunityMember({id:user.id,login:user.login,displayName:user.display_name,profileImageUrl:user.profile_image_url || ''}); }
+      catch (error) { console.warn('Não foi possível registrar o novo perfil da comunidade:',error.message); }
       const sessionId = randomBytes(32).toString('base64url');
       twitchSessions.set(sessionId, {
         profile:{id:user.id,login:user.login,displayName:user.display_name,profileImageUrl:user.profile_image_url || ''},
@@ -736,6 +776,26 @@ async function handle(req, res) {
       .slice(0,5)
       .map(entry => ({id:entry.id,title:entry.title,mediaType:entry.mediaType,posterUrl:entry.posterUrl,durationMinutes:entry.durationMinutes,durationLabel:entry.durationLabel,scheduledAt:entry.scheduledAt,requester:{login:entry.requester?.login || '',displayName:entry.requester?.displayName || ''}}));
     return json(res,200,{redemptions:entries});
+  }
+  if (req.method === 'GET' && url.pathname === '/api/community/members') {
+    const members = (await readCommunityMembers())
+      .sort((a,b) => (Date.parse(b.joinedAt || '') || 0) - (Date.parse(a.joinedAt || '') || 0))
+      .slice(0,8)
+      .map(({id,login,displayName,profileImageUrl,joinedAt}) => ({id,login,displayName,profileImageUrl,joinedAt}));
+    return json(res,200,{members});
+  }
+  if (req.method === 'GET' && url.pathname.startsWith('/api/community/members/')) {
+    const memberId = url.pathname.slice('/api/community/members/'.length);
+    if (!/^\d{1,32}$/.test(memberId)) return json(res,400,{error:'Perfil inválido.'});
+    const member = (await readCommunityMembers()).find(item => item.id === memberId);
+    if (!member) return json(res,404,{error:'Este perfil não está disponível.'});
+    const favorites = userFavorites(await removePatreonLinkedFavorites(),memberId);
+    const redemptions = (await readRedemptions())
+      .filter(entry => entry.requester?.id === memberId && entry.status === 'approved')
+      .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
+      .map(({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}) => ({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}));
+    const profile = {id:member.id,login:member.login,displayName:member.displayName,profileImageUrl:member.profileImageUrl,joinedAt:member.joinedAt};
+    return json(res,200,{profile,favorites,redemptions});
   }
   if (req.method === 'POST' && url.pathname === '/api/redemptions') {
     const profile = await getAuthenticatedProfile(req,res);
