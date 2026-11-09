@@ -36,9 +36,21 @@ Para produção, cadastre a URL HTTPS pública exata como redirect e use HTTPS. 
 
 O projeto precisa de um serviço Node.js (não é somente um site estático). No Render, conecte um repositório GitHub privado, escolha um Web Service, use `npm install` como build command, `npm start` como start command e `/api/health` como health check. O servidor escuta a porta `PORT` fornecida pela hospedagem.
 
-Para manter favoritos, avaliações, solicitações de resgate, promoções, pedidos da lojinha, saldos de Vicoins, tópicos/anexos do fórum e a cópia dos últimos vídeos do YouTube entre reinicializações, anexe um persistent disk com mount path **/var/data** e defina **DATA_DIR=/var/data** nas variáveis do serviço. No Render, discos persistentes estão disponíveis em serviços pagos; sem disco, o armazenamento local é temporário. Antes de publicar, configure também as credenciais do TMDB e da Twitch no painel do serviço. O redirect da Twitch deve usar a URL HTTPS pública exata, por exemplo **https://seu-site.onrender.com/auth/twitch/callback**.
+## Persistência no Supabase
 
-Não envie os arquivos **.env**, **favorites.json**, **ratings.json**, **redemptions.json**, **promotions.json**, **vicoins.json**, **forum.json**, **forum-uploads/** ou **youtube-videos.json** ao GitHub. O arquivo de exclusões ignora esses dados e o servidor não os disponibiliza como arquivos públicos. Se quiser levar favoritos, avaliações, promoções, saldos, discussões e anexos que já existem no computador para o serviço hospedado, será preciso copiá-los para o disco persistente uma vez.
+O servidor pode usar o Supabase para manter favoritos, avaliações, solicitações de resgate, promoções, Vicoins, fórum, membros, cache do YouTube e imagens/anexos entre reinicializações e deploys. O estado dos recursos é salvo em `public.app_state` como JSONB versionado; as imagens ficam nos buckets privados `forum-uploads` e `profile-banners`. O servidor faz as leituras e gravações usando a chave secreta, sem expô-la ao navegador.
+
+1. Crie um projeto Supabase e abra o **SQL Editor**.
+2. Execute o conteúdo de `supabase/migrations/202611090001_persistent_site_data.sql`.
+3. Copie o **Project URL** e a chave secreta do servidor (**Secret key**, `sb_secret_…`; em projetos antigos, `service_role`) para o `.env` local ou para as variáveis protegidas do serviço de hospedagem. Nunca coloque essa chave em JavaScript do navegador nem a envie ao GitHub.
+4. Defina `DATA_STORE=supabase`, `SUPABASE_URL` e `SUPABASE_SECRET_KEY`. O servidor também aceita `SUPABASE_SERVICE_ROLE_KEY` como nome legado. Em produção, ele encerra a inicialização se o Supabase não estiver configurado, para não continuar gravando silenciosamente em disco temporário.
+5. Reinicie o servidor e confirme em `/api/health` que a resposta contém `"persistence":"supabase"` e `"persistent":true`.
+
+O modo local continua disponível para desenvolvimento sem credenciais (`DATA_STORE=local`). Como o projeto está sendo iniciado sem conteúdo para preservar, os registros começam vazios; promoções padrão aparecem quando o estado inicial de promoções é criado. Imagens enviadas depois da configuração são armazenadas no Supabase Storage.
+
+Antes de publicar, configure também as credenciais do TMDB e da Twitch no painel do serviço. O redirect da Twitch deve usar a URL HTTPS pública exata, por exemplo **https://seu-site.onrender.com/auth/twitch/callback**.
+
+Não envie o arquivo **.env** nem a chave de serviço ao GitHub. Os arquivos JSON locais são ignorados pelo Git; no modo Supabase, o servidor passa a usar o banco e os buckets configurados na migração SQL.
 
 Ao buscar um título, o servidor também consulta o mapa público de posts do Patreon Vimessias, em cache por cerca de dois minutos. Quando o título original ou localizado do TMDB coincide com um post, a interface troca a estimativa por um link direto ao react. A correspondência é por título exato normalizado para evitar links para reacts errados.
 

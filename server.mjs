@@ -8,6 +8,13 @@ import {randomBytes,randomUUID} from 'node:crypto';
 const root = path.dirname(fileURLToPath(import.meta.url));
 try { for (const line of (await readFile(path.join(root, '.env'), 'utf8')).split(/\r?\n/)) { const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/); if (match && !process.env[match[1]]) process.env[match[1]] = match[2].replace(/^(['"])(.*)\1$/, '$2'); } } catch {}
 const port = Number(process.env.PORT || 3000);
+const supabaseUrl = String(process.env.SUPABASE_URL || '').replace(/\/+$/,'');
+const supabaseServiceRoleKey = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '');
+const requestedDataStore = String(process.env.DATA_STORE || '').trim().toLowerCase();
+const persistenceMode = requestedDataStore || (supabaseUrl && supabaseServiceRoleKey ? 'supabase' : 'local');
+if (!['local','supabase'].includes(persistenceMode)) throw new Error('DATA_STORE deve ser "supabase" ou "local".');
+if (persistenceMode === 'supabase' && (!supabaseUrl || !supabaseServiceRoleKey)) throw new Error('Configure SUPABASE_URL e SUPABASE_SECRET_KEY (ou a chave legada SUPABASE_SERVICE_ROLE_KEY) no ambiente do servidor.');
+if (process.env.NODE_ENV === 'production' && persistenceMode !== 'supabase') throw new Error('Em produção, configure DATA_STORE=supabase para não salvar dados em armazenamento temporário.');
 const dataRoot = path.resolve(process.env.DATA_DIR || root);
 await mkdir(dataRoot, {recursive:true});
 const favoritesFile = path.join(dataRoot, 'favorites.json');
@@ -22,7 +29,7 @@ const profileBannersDir = path.join(dataRoot, 'profile-banners');
 const youtubeVideosFile = path.join(dataRoot, 'youtube-videos.json');
 await mkdir(forumUploadsDir,{recursive:true});
 await mkdir(profileBannersDir,{recursive:true});
-if (dataRoot !== root) {
+if (persistenceMode === 'local' && dataRoot !== root) {
   for (const name of ['favorites.json','ratings.json']) {
     const destination = path.join(dataRoot,name);
     try { await stat(destination); }
@@ -185,49 +192,160 @@ function json(res, status, data) {
   res.end(JSON.stringify(data));
 }
 
-async function readFavorites() {
+const localStateFiles = {
+  favorites:favoritesFile,
+  ratings:ratingsFile,
+  redemptions:redemptionsFile,
+  communityMembers:communityMembersFile,
+  promotions:promotionsFile,
+  vicoins:vicoinsFile,
+  forum:forumFile,
+  youtubeVideos:youtubeVideosFile
+};
+
+async function supabaseRest(resource,options = {}) {
+  const response = await fetch(`${supabaseUrl}/rest/v1${resource}`,{
+    ...options,
+    headers:{apikey:supabaseServiceRoleKey,authorization:`Bearer ${supabaseServiceRoleKey}`,'content-type':'application/json',...(options.headers || {})},
+    signal:options.signal || AbortSignal.timeout(15000)
+  });
+  const text = await response.text();
+  const data = text ? (() => { try { return JSON.parse(text); } catch { return text; } })() : null;
+  if (!response.ok) {
+    const error = new Error(data?.message || data?.hint || `Supabase respondeu ${response.status}.`);
+    error.status = response.status;
+    error.code = data?.code || '';
+    throw error;
+  }
+  return data;
+}
+
+function stateQuery(key,select = 'state_key,state_value,version') {
+  const query = new URLSearchParams({state_key:`eq.${key}`,select});
+  return `/app_state?${query}`;
+}
+
+async function readSupabaseStateRow(key,fallback) {
+  const rows = await supabaseRest(stateQuery(key));
+  if (Array.isArray(rows) && rows.length) return rows[0];
   try {
-    const value = JSON.parse(await readFile(favoritesFile, 'utf8'));
-    return Array.isArray(value) ? value : [];
-  } catch { return []; }
+    await supabaseRest('/app_state',{method:'POST',headers:{prefer:'return=minimal'},body:JSON.stringify({state_key:key,state_value:structuredClone(fallback),version:0})});
+  } catch (error) {
+    if (error.status !== 409 && error.code !== '23505') throw error;
+  }
+  const created = await supabaseRest(stateQuery(key));
+  if (!Array.isArray(created) || !created.length) throw new Error(`Não foi possível inicializar o estado "${key}" no Supabase.`);
+  return created[0];
+}
+
+async function readJsonState(key,fallback) {
+  if (persistenceMode === 'supabase') {
+    const row = await readSupabaseStateRow(key,fallback);
+    return structuredClone(row.state_value ?? fallback);
+  }
+  const file = localStateFiles[key];
+  if (!file) throw new Error(`Estado local desconhecido: ${key}`);
+  try { return JSON.parse(await readFile(file,'utf8')); }
+  catch { return structuredClone(fallback); }
+}
+
+async function writeJsonState(key,value) {
+  if (persistenceMode === 'supabase') throw new Error('Gravações no Supabase precisam usar updateJsonState para evitar sobrescrever alterações concorrentes.');
+  const file = localStateFiles[key];
+  if (!file) throw new Error(`Estado local desconhecido: ${key}`);
+  const temporary = `${file}.${randomUUID()}.tmp`;
+  await writeFile(temporary,JSON.stringify(value,null,2),'utf8');
+  await rename(temporary,file);
+}
+
+async function updateJsonState(key,fallback,update) {
+  if (persistenceMode === 'local') {
+    const current = await readJsonState(key,fallback);
+    const result = update(current);
+    await writeJsonState(key,current);
+    return result;
+  }
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const row = await readSupabaseStateRow(key,fallback);
+    const next = structuredClone(row.state_value ?? fallback);
+    const result = update(next);
+    const version = Number(row.version) || 0;
+    const query = new URLSearchParams({state_key:`eq.${key}`,version:`eq.${version}`});
+    const updated = await supabaseRest(`/app_state?${query}`,{
+      method:'PATCH',
+      headers:{prefer:'return=representation'},
+      body:JSON.stringify({state_value:next,version:version + 1,updated_at:new Date().toISOString()})
+    });
+    if (Array.isArray(updated) && updated.length) return result;
+  }
+  throw new Error(`O estado "${key}" mudou várias vezes; tente novamente.`);
+}
+
+function storageObjectPath(value) {
+  return String(value || '').split('/').map(segment => encodeURIComponent(segment)).join('/');
+}
+
+async function uploadStorageObject(bucket,filename,buffer,contentType) {
+  if (persistenceMode !== 'supabase') throw new Error('Configure o Supabase para armazenar imagens de forma persistente.');
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${storageObjectPath(filename)}`,{
+    method:'POST',headers:{apikey:supabaseServiceRoleKey,authorization:`Bearer ${supabaseServiceRoleKey}`,'content-type':contentType,'x-upsert':'false'},
+    body:buffer,signal:AbortSignal.timeout(30000)
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.message || data.error || `Não foi possível salvar a imagem no Supabase (${response.status}).`);
+  }
+}
+
+async function downloadStorageObject(bucket,filename) {
+  if (persistenceMode !== 'supabase') throw new Error('O armazenamento de imagens do Supabase não está ativo.');
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${storageObjectPath(filename)}`,{
+    headers:{apikey:supabaseServiceRoleKey,authorization:`Bearer ${supabaseServiceRoleKey}`},signal:AbortSignal.timeout(20000)
+  });
+  if (!response.ok) throw new Error(`Imagem não encontrada no armazenamento (${response.status}).`);
+  return {buffer:Buffer.from(await response.arrayBuffer()),contentType:response.headers.get('content-type') || 'application/octet-stream'};
+}
+
+async function deleteStorageObject(bucket,filename) {
+  if (persistenceMode !== 'supabase') return;
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}`,{
+    method:'DELETE',headers:{apikey:supabaseServiceRoleKey,authorization:`Bearer ${supabaseServiceRoleKey}`,'content-type':'application/json'},
+    body:JSON.stringify({prefixes:[filename]}),signal:AbortSignal.timeout(15000)
+  });
+  if (!response.ok && response.status !== 404) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.message || data.error || `Não foi possível remover a imagem (${response.status}).`);
+  }
+}
+
+async function readFavorites() {
+  const value = await readJsonState('favorites',[]);
+  return Array.isArray(value) ? value : [];
 }
 
 async function readRatings() {
-  try {
-    const value = JSON.parse(await readFile(ratingsFile, 'utf8'));
-    return Array.isArray(value) ? value : [];
-  } catch { return []; }
+  const value = await readJsonState('ratings',[]);
+  return Array.isArray(value) ? value : [];
 }
 
 async function readRedemptions() {
-  try {
-    const value = JSON.parse(await readFile(redemptionsFile,'utf8'));
-    return Array.isArray(value) ? value : [];
-  } catch { return []; }
+  const value = await readJsonState('redemptions',[]);
+  return Array.isArray(value) ? value : [];
 }
 
 async function readCommunityMembers() {
-  try {
-    const value = JSON.parse(await readFile(communityMembersFile,'utf8'));
-    return Array.isArray(value) ? value : [];
-  } catch { return []; }
+  const value = await readJsonState('communityMembers',[]);
+  return Array.isArray(value) ? value : [];
 }
 
 async function readForumTopics() {
-  try {
-    const value = JSON.parse(await readFile(forumFile,'utf8'));
-    return Array.isArray(value) ? value : [];
-  } catch { return []; }
+  const value = await readJsonState('forum',[]);
+  return Array.isArray(value) ? value : [];
 }
 
 async function updateForumTopics(update) {
   const operation = forumWriteQueue.then(async () => {
-    const topics = await readForumTopics();
-    const result = update(topics);
-    const temporary = `${forumFile}.tmp`;
-    await writeFile(temporary,JSON.stringify(topics,null,2),'utf8');
-    await rename(temporary,forumFile);
-    return result;
+    return updateJsonState('forum',[],update);
   });
   forumWriteQueue = operation.catch(() => {});
   return operation;
@@ -249,7 +367,8 @@ async function saveForumAttachment(attachment) {
     : false;
   if (!matches) throw new Error('O conteúdo do arquivo não corresponde ao tipo de imagem informado.');
   const filename = `${randomUUID()}.${extension}`;
-  await writeFile(path.join(forumUploadsDir,filename),buffer,{flag:'wx'});
+  if (persistenceMode === 'supabase') await uploadStorageObject('forum-uploads',filename,buffer,type);
+  else await writeFile(path.join(forumUploadsDir,filename),buffer,{flag:'wx'});
   const safeName = String(attachment.name || `imagem.${extension}`).replace(/[^A-Za-z0-9._ -]/g,'').trim().slice(0,80) || `imagem.${extension}`;
   return {url:`/api/forum/uploads/${filename}`,type,name:safeName};
 }
@@ -257,18 +376,19 @@ async function saveForumAttachment(attachment) {
 async function deleteForumAttachment(attachment) {
   const match = /^\/api\/forum\/uploads\/([a-f0-9-]{36}\.(?:jpg|png|webp|gif))$/i.exec(String(attachment?.url || ''));
   if (!match) return;
-  try { await unlink(path.join(forumUploadsDir,match[1])); } catch {}
+  try {
+    if (persistenceMode === 'supabase') await deleteStorageObject('forum-uploads',match[1]);
+    else await unlink(path.join(forumUploadsDir,match[1]));
+  } catch {}
 }
 
 async function readVicoinsStore() {
-  try {
-    const value = JSON.parse(await readFile(vicoinsFile,'utf8'));
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return {balances:{},transactions:[],orders:[],bannerOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}};
-    if (value.balances && typeof value.balances === 'object' && !Array.isArray(value.balances)) {
-      return {balances:value.balances,transactions:Array.isArray(value.transactions) ? value.transactions : [],orders:Array.isArray(value.orders) ? value.orders : [],bannerOrders:Array.isArray(value.bannerOrders) ? value.bannerOrders : [],customProfileBanners:Array.isArray(value.customProfileBanners) ? value.customProfileBanners : [],removedProfileBanners:Array.isArray(value.removedProfileBanners) ? value.removedProfileBanners : [],dailyClaims:value.dailyClaims && typeof value.dailyClaims === 'object' && !Array.isArray(value.dailyClaims) ? value.dailyClaims : {},profileBannerInventory:value.profileBannerInventory && typeof value.profileBannerInventory === 'object' && !Array.isArray(value.profileBannerInventory) ? value.profileBannerInventory : {}};
-    }
-    return {balances:value,transactions:[],orders:[],bannerOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}};
-  } catch { return {balances:{},transactions:[],orders:[],bannerOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}}; }
+  const value = await readJsonState('vicoins',{balances:{},transactions:[],orders:[],bannerOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}});
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {balances:{},transactions:[],orders:[],bannerOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}};
+  if (value.balances && typeof value.balances === 'object' && !Array.isArray(value.balances)) {
+    return {balances:value.balances,transactions:Array.isArray(value.transactions) ? value.transactions : [],orders:Array.isArray(value.orders) ? value.orders : [],bannerOrders:Array.isArray(value.bannerOrders) ? value.bannerOrders : [],customProfileBanners:Array.isArray(value.customProfileBanners) ? value.customProfileBanners : [],removedProfileBanners:Array.isArray(value.removedProfileBanners) ? value.removedProfileBanners : [],dailyClaims:value.dailyClaims && typeof value.dailyClaims === 'object' && !Array.isArray(value.dailyClaims) ? value.dailyClaims : {},profileBannerInventory:value.profileBannerInventory && typeof value.profileBannerInventory === 'object' && !Array.isArray(value.profileBannerInventory) ? value.profileBannerInventory : {}};
+  }
+  return {balances:value,transactions:[],orders:[],bannerOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}};
 }
 
 function getProfileBannerRewards(store) {
@@ -288,12 +408,7 @@ function getProfileBannerInventory(store,userId) {
 
 async function updateVicoinsStore(update) {
   const operation = vicoinsWriteQueue.then(async () => {
-    const store = await readVicoinsStore();
-    const result = update(store);
-    const temporary = `${vicoinsFile}.tmp`;
-    await writeFile(temporary,JSON.stringify(store,null,2),'utf8');
-    await rename(temporary,vicoinsFile);
-    return result;
+    return updateJsonState('vicoins',{balances:{},transactions:[],orders:[],bannerOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}},update);
   });
   vicoinsWriteQueue = operation.catch(() => {});
   return operation;
@@ -340,42 +455,33 @@ async function reconcileApprovedRedemptionVicoins(userId = '') {
 
 async function saveCommunityMember(profile) {
   const operation = communityMembersWriteQueue.then(async () => {
-    const members = await readCommunityMembers();
-    const existing = members.find(member => member.id === profile.id);
-    const now = new Date().toISOString();
-    const record = {
-      id:profile.id,
-      login:profile.login,
-      displayName:profile.displayName || profile.login,
-      profileImageUrl:profile.profileImageUrl || '',
-      joinedAt:existing?.joinedAt || now,
-      lastSeenAt:now
-    };
-    if (existing) Object.assign(existing,record);
-    else members.push(record);
-    const temporary = `${communityMembersFile}.tmp`;
-    await writeFile(temporary,JSON.stringify(members,null,2),'utf8');
-    await rename(temporary,communityMembersFile);
+    return updateJsonState('communityMembers',[],members => {
+      const existing = members.find(member => member.id === profile.id);
+      const now = new Date().toISOString();
+      const record = {
+        id:profile.id,
+        login:profile.login,
+        displayName:profile.displayName || profile.login,
+        profileImageUrl:profile.profileImageUrl || '',
+        joinedAt:existing?.joinedAt || now,
+        lastSeenAt:now
+      };
+      if (existing) Object.assign(existing,record);
+      else members.push(record);
+    });
   });
   communityMembersWriteQueue = operation.catch(() => {});
   return operation;
 }
 
 async function readPromotions() {
-  try {
-    const value = JSON.parse(await readFile(promotionsFile,'utf8'));
-    return Array.isArray(value) ? value : [];
-  } catch { return structuredClone(defaultPromotionCollections); }
+  const value = await readJsonState('promotions',defaultPromotionCollections);
+  return Array.isArray(value) ? value : [];
 }
 
 async function updatePromotions(update) {
   const operation = promotionsWriteQueue.then(async () => {
-    const collections = await readPromotions();
-    const result = update(collections);
-    const temporary = `${promotionsFile}.tmp`;
-    await writeFile(temporary,JSON.stringify(collections,null,2),'utf8');
-    await rename(temporary,promotionsFile);
-    return result;
+    return updateJsonState('promotions',defaultPromotionCollections,update);
   });
   promotionsWriteQueue = operation.catch(() => {});
   return operation;
@@ -383,12 +489,7 @@ async function updatePromotions(update) {
 
 async function updateRedemptions(update) {
   const operation = redemptionsWriteQueue.then(async () => {
-    const entries = await readRedemptions();
-    const result = update(entries);
-    const temporaryFile = `${redemptionsFile}.tmp`;
-    await writeFile(temporaryFile,JSON.stringify(entries,null,2),'utf8');
-    await rename(temporaryFile,redemptionsFile);
-    return result;
+    return updateJsonState('redemptions',[],update);
   });
   redemptionsWriteQueue = operation.catch(() => {});
   return operation;
@@ -404,12 +505,7 @@ function parseScheduledAt(value) {
 
 async function updateRatings(update) {
   const operation = ratingsWriteQueue.then(async () => {
-    const entries = await readRatings();
-    const result = update(entries);
-    const temporaryFile = `${ratingsFile}.tmp`;
-    await writeFile(temporaryFile, JSON.stringify(entries, null, 2), 'utf8');
-    await rename(temporaryFile, ratingsFile);
-    return result;
+    return updateJsonState('ratings',[],update);
   });
   ratingsWriteQueue = operation.catch(() => {});
   return operation;
@@ -435,12 +531,7 @@ function publicTopRatings(entries) {
 
 async function updateFavorites(update) {
   const operation = favoritesWriteQueue.then(async () => {
-    const entries = await readFavorites();
-    const result = update(entries);
-    const temporaryFile = `${favoritesFile}.tmp`;
-    await writeFile(temporaryFile, JSON.stringify(entries, null, 2), 'utf8');
-    await rename(temporaryFile, favoritesFile);
-    return result;
+    return updateJsonState('favorites',[],update);
   });
   favoritesWriteQueue = operation.catch(() => {});
   return operation;
@@ -860,7 +951,7 @@ async function getPatreonPosts() {
 
 async function readYoutubeVideoSnapshot() {
   try {
-    const value = JSON.parse(await readFile(youtubeVideosFile,'utf8'));
+    const value = await readJsonState('youtubeVideos',[]);
     return Array.isArray(value) ? value.filter(video => video && /^[\w-]{11}$/.test(String(video.id || '')) && typeof video.title === 'string').slice(0,5) : [];
   } catch { return []; }
 }
@@ -889,11 +980,8 @@ async function getLatestYoutubeVideos() {
     }).filter(Boolean).slice(0,5);
     if (!videos.length) throw new Error('O feed do canal não retornou vídeos públicos.');
     youtubeVideosCache = {videos,expiresAt:Date.now() + 300000};
-    try {
-      const temporaryFile = `${youtubeVideosFile}.${randomUUID()}.tmp`;
-      await writeFile(temporaryFile,JSON.stringify(videos,null,2),'utf8');
-      await rename(temporaryFile,youtubeVideosFile);
-    } catch (error) { console.error('Não foi possível salvar o cache persistente do YouTube:',error.message); }
+    try { await updateJsonState('youtubeVideos',[],saved => { saved.splice(0,saved.length,...videos); }); }
+    catch (error) { console.error('Não foi possível salvar o cache persistente do YouTube:',error.message); }
     return videos;
   } catch (error) {
     const savedVideos = await readYoutubeVideoSnapshot();
@@ -915,9 +1003,11 @@ async function handle(req, res) {
   const profileBannerAssetMatch = req.method === 'GET' && /^\/api\/profile-banners\/([a-f0-9-]{36}\.(?:png|jpg))$/i.exec(url.pathname);
   if (profileBannerAssetMatch) {
     try {
-      const data = await readFile(path.join(profileBannersDir,profileBannerAssetMatch[1]));
-      res.writeHead(200,{'content-type':profileBannerAssetMatch[1].endsWith('.jpg') ? 'image/jpeg' : 'image/png','cache-control':'public, max-age=31536000, immutable'});
-      return res.end(data);
+      const image = persistenceMode === 'supabase'
+        ? await downloadStorageObject('profile-banners',profileBannerAssetMatch[1])
+        : {buffer:await readFile(path.join(profileBannersDir,profileBannerAssetMatch[1])),contentType:profileBannerAssetMatch[1].endsWith('.jpg') ? 'image/jpeg' : 'image/png'};
+      res.writeHead(200,{'content-type':image.contentType,'content-length':image.buffer.length,'cache-control':'public, max-age=31536000, immutable','x-content-type-options':'nosniff'});
+      return res.end(image.buffer);
     } catch { return json(res,404,{error:'Imagem de banner não encontrada.'}); }
   }
   if (req.method === 'GET' && url.pathname === '/auth/twitch/start') {
@@ -984,16 +1074,18 @@ async function handle(req, res) {
     res.writeHead(204, {'access-control-allow-origin':'*','access-control-allow-methods':'GET, POST, OPTIONS','access-control-allow-headers':'content-type'});
     return res.end();
   }
-  if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, {ok:true,mode:'consulta'});
+  if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, {ok:true,mode:'consulta',persistence:persistenceMode,persistent:persistenceMode === 'supabase'});
   if (req.method === 'GET' && url.pathname.startsWith('/api/forum/uploads/')) {
     const match = /^\/api\/forum\/uploads\/([a-f0-9-]{36}\.(?:jpg|png|webp|gif))$/i.exec(url.pathname);
     if (!match) return json(res,404,{error:'Imagem não encontrada.'});
     try {
       const filename = match[1];
-      const data = await readFile(path.join(forumUploadsDir,filename));
+      const image = persistenceMode === 'supabase'
+        ? await downloadStorageObject('forum-uploads',filename)
+        : {buffer:await readFile(path.join(forumUploadsDir,filename)),contentType:''};
       const extension = path.extname(filename).toLowerCase();
-      res.writeHead(200,{'content-type':mime[extension],'content-length':data.length,'cache-control':'public, max-age=31536000, immutable','x-content-type-options':'nosniff','content-security-policy':"default-src 'none'; sandbox"});
-      return res.end(data);
+      res.writeHead(200,{'content-type':image.contentType || mime[extension],'content-length':image.buffer.length,'cache-control':'public, max-age=31536000, immutable','x-content-type-options':'nosniff','content-security-policy':"default-src 'none'; sandbox"});
+      return res.end(image.buffer);
     } catch { return json(res,404,{error:'Imagem não encontrada.'}); }
   }
   if (req.method === 'GET' && url.pathname === '/api/forum/topics') {
@@ -1320,7 +1412,8 @@ async function handle(req, res) {
     const id = randomUUID();
     const filename = `${id}.${image.extension}`;
     try {
-      await writeFile(path.join(profileBannersDir,filename),image.buffer,{flag:'wx'});
+      if (persistenceMode === 'supabase') await uploadStorageObject('profile-banners',filename,image.buffer,image.extension === 'jpg' ? 'image/jpeg' : 'image/png');
+      else await writeFile(path.join(profileBannersDir,filename),image.buffer,{flag:'wx'});
       const banner = {id,name,coinCost,imageUrl:`/api/profile-banners/${filename}`,paymentType:'vicoins',custom:true,createdAt:new Date().toISOString()};
       const banners = await updateVicoinsStore(store => {
         store.customProfileBanners = Array.isArray(store.customProfileBanners) ? store.customProfileBanners : [];
@@ -1329,7 +1422,10 @@ async function handle(req, res) {
       });
       return privateJson(res,201,{banner,banners});
     } catch (error) {
-      try { await unlink(path.join(profileBannersDir,filename)); } catch {}
+      try {
+        if (persistenceMode === 'supabase') await deleteStorageObject('profile-banners',filename);
+        else await unlink(path.join(profileBannersDir,filename));
+      } catch {}
       return privateJson(res,500,{error:error.message || 'Não foi possível salvar o banner.'});
     }
   }
@@ -1354,7 +1450,12 @@ async function handle(req, res) {
         return {banner,banners:store.customProfileBanners};
       });
       const filename = /^\/api\/profile-banners\/([a-f0-9-]{36}\.(?:png|jpg))$/i.exec(result.banner.imageUrl)?.[1];
-      if (filename) { try { await unlink(path.join(profileBannersDir,filename)); } catch {} }
+      if (filename) {
+        try {
+          if (persistenceMode === 'supabase') await deleteStorageObject('profile-banners',filename);
+          else await unlink(path.join(profileBannersDir,filename));
+        } catch {}
+      }
       return privateJson(res,200,result);
     } catch (error) { return privateJson(res,404,{error:error.message || 'Não foi possível excluir este banner.'}); }
   }
@@ -1933,4 +2034,11 @@ async function handle(req, res) {
   }
 }
 
-http.createServer((req, res) => { handle(req, res).catch(() => json(res, 500, {error:'Erro interno.'})); }).listen(port, '0.0.0.0', () => console.log(`Vimessias Play em http://localhost:${port}`));
+if (persistenceMode === 'supabase') {
+  try { await supabaseRest('/app_state?select=state_key&limit=1'); }
+  catch (error) { throw new Error(`Supabase não está pronto. Confira a migração SQL, SUPABASE_URL e SUPABASE_SECRET_KEY. Detalhe: ${error.message}`); }
+} else {
+  console.warn('Persistência local ativa. Em produção, configure DATA_STORE=supabase para manter os dados após reinícios e deploys.');
+}
+
+http.createServer((req, res) => { handle(req, res).catch(error => { console.error('Falha ao atender requisição:',error); json(res, 500, {error:'Erro interno.'}); }); }).listen(port, '0.0.0.0', () => console.log(`Vimessias Play em http://localhost:${port} (dados: ${persistenceMode})`));
