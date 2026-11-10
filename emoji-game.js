@@ -228,6 +228,11 @@ let emojiQuestions = emojiQuestionSets[activeGame].questions;
 let questionIndex = 0;
 let score = 0;
 let locked = false;
+let savedGameProgress = {};
+const gameApiBases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
+async function gameApi(path,options = {}) { let lastError; for (const base of gameApiBases) { try { const response = await fetch(`${base}${path}`,{credentials:'same-origin',cache:'no-store',...options}); const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || 'Não foi possível salvar o progresso.'); return data; } catch (error) { if (!(error instanceof TypeError)) throw error; lastError = error; } } throw lastError || new Error('Não foi possível conectar ao servidor.'); }
+async function loadGameProgress() { if (!window.CardapioAuth?.isAuthenticated()) return; try { savedGameProgress = (await gameApi('/api/account/game-progress')).progress || {}; } catch { savedGameProgress = {}; } }
+function saveGameProgress(game,index,points) { if (!window.CardapioAuth?.isAuthenticated()) return; const value = {game,index,score:points}; gameApi('/api/account/game-progress',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(value)}).catch(error => { emojiGameFeedback.textContent = `Não foi possível sincronizar o progresso: ${error.message}`; }); }
 
 function normalizeGuess(value) {
   return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g,' ').trim();
@@ -256,11 +261,14 @@ function finishGame() {
   emojiGameRestart.classList.remove('hidden');
 }
 
-function startGame(game) {
+async function startGame(game) {
+  if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para jogar e salvar seu progresso.')) return;
+  await loadGameProgress();
   activeGame = game;
   emojiQuestions = emojiQuestionSets[game].questions;
-  questionIndex = 0;
-  score = 0;
+  const saved = savedGameProgress[game];
+  questionIndex = Number.isSafeInteger(saved?.index) && saved.index < emojiQuestions.length ? saved.index : 0;
+  score = Number.isSafeInteger(saved?.score) && saved.score <= questionIndex ? saved.score : 0;
   emojiGameTitle.textContent = emojiQuestionSets[game].heading;
   renderQuestion();
   if (!emojiGameDialog.open) emojiGameDialog.showModal();
@@ -291,6 +299,7 @@ emojiGuessForm.addEventListener('submit', event => {
   emojiGameScore.textContent = String(score);
   emojiGameFeedback.className = 'emoji-game-feedback is-correct';
   emojiGameFeedback.textContent = `Acertou! Era ${question.title}.`;
+  saveGameProgress(activeGame,questionIndex + 1,score);
   setTimeout(() => {
     questionIndex += 1;
     renderQuestion();
@@ -301,6 +310,7 @@ emojiGuessForm.addEventListener('submit', event => {
 emojiGameRestart.addEventListener('click', () => {
   questionIndex = 0;
   score = 0;
+  saveGameProgress(activeGame,0,0);
   renderQuestion();
   emojiGuessInput.focus();
 });

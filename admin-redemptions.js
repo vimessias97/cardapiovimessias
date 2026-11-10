@@ -51,7 +51,7 @@
       const removeButton = `<button type="button" class="admin-action delete" data-redemption-id="${safe(item.id)}" data-admin-action="delete">Excluir</button>`;
       const controls = item.status === 'rejected'
         ? `<p class="admin-redemption-final-date">Data do resgate: ${safe(dateLabel(item.scheduledAt))}</p><div class="admin-redemption-edit">${removeButton}</div>`
-        : `<form class="admin-redemption-edit" data-admin-edit="${safe(item.id)}"><label>Data e horário<input type="datetime-local" name="scheduledAt" required value="${safe(localDateTime(item.scheduledAt))}"></label><button type="submit" class="admin-action secondary">Salvar data</button>${item.status === 'pending' ? `<button type="button" class="admin-action approve" data-redemption-id="${safe(item.id)}" data-admin-action="approve">Aprovar</button><button type="button" class="admin-action reject" data-redemption-id="${safe(item.id)}" data-admin-action="reject">Rejeitar</button>` : ''}${removeButton}</form>`;
+        : `<form class="admin-redemption-edit" data-admin-edit="${safe(item.id)}"><label>Data e horário<input type="datetime-local" name="scheduledAt" required value="${safe(localDateTime(item.scheduledAt))}"></label><button type="submit" class="admin-action secondary">Salvar data</button>${item.status === 'pending' ? `<button type="button" class="admin-action approve" data-redemption-id="${safe(item.id)}" data-admin-action="approve">Aprovar</button>` : `<button type="button" class="admin-action approve" data-redemption-id="${safe(item.id)}" data-admin-action="finish">Finalizar</button>`}${removeButton}</form>`;
       const mediaLabel = item.mediaType === 'tv' ? 'Série' : item.mediaType === 'other' ? 'Outro' : 'Filme';
       const estimatedValue = item.estimatedValue !== null && item.estimatedValue !== '' && Number.isFinite(Number(item.estimatedValue)) ? Number(item.estimatedValue) : Number(item.durationMinutes) > 0 ? Math.ceil(Number(item.durationMinutes) / 30) * 5 : null;
       const valueLabel = estimatedValue === null ? 'Valor não calculado' : `Valor do resgate: ${estimatedValue.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}`;
@@ -88,7 +88,7 @@
       render();
       window.dispatchEvent(new CustomEvent('cardapio:redemptions-updated'));
       const awarded = action === 'approve' ? Number(redemptions.find(item => item.id === id)?.vicoinsAwarded) || 0 : 0;
-      feedback.textContent = action === 'approve' ? `Resgate aprovado e publicado em Últimos resgates e no calendário.${awarded ? ` ${awarded} Vicoins creditados ao usuário.` : ''}` : action === 'reject' ? 'Solicitação rejeitada.' : action === 'delete' ? 'Resgate excluído.' : 'Data do resgate atualizada.';
+      feedback.textContent = action === 'approve' ? `Resgate aprovado e publicado em Últimos resgates e no calendário.${awarded ? ` ${awarded} Vicoins creditados ao usuário.` : ''}` : action === 'finish' ? 'Resgate finalizado. Ele continua no perfil e em Últimos resgates.' : action === 'reject' ? 'Solicitação rejeitada.' : action === 'delete' ? 'Resgate excluído.' : 'Data do resgate atualizada.';
     } catch (error) {
       feedback.textContent = error.message || 'Não foi possível atualizar este pedido.';
       if (control) control.querySelectorAll('button,input').forEach(element => { element.disabled = false; });

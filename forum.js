@@ -74,7 +74,7 @@
   function renderComments(topic) {
     const comments = Array.isArray(topic.comments) ? topic.comments : [];
     const commentsHtml = comments.length ? comments.map(comment => renderComment(topic,comment)).join('') : '<p class="forum-comment-login">Ainda não há comentários. Comece a conversa.</p>';
-    return `<details class="forum-comments" open><summary class="forum-comments-heading">Comentários <span>${comments.length}</span><span class="forum-comments-chevron" aria-hidden="true">⌄</span></summary><div class="forum-comments-box"><div class="forum-comment-list">${commentsHtml}</div>${commentForm(topic)}</div></details>`;
+    return `<details class="forum-comments forum-comments-inline"><summary class="forum-comments-heading">Comentários <span>${comments.length}</span><span class="forum-comments-chevron" aria-hidden="true">⌄</span></summary><div class="forum-comments-box"><div class="forum-comment-list">${commentsHtml}</div>${commentForm(topic)}</div></details>`;
   }
 
   function renderTopicEditor(topic) {
@@ -99,7 +99,7 @@
       shareUrl.searchParams.set('forumTopic',topic.id);
       shareUrl.hash = 'forum';
       const postActions = `<div class="forum-post-actions"><button type="button" class="forum-like-button${liked ? ' is-liked' : ''}" data-forum-like="${safe(topic.id)}" aria-pressed="${liked}" aria-label="${liked ? 'Remover curtida' : 'Curtir'} (${likeCount})"><span aria-hidden="true">${liked ? '♥' : '♡'}</span> Curtir <strong>${likeCount}</strong></button><button type="button" class="forum-share-button" data-forum-share="${safe(topic.id)}" data-share-url="${safe(shareUrl.href)}"><span aria-hidden="true">↗</span> Compartilhar</button></div>`;
-      return `<article class="forum-topic-card" data-topic-id="${safe(topic.id)}"><div class="forum-topic-content"><div class="forum-topic-meta">${authorMarkup(topic.author)}<span class="forum-category-tag">${safe(categoryLabels[topic.category] || 'Geral')}</span><time class="forum-topic-time" datetime="${safe(topic.createdAt)}">${safe(formatDate(topic.createdAt))}</time>${topic.editedAt ? '<small class="forum-edited-tag">editado</small>' : ''}${actions}</div>${content}<div class="forum-topic-stats"><span aria-hidden="true">☷</span>${comments.length} ${comments.length === 1 ? 'comentário' : 'comentários'}<span>·</span>Atividade ${safe(formatDate(topic.updatedAt || topic.createdAt))}</div>${postActions}</div>${renderComments(topic)}</article>`;
+      return `<article class="forum-topic-card" data-topic-id="${safe(topic.id)}"><div class="forum-topic-content"><div class="forum-topic-meta">${authorMarkup(topic.author)}<span class="forum-category-tag">${safe(categoryLabels[topic.category] || 'Geral')}</span><time class="forum-topic-time" datetime="${safe(topic.createdAt)}">${safe(formatDate(topic.createdAt))}</time>${topic.editedAt ? '<small class="forum-edited-tag">editado</small>' : ''}${actions}</div>${content}<div class="forum-topic-stats">Atividade ${safe(formatDate(topic.updatedAt || topic.createdAt))}</div>${postActions.replace('</div>',`${renderComments(topic)}</div>`)}</div></article>`;
     }).join('');
   }
 

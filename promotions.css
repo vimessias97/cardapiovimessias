@@ -57,3 +57,7 @@
 .admin-promotion-form-status.is-info{border-color:#493554;background:#17121c;color:#c8b8d1}
 .admin-promotion-form-status.is-success{border-color:#3e7653;background:#14251a;color:#bde7c8}
 .admin-promotion-form-status.is-error{border-color:#70404b;background:#2b171b;color:#efb6bf}
+
+.admin-patreon-result{display:block!important;grid-template-columns:minmax(0,1fr)!important;padding:10px 12px!important}.admin-promotion-search-results>button.admin-patreon-result strong.admin-patreon-result-title{overflow:visible;white-space:normal;text-overflow:clip;overflow-wrap:anywhere;font-size:12px;line-height:1.4}.admin-patreon-result small{line-height:1.4}.admin-patreon-results-list{display:grid}.admin-patreon-more{display:block!important;width:100%;padding:10px;border:1px solid #604177!important;border-radius:6px;background:#1b1420!important;color:#ddb6f5!important;font-weight:700;text-align:center;cursor:pointer}.admin-patreon-more:disabled{opacity:.6;cursor:wait}.admin-patreon-end{padding:9px;color:#a99eae;text-align:center;font-size:10px}
+
+.admin-promotion-search-results>button.admin-patreon-result{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:5px!important}

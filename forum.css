@@ -107,3 +107,5 @@
 .forum-like-button.is-liked>span{color:#d48bf0}
 .forum-post-actions button:disabled{opacity:.6;cursor:wait}
 @media(max-width:760px){.forum-comments{margin:0 9px 10px}.forum-comments-box{padding:9px}}
+
+.forum-post-actions{flex-wrap:wrap}.forum-post-actions .forum-comments{margin:0;border:0;background:transparent;overflow:visible}.forum-post-actions .forum-comments-heading{min-height:31px;padding:0 10px;border:1px solid #382d41;border-radius:6px;background:#15111a;color:#bdb2c6;font-size:10px}.forum-post-actions .forum-comments-heading:hover{border-color:#68477a;background:#211729;color:#ead9f4}.forum-post-actions .forum-comments[open]{flex:1 1 100%;order:3}.forum-post-actions .forum-comments-box{margin-top:8px;border:1px solid #28212e;border-radius:8px}.forum-post-actions .forum-comments[open] .forum-comments-chevron{transform:rotate(180deg)}

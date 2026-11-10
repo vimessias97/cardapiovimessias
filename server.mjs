@@ -23,6 +23,8 @@ const redemptionsFile = path.join(dataRoot, 'redemptions.json');
 const communityMembersFile = path.join(dataRoot, 'community-members.json');
 const promotionsFile = path.join(dataRoot, 'promotions.json');
 const vicoinsFile = path.join(dataRoot, 'vicoins.json');
+const vicoinsRewardsFile = path.join(dataRoot, 'vicoins-rewards.json');
+const gameProgressFile = path.join(dataRoot, 'game-progress.json');
 const forumFile = path.join(dataRoot, 'forum.json');
 const forumUploadsDir = path.join(dataRoot, 'forum-uploads');
 const profileBannersDir = path.join(dataRoot, 'profile-banners');
@@ -62,12 +64,20 @@ const defaultPromotionCollections = [
   {id:'hobbit',name:'Trilogia O Hobbit',discountPercent:30,titles:[{id:49051,mediaType:'movie'},{id:57158,mediaType:'movie'},{id:122917,mediaType:'movie'}]},
   {id:'harry-potter',name:'Coleção completa Harry Potter',discountPercent:30,titles:[{id:671,mediaType:'movie'},{id:672,mediaType:'movie'},{id:673,mediaType:'movie'},{id:674,mediaType:'movie'},{id:675,mediaType:'movie'},{id:767,mediaType:'movie'},{id:12444,mediaType:'movie'},{id:12445,mediaType:'movie'}]}
 ];
-const vicoinsRewards = [
+const defaultVicoinsRewards = [
   {id:'content-15',contentLimit:15,coinCost:500},
   {id:'content-20',contentLimit:20,coinCost:600},
   {id:'content-25',contentLimit:25,coinCost:700},
   {id:'content-30',contentLimit:30,coinCost:800}
 ];
+async function readVicoinsRewards() {
+  const saved = await readJsonState('vicoinsRewards',defaultVicoinsRewards);
+  return defaultVicoinsRewards.map(base => {
+    const item = Array.isArray(saved) ? saved.find(candidate => candidate?.id === base.id) : null;
+    const cost = Number(item?.coinCost);
+    return {...base,coinCost:Number.isSafeInteger(cost) && cost >= 1 && cost <= 1000000 ? cost : base.coinCost};
+  });
+}
 const profileBannerRewards = [
   {id:'vimessias',name:'ViMessias',imageUrl:'/assets/profile-banners/vimessias-1600x240.png',paymentType:'livepix',amount:5}
 ];
@@ -200,6 +210,8 @@ const localStateFiles = {
   communityMembers:communityMembersFile,
   promotions:promotionsFile,
   vicoins:vicoinsFile,
+  vicoinsRewards:vicoinsRewardsFile,
+  gameProgress:gameProgressFile,
   forum:forumFile,
   youtubeVideos:youtubeVideosFile,
   patreonMappings:patreonMappingsFile
@@ -1364,9 +1376,8 @@ async function handle(req, res) {
   }
   if (req.method === 'GET' && url.pathname === '/api/redemptions/recent') {
     const entries = (await readRedemptions())
-      .filter(entry => entry.status === 'approved')
+      .filter(entry => ['approved','completed'].includes(entry.status))
       .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
-      .slice(0,5)
       .map(entry => ({id:entry.id,title:entry.title,mediaType:entry.mediaType,posterUrl:entry.posterUrl,durationMinutes:entry.durationMinutes,durationLabel:entry.durationLabel,scheduledAt:entry.scheduledAt,requester:{id:entry.requester?.id || '',login:entry.requester?.login || '',displayName:entry.requester?.displayName || ''}}));
     return json(res,200,{redemptions:entries});
   }
@@ -1395,7 +1406,7 @@ async function handle(req, res) {
     for (const entry of await readRedemptions()) {
       const userId = String(entry.requester?.id || '');
       const minutes = Number(entry.durationMinutes);
-      if (entry.status !== 'approved' || !userId || !Number.isFinite(minutes) || minutes <= 0) continue;
+      if (!['approved','completed'].includes(entry.status) || !userId || !Number.isFinite(minutes) || minutes <= 0) continue;
       const amount = Math.ceil(minutes / 30) * 5;
       const current = totals.get(userId) || {totalValue:0,redemptionCount:0};
       current.totalValue += amount;
@@ -1419,7 +1430,7 @@ async function handle(req, res) {
     await reconcileApprovedRedemptionVicoins(memberId);
     const favorites = userFavorites(await removePatreonLinkedFavorites(),memberId);
     const redemptions = (await readRedemptions())
-      .filter(entry => entry.requester?.id === memberId && entry.status === 'approved')
+      .filter(entry => entry.requester?.id === memberId && ['approved','completed'].includes(entry.status))
       .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
       .map(({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}) => ({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}));
     const ratings = userRatings(await readRatings(),memberId);
@@ -1429,6 +1440,28 @@ async function handle(req, res) {
     const isAdmin = getTwitchRole(member) === 'admin';
     const profile = {id:member.id,login:member.login,displayName:member.displayName,profileImageUrl:member.profileImageUrl,joinedAt:member.joinedAt,vicoins:await getVicoinsBalance(memberId,isAdmin),vicoinsInfinite:isAdmin,banner:bannerInventory.equipped};
     return json(res,200,{profile,favorites,redemptions,ratings,achievements});
+  }
+  if (req.method === 'GET' && url.pathname === '/api/shop/rewards') {
+    return json(res,200,{rewards:await readVicoinsRewards()});
+  }
+  if (req.method === 'POST' && url.pathname === '/api/admin/vicoins-rewards') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode alterar os valores dos vales.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req); } catch (error) { return privateJson(res,400,{error:error.message}); }
+    const id = String(body.id || '');
+    const coinCost = Number(body.coinCost);
+    if (!defaultVicoinsRewards.some(item => item.id === id) || !Number.isSafeInteger(coinCost) || coinCost < 1 || coinCost > 1000000) return privateJson(res,400,{error:'Informe um valor de 1 a 1.000.000 Vicoins.'});
+    try {
+      const rewards = await updateJsonState('vicoinsRewards',defaultVicoinsRewards,state => {
+        const next = defaultVicoinsRewards.map(base => ({...base,...(Array.isArray(state) ? state.find(item => item?.id === base.id) : {})}));
+        const target = next.find(item => item.id === id); target.coinCost = coinCost;
+        state.splice(0,state.length,...next); return next;
+      });
+      return privateJson(res,200,{rewards});
+    } catch (error) { return privateJson(res,500,{error:error.message || 'Não foi possível salvar os valores.'}); }
   }
   if (req.method === 'GET' && url.pathname === '/api/shop/profile-banners') {
     const store = await readVicoinsStore();
@@ -1511,7 +1544,7 @@ async function handle(req, res) {
     await reconcileApprovedRedemptionVicoins(profile.id);
     const favorites = userFavorites(await removePatreonLinkedFavorites(),profile.id);
     const redemptions = (await readRedemptions())
-      .filter(entry => entry.requester?.id === profile.id && entry.status === 'approved')
+      .filter(entry => entry.requester?.id === profile.id && ['approved','completed'].includes(entry.status))
       .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
       .map(({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}) => ({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}));
     const ratings = userRatings(await readRatings(),profile.id);
@@ -1655,11 +1688,37 @@ async function handle(req, res) {
       return privateJson(res,201,{redemption:{id:redemption.id,status:redemption.status,title:redemption.title,scheduledAt:redemption.scheduledAt}});
     } catch { return privateJson(res,500,{error:'Não foi possível registrar o pedido. Tente novamente.'}); }
   }
+  if (req.method === 'GET' && url.pathname === '/api/account/game-progress') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para continuar seus jogos.'});
+    const store = await readJsonState('gameProgress',{});
+    return privateJson(res,200,{progress:store[profile.id] || {}});
+  }
+  if (req.method === 'PUT' && url.pathname === '/api/account/game-progress') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para salvar seu progresso.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req); } catch (error) { return privateJson(res,400,{error:error.message}); }
+    const game = String(body.game || '');
+    const index = Number(body.index), score = Number(body.score);
+    const maximum = game === 'movies' ? 100 : game === 'series' ? 100 : 0;
+    if (!maximum || !Number.isSafeInteger(index) || index < 0 || index > maximum || !Number.isSafeInteger(score) || score < 0 || score > index) return privateJson(res,400,{error:'Progresso de jogo inválido.'});
+    try {
+      const progress = await updateJsonState('gameProgress',{},state => {
+        if (!state[profile.id] || typeof state[profile.id] !== 'object') state[profile.id] = {};
+        state[profile.id][game] = {index,score,updatedAt:new Date().toISOString()};
+        return state[profile.id][game];
+      });
+      return privateJson(res,200,{progress});
+    } catch (error) { return privateJson(res,500,{error:error.message || 'Não foi possível salvar o progresso.'}); }
+  }
   if (req.method === 'GET' && url.pathname === '/api/account/redemptions') {
     const profile = await getAuthenticatedProfile(req,res);
     if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para ver seus resgates.'});
     const redemptions = (await readRedemptions())
-      .filter(entry => entry.requester?.id === profile.id)
+      .filter(entry => entry.requester?.id === profile.id && entry.status !== 'rejected')
       .sort((a,b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
       .map(({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,status,createdAt}) => ({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,status,createdAt}));
     return privateJson(res,200,{redemptions});
@@ -1719,7 +1778,8 @@ async function handle(req, res) {
     let body;
     try { body = await readRequestJson(req); }
     catch (error) { return privateJson(res,400,{error:error.message}); }
-    const reward = vicoinsRewards.find(item => item.id === String(body.rewardId || ''));
+    const rewards = await readVicoinsRewards();
+    const reward = rewards.find(item => item.id === String(body.rewardId || ''));
     const requestKey = String(body.requestKey || '');
     const requestedTitle = String(body.title || '').trim();
     if (!reward || !/^[\da-f-]{36}$/i.test(requestKey)) return privateJson(res,400,{error:'Selecione uma oferta válida da lojinha.'});
@@ -1865,7 +1925,7 @@ async function handle(req, res) {
   if (req.method === 'GET' && url.pathname === '/api/admin/redemptions') {
     const profile = await getAuthenticatedProfile(req,res);
     if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode acessar a fila de resgates.'});
-    const redemptions = (await readRedemptions()).sort((a,b) => {
+    const redemptions = (await readRedemptions()).filter(item => item.status !== 'completed').sort((a,b) => {
       const pendingOrder = Number(b.status === 'pending') - Number(a.status === 'pending');
       return pendingOrder || Date.parse(a.scheduledAt) - Date.parse(b.scheduledAt) || Date.parse(b.createdAt) - Date.parse(a.createdAt);
     });
@@ -1884,7 +1944,7 @@ async function handle(req, res) {
       try { scheduledAt = parseScheduledAt(body.scheduledAt); }
       catch (error) { return privateJson(res,400,{error:error.message}); }
     }
-    if (!id || !['edit','approve','reject','delete'].includes(action)) return privateJson(res,400,{error:'Ação administrativa inválida.'});
+    if (!id || !['edit','approve','reject','delete','finish'].includes(action)) return privateJson(res,400,{error:'Ação administrativa inválida.'});
     try {
       const redemptions = await updateRedemptions(entries => {
         const itemIndex = entries.findIndex(entry => entry.id === id);
@@ -1905,6 +1965,10 @@ async function handle(req, res) {
           const durationMinutes = Number(item.durationMinutes);
           item.vicoinsAwarded = Number.isFinite(durationMinutes) && durationMinutes > 0 ? Math.ceil(durationMinutes / 30) * 20 : 0;
         }
+        if (action === 'finish') {
+          if (item.status !== 'approved') throw new Error('Só é possível finalizar um resgate aprovado.');
+          item.status = 'completed'; item.completedAt = new Date().toISOString(); item.completedBy = profile.id;
+        }
         if (action === 'reject') {
           if (item.status !== 'pending') throw new Error('Só é possível rejeitar pedidos pendentes.');
           item.status = 'rejected'; item.rejectedAt = new Date().toISOString(); item.rejectedBy = profile.id;
@@ -1913,7 +1977,7 @@ async function handle(req, res) {
       });
       if (!redemptions) return privateJson(res,404,{error:'Solicitação não encontrada.'});
       if (action === 'approve') await reconcileApprovedRedemptionVicoins();
-      return privateJson(res,200,{redemptions});
+      return privateJson(res,200,{redemptions:redemptions.filter(item => item.status !== 'completed')});
     } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível atualizar a solicitação.'}); }
   }
   if (req.method === 'GET' && url.pathname === '/api/youtube/latest') {

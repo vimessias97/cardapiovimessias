@@ -9,7 +9,7 @@
   const moreBannersDialog = document.querySelector('#shopMoreBannersDialog');
   const moreBannersClose = document.querySelector('#shopMoreBannersClose');
   const apiBases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
-  const rewards = [
+  let rewards = [
     {id:'content-15',contentLimit:15,coinCost:500},
     {id:'content-20',contentLimit:20,coinCost:600},
     {id:'content-25',contentLimit:25,coinCost:700},
@@ -108,8 +108,18 @@
 
   function renderRewards() {
     const authenticated = window.CardapioAuth?.isAuthenticated();
-    rewardsRoot.innerHTML = rewards.map(reward => `<article class="shop-reward-card"><span class="shop-reward-kicker">VALE DE CONTEÚDO</span><h2>Resgate até <strong>${safe(reward.contentLimit.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}))}</strong></h2><p>Use Vicoins para solicitar um resgate de conteúdo neste valor ou menos.</p><div class="shop-reward-cost"><img src="assets/vicoins-coin.png" alt=""><strong>${reward.coinCost.toLocaleString('pt-BR')}</strong><span>Vicoins</span></div><button type="button" data-reward-id="${safe(reward.id)}" ${authenticated && balance < reward.coinCost ? 'disabled' : ''}>${!authenticated ? 'Entrar para resgatar' : balance < reward.coinCost ? 'Saldo insuficiente' : 'Resgatar'}</button></article>`).join('');
+    const isAdmin = Boolean(window.CardapioAuth?.isAdmin());
+    rewardsRoot.innerHTML = rewards.map(reward => `<article class="shop-reward-card"><span class="shop-reward-kicker">VALE DE CONTEÚDO</span><h2>Resgate até <strong>${safe(reward.contentLimit.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}))}</strong></h2><p>Use Vicoins para solicitar um resgate de conteúdo neste valor ou menos.</p><div class="shop-reward-cost"><img src="assets/vicoins-coin.png" alt=""><strong>${reward.coinCost.toLocaleString('pt-BR')}</strong><span>Vicoins</span></div>${isAdmin ? `<label class="shop-reward-admin-cost">Alterar custo <input type="number" min="1" max="1000000" step="1" value="${reward.coinCost}" data-reward-cost="${safe(reward.id)}"><span>Vicoins</span><button type="button" data-save-reward="${safe(reward.id)}">Salvar</button></label>` : ''}<button type="button" data-reward-id="${safe(reward.id)}" ${authenticated && balance < reward.coinCost ? 'disabled' : ''}>${!authenticated ? 'Entrar para resgatar' : balance < reward.coinCost ? 'Saldo insuficiente' : 'Resgatar'}</button></article>`).join('');
     rewardsRoot.querySelectorAll('[data-reward-id]').forEach(button => button.addEventListener('click',() => submitOrder(button)));
+    rewardsRoot.querySelectorAll('[data-save-reward]').forEach(button => button.addEventListener('click',async () => {
+      if (!window.CardapioAuth?.isAdmin()) return;
+      const input = rewardsRoot.querySelector(`[data-reward-cost="${button.dataset.saveReward}"]`);
+      const coinCost = Number(input?.value);
+      if (!Number.isSafeInteger(coinCost) || coinCost < 1 || coinCost > 1000000) { feedback.textContent = 'Informe um valor entre 1 e 1.000.000 Vicoins.'; return; }
+      button.disabled = true; feedback.textContent = 'Salvando custo do vale…';
+      try { const data = await api('/api/admin/vicoins-rewards',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:button.dataset.saveReward,coinCost})}); rewards = data.rewards || rewards; renderRewards(); feedback.textContent = 'Novo custo salvo. Ele será usado nos próximos pedidos.'; }
+      catch (error) { feedback.textContent = error.message || 'Não foi possível salvar o custo.'; button.disabled = false; }
+    }));
   }
 
   function bannerCardMarkup(banner,authenticated,owned) {
@@ -147,8 +157,9 @@
       bannerOrders = [];
       equippedProfileBannerId = '';
       try {
-        const catalog = await api('/api/shop/profile-banners');
+        const [catalog,offerData] = await Promise.all([api('/api/shop/profile-banners'),api('/api/shop/rewards')]);
         bannerCatalog = Array.isArray(catalog.banners) ? catalog.banners : [];
+        rewards = Array.isArray(offerData.rewards) ? offerData.rewards : rewards; renderRewards();
       } catch (error) { feedback.textContent = error.message || 'Não foi possível carregar os banners.'; }
       renderBanners();
       loadDailyStatus();
@@ -157,12 +168,14 @@
     }
     feedback.textContent = 'Carregando seu saldo e seus pedidos…';
     try {
-      const [wallet,inventory,ordersData,catalog] = await Promise.all([api('/api/account/vicoins'),api('/api/account/profile-banner'),api('/api/account/profile-banner-orders'),api('/api/shop/profile-banners')]);
+      const [wallet,inventory,ordersData,catalog,offerData] = await Promise.all([api('/api/account/vicoins'),api('/api/account/profile-banner'),api('/api/account/profile-banner-orders'),api('/api/shop/profile-banners'),api('/api/shop/rewards')]);
       updateBalance(wallet.balance,true,wallet.infinite);
       bannerInventory = inventory;
       equippedProfileBannerId = inventory.equipped?.id || '';
       bannerOrders = Array.isArray(ordersData.orders) ? ordersData.orders : [];
       bannerCatalog = Array.isArray(catalog.banners) ? catalog.banners : [];
+      rewards = Array.isArray(offerData.rewards) ? offerData.rewards : rewards;
+      renderRewards();
       renderBanners();
       await loadDailyStatus();
       feedback.textContent = 'Escolha um vale compatível com o conteúdo que deseja resgatar.';

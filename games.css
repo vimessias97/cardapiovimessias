@@ -12,3 +12,5 @@
 .troove-game-fallback:hover{filter:brightness(1.12)}
 @media(max-width:760px){.troove-game-dialog{padding:16px}.troove-game-frame-wrap{height:calc(100% - 165px);min-height:250px}}
 @media(max-width:520px){.troove-game-dialog{width:calc(100vw - 16px);height:calc(100vh - 16px);max-height:calc(100vh - 16px);padding:12px}.troove-game-dialog .emoji-game-dialog-head h2{font-size:20px}.troove-game-note{font-size:12px}.troove-game-frame-wrap{height:calc(100% - 175px);min-height:220px}.troove-game-fallback{width:100%;justify-content:center}}
+
+@media(min-width:761px){.games-grid{grid-template-columns:repeat(3,minmax(220px,260px))}}
