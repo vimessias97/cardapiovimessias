@@ -21,6 +21,7 @@ const favoritesFile = path.join(dataRoot, 'favorites.json');
 const ratingsFile = path.join(dataRoot, 'ratings.json');
 const redemptionsFile = path.join(dataRoot, 'redemptions.json');
 const communityMembersFile = path.join(dataRoot, 'community-members.json');
+const communityBadgesFile = path.join(dataRoot, 'community-badges.json');
 const promotionsFile = path.join(dataRoot, 'promotions.json');
 const vicoinsFile = path.join(dataRoot, 'vicoins.json');
 const vicoinsRewardsFile = path.join(dataRoot, 'vicoins-rewards.json');
@@ -208,6 +209,7 @@ const localStateFiles = {
   ratings:ratingsFile,
   redemptions:redemptionsFile,
   communityMembers:communityMembersFile,
+  communityBadges:communityBadgesFile,
   promotions:promotionsFile,
   vicoins:vicoinsFile,
   vicoinsRewards:vicoinsRewardsFile,
@@ -350,6 +352,17 @@ async function readRedemptions() {
 async function readCommunityMembers() {
   const value = await readJsonState('communityMembers',[]);
   return Array.isArray(value) ? value : [];
+}
+
+async function readCommunityBadges() {
+  const value = await readJsonState('communityBadges',{badges:[]});
+  return value && Array.isArray(value.badges) ? value : {badges:[]};
+}
+
+async function getCommunityBadgesForMember(memberId) {
+  const store = await readCommunityBadges();
+  return store.badges.filter(badge => Array.isArray(badge.memberIds) && badge.memberIds.includes(String(memberId)))
+    .map(({id,name,symbol}) => ({id,name,symbol}));
 }
 
 async function readForumTopics() {
@@ -1439,7 +1452,7 @@ async function handle(req, res) {
     const bannerInventory = getProfileBannerInventory(vicoinsStore,memberId);
     const isAdmin = getTwitchRole(member) === 'admin';
     const profile = {id:member.id,login:member.login,displayName:member.displayName,profileImageUrl:member.profileImageUrl,joinedAt:member.joinedAt,vicoins:await getVicoinsBalance(memberId,isAdmin),vicoinsInfinite:isAdmin,banner:bannerInventory.equipped};
-    return json(res,200,{profile,favorites,redemptions,ratings,achievements});
+    return json(res,200,{profile,favorites,redemptions,ratings,achievements,badges:await getCommunityBadgesForMember(memberId)});
   }
   if (req.method === 'GET' && url.pathname === '/api/shop/rewards') {
     return json(res,200,{rewards:await readVicoinsRewards()});
@@ -1551,7 +1564,7 @@ async function handle(req, res) {
     const achievements = {favorites:favorites.length,ratings:ratings.length,redemptions:redemptions.length};
     const vicoinsStore = await readVicoinsStore();
     const bannerInventory = getProfileBannerInventory(vicoinsStore,profile.id);
-    return privateJson(res,200,{profile:{...profile,vicoins:await getVicoinsBalance(profile.id,profile.role === 'admin'),vicoinsInfinite:profile.role === 'admin',banner:bannerInventory.equipped},favorites,redemptions,ratings,achievements});
+    return privateJson(res,200,{profile:{...profile,vicoins:await getVicoinsBalance(profile.id,profile.role === 'admin'),vicoinsInfinite:profile.role === 'admin',banner:bannerInventory.equipped},favorites,redemptions,ratings,achievements,badges:await getCommunityBadgesForMember(profile.id)});
   }
   if (req.method === 'GET' && url.pathname === '/api/account/profile-banner') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -1851,6 +1864,61 @@ async function handle(req, res) {
       .sort((a,b) => String(a.displayName || a.login).localeCompare(String(b.displayName || b.login),'pt-BR'))
       .map(({id,login,displayName}) => ({id,login,displayName:displayName || login}));
     return privateJson(res,200,{members});
+  }
+  if (url.pathname === '/api/admin/community-badges' && ['GET','POST','PUT','DELETE'].includes(req.method)) {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode gerenciar insígnias.'});
+    const origin = req.headers.origin;
+    if (req.method !== 'GET' && origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    if (req.method === 'GET') {
+      const [store,members] = await Promise.all([readCommunityBadges(),readCommunityMembers()]);
+      return privateJson(res,200,{badges:store.badges,members:members.filter(member => member?.id && member?.login).map(({id,login,displayName}) => ({id,login,displayName:displayName || login})).sort((a,b) => a.displayName.localeCompare(b.displayName,'pt-BR'))});
+    }
+    let body;
+    try { body = await readRequestJson(req); } catch (error) { return privateJson(res,400,{error:error.message}); }
+    if (req.method === 'POST') {
+      const name = String(body.name || '').trim().slice(0,48);
+      const symbolText = String(body.symbol || '').trim();
+      const symbol = typeof Intl.Segmenter === 'function'
+        ? [...new Intl.Segmenter('pt-BR',{granularity:'grapheme'}).segment(symbolText)].slice(0,4).map(item => item.segment).join('')
+        : Array.from(symbolText).slice(0,12).join('');
+      const rawIds = Array.isArray(body.memberIds) ? body.memberIds.map(value => String(value)) : [];
+      if (name.length < 2 || !symbol || rawIds.length > 500) return privateJson(res,400,{error:'Informe o nome, um símbolo e até 500 destinatários.'});
+      const members = await readCommunityMembers();
+      const validIds = new Set(members.map(member => String(member.id)));
+      if (rawIds.some(id => !validIds.has(id))) return privateJson(res,400,{error:'A lista contém uma conta que não está registrada na comunidade.'});
+      try {
+        const result = await updateJsonState('communityBadges',{badges:[]},store => {
+          if (!Array.isArray(store.badges)) store.badges = [];
+          if (store.badges.some(item => String(item.name || '').toLocaleLowerCase('pt-BR') === name.toLocaleLowerCase('pt-BR'))) throw new Error('Já existe uma insígnia com esse nome.');
+          const badge = {id:randomUUID(),name,symbol,memberIds:[...new Set(rawIds)],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+          store.badges.push(badge); return {badge,badges:store.badges};
+        });
+        return privateJson(res,201,result);
+      } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível criar a insígnia.'}); }
+    }
+    const id = String(body.id || '');
+    if (!/^[a-f0-9-]{36}$/i.test(id)) return privateJson(res,400,{error:'Insígnia inválida.'});
+    if (req.method === 'PUT') {
+      const requestedIds = Array.isArray(body.memberIds) ? body.memberIds.map(value => String(value)) : [];
+      if (requestedIds.length > 500) return privateJson(res,400,{error:'Selecione até 500 destinatários.'});
+      const validIds = new Set((await readCommunityMembers()).map(member => String(member.id)));
+      if (requestedIds.some(value => !validIds.has(value))) return privateJson(res,400,{error:'A lista contém uma conta que não está registrada na comunidade.'});
+    }
+    try {
+      const result = await updateJsonState('communityBadges',{badges:[]},store => {
+        if (!Array.isArray(store.badges)) store.badges = [];
+        const index = store.badges.findIndex(item => item.id === id);
+        if (index < 0) return null;
+        if (req.method === 'DELETE') { store.badges.splice(index,1); return {badges:store.badges}; }
+        const rawIds = Array.isArray(body.memberIds) ? body.memberIds.map(value => String(value)) : [];
+        const badge = store.badges[index];
+        badge.memberIds = [...new Set(rawIds)]; badge.updatedAt = new Date().toISOString();
+        return {badge,badges:store.badges};
+      });
+      if (!result) return privateJson(res,404,{error:'Esta insígnia não foi encontrada.'});
+      return privateJson(res,200,result);
+    } catch (error) { return privateJson(res,400,{error:error.message || 'Não foi possível atualizar a insígnia.'}); }
   }
   if (req.method === 'POST' && url.pathname === '/api/admin/vicoins-adjustments') {
     const profile = await getAuthenticatedProfile(req,res);

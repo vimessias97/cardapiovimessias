@@ -1,0 +1,15 @@
+/* Camada sazonal temporária. Remova a referência a holiday.css no index.html para desfazer toda a estética de Natal. */
+.catalog-home{background:radial-gradient(ellipse at 93% 4%,#28433220,transparent 28%),radial-gradient(ellipse at 78% 5%,#21102f33,transparent 34%),#09080d}
+.catalog-home:before{position:fixed;z-index:100;top:0;left:0;width:100%;height:2px;background:linear-gradient(90deg,#456b4c,#c9ad71 20%,#8b3544 34%,#44634a 53%,#c9ad71 72%,#753e52 88%,#456b4c);content:"";opacity:.8;pointer-events:none}
+.home-hero{border-color:#5c664d;box-shadow:0 10px 35px #0005,0 0 0 1px #b5a16a19,inset 0 0 48px #14301d24}
+.home-hero:before{position:absolute;z-index:2;top:13px;right:15px;padding:5px 9px;border:1px solid #c5ab723d;border-radius:20px;background:#100f0bb3;color:#e2d0a2;content:"✦  BOAS FESTAS  ✦";font:600 8px/1 var(--sans);letter-spacing:.13em;text-shadow:0 0 10px #bba36b66;pointer-events:none}
+.home-hero:after{position:absolute;z-index:2;top:0;left:0;width:100%;height:7px;background:radial-gradient(circle at 10px 1px,#d2b77a 0 1.5px,transparent 2px) 0 0/54px 7px repeat-x,linear-gradient(90deg,#42634a55,#c3a96577,#7b3a4a66,#42634a55);content:"";opacity:.72;pointer-events:none}
+.feature-strip,.rail-card,.home-promo-teaser{border-color:#4e594633}
+.feature-card>span svg{stroke:#d8c99b;filter:drop-shadow(0 0 7px #c9b27033)}
+.feature-arrow,.home-promo-kicker,.home-promo-link span{color:#d8c08a}
+.rail-heading .rail-icon{color:#d2bd83}
+.rail-card{box-shadow:0 9px 26px #0003,0 1px 0 #b7a5660a inset}
+.community-member-dialog,.shop-reward-card,.admin-page .admin-redemption-card{border-color:#4a5b46}
+.community-member-dialog::backdrop{background:#06100bd9}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline-color:#cbb575}
+@media(max-width:760px){.home-hero:before{top:9px;right:9px;font-size:7px}.home-hero:after{height:5px}}

@@ -6,6 +6,7 @@
   const close = document.querySelector('#communityMemberClose');
   const avatar = document.querySelector('#communityMemberAvatar');
   const name = document.querySelector('#communityMemberName');
+  const profileBadges = document.querySelector('#communityMemberBadges');
   const feedback = document.querySelector('#communityMemberFeedback');
   const redemptions = document.querySelector('#communityMemberRedemptions');
   const favorites = document.querySelector('#communityMemberFavorites');
@@ -45,6 +46,12 @@
     }
     dialogHead.style.setProperty('--community-profile-banner',`url("${imageUrl}")`);
     dialogHead.classList.add('has-profile-banner');
+  }
+
+  function renderProfileBadges(badges = []) {
+    const items = Array.isArray(badges) ? badges : [];
+    profileBadges.hidden = !items.length;
+    profileBadges.innerHTML = items.map(badge => `<span class="community-profile-badge" role="img" tabindex="0" title="${safe(badge.name)}" aria-label="Insígnia: ${safe(badge.name)}" data-badge-name="${safe(badge.name)}">${safe(badge.symbol)}</span>`).join('');
   }
 
   function renderAchievements(achievements = {}) {
@@ -130,6 +137,7 @@
     setVicoins(0,true);
     feedback.textContent = '';
     renderAchievements();
+    renderProfileBadges([]);
     redemptions.replaceChildren();
     favorites.replaceChildren();
     ratedTitles.replaceChildren();
@@ -143,6 +151,7 @@
       name.textContent = profile.displayName || profile.login || 'Perfil Twitch';
       setVicoins(profile.vicoins,true,profile.vicoinsInfinite);
       setProfileBanner(profile.banner);
+      renderProfileBadges(data.badges || []);
       renderAchievements(data.achievements || {});
       if (profile.profileImageUrl) {
         avatar.src = profile.profileImageUrl;
@@ -178,7 +187,7 @@
     target.innerHTML = items.map((member,index) => {
       const avatarMarkup = member.profileImageUrl ? `<img src="${safe(member.profileImageUrl)}" alt="" loading="lazy">` : '<span class="community-ranking-avatar-fallback" aria-hidden="true">✦</span>';
       const value = type === 'vicoins'
-        ? `<span class="community-ranking-value is-vicoins"><img src="assets/vicoins-coin.png" alt=""><strong>${Number(member.balance || 0).toLocaleString('pt-BR')}</strong></span>`
+        ? `<span class="community-ranking-value is-vicoins"><img src="assets/vicoins-coin.png?v=2" alt=""><strong>${Number(member.balance || 0).toLocaleString('pt-BR')}</strong></span>`
         : `<span class="community-ranking-value"><strong>${Number(member.totalValue || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong><small>${Number(member.redemptionCount || 0)} ${Number(member.redemptionCount) === 1 ? 'resgate' : 'resgates'}</small></span>`;
       return `<li class="community-ranking-row"><span class="community-ranking-position">${index + 1}</span><button type="button" class="community-ranking-profile" data-profile-id="${safe(member.id)}">${avatarMarkup}<span>${safe(member.displayName || 'Usuário Twitch')}</span></button>${value}</li>`;
     }).join('');
