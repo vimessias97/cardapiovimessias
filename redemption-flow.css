@@ -36,6 +36,9 @@
 .admin-redemptions-section .admin-redemptions-list{gap:10px;margin-top:10px}
 .admin-payment-note{margin:20px 0 0;padding:12px 14px;border:1px solid #71532e;border-radius:8px;background:#221b12;color:#e5cfaa;font-size:12px;line-height:1.55}
 .admin-redemptions-feedback{margin:18px 0;color:#b6adbf;font-size:13px;line-height:1.6}
+.admin-redemptions-more{display:block;min-height:40px;margin:13px auto 0;padding:0 18px;border:1px solid #624376;border-radius:7px;background:#21152b;color:#e6c9f7;font-size:12px;font-weight:700}
+.admin-redemptions-more:hover{border-color:#a15bc6;background:#2a1935}
+.admin-redemption-value{color:#ddb0f4!important;font-weight:700}
 .admin-redemption-card{display:grid;grid-template-columns:82px minmax(0,1fr);gap:15px;padding:14px;border:1px solid #3c3046;border-radius:11px;background:linear-gradient(140deg,#17131b,#100d14);box-shadow:0 7px 22px #0003}
 .admin-redemption-card.status-approved{border-color:#335640}.admin-redemption-card.status-rejected{opacity:.72}
 .admin-redemption-poster{display:block;width:82px;aspect-ratio:2/3;object-fit:cover;border-radius:6px;background:#24172d}.admin-no-poster{display:grid;place-items:center;color:#d1a7ed;font-size:28px}

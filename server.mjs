@@ -27,6 +27,7 @@ const forumFile = path.join(dataRoot, 'forum.json');
 const forumUploadsDir = path.join(dataRoot, 'forum-uploads');
 const profileBannersDir = path.join(dataRoot, 'profile-banners');
 const youtubeVideosFile = path.join(dataRoot, 'youtube-videos.json');
+const patreonMappingsFile = path.join(dataRoot, 'patreon-mappings.json');
 await mkdir(forumUploadsDir,{recursive:true});
 await mkdir(profileBannersDir,{recursive:true});
 if (persistenceMode === 'local' && dataRoot !== root) {
@@ -200,7 +201,8 @@ const localStateFiles = {
   promotions:promotionsFile,
   vicoins:vicoinsFile,
   forum:forumFile,
-  youtubeVideos:youtubeVideosFile
+  youtubeVideos:youtubeVideosFile,
+  patreonMappings:patreonMappingsFile
 };
 
 async function supabaseRest(resource,options = {}) {
@@ -688,23 +690,8 @@ async function searchTmdb(query, startPage = 1, startOffset = 0) {
     return {id:hit.id,mediaType:hit.media_type,title:detail.title || detail.name || hit.title || hit.name,originalTitle:detail.original_title || detail.original_name || hit.original_title || hit.original_name || '',kind,year:String(detail.release_date || detail.first_air_date || '').slice(0,4),overview:detail.overview || hit.overview || '',durationMinutes,durationLabel,posterUrl:posterPath ? `https://image.tmdb.org/t/p/w500${posterPath}` : null,sourceUrl:`https://www.themoviedb.org/${hit.media_type}/${hit.id}`};
   }));
   let posts = await getManualPatreonLinks();
-  try {
-    posts = [...posts, ...await getPatreonPosts()];
-    for (const result of results) {
-      const titleKeys = [result.title,result.originalTitle].map(normalizeContentTitle).filter(Boolean);
-      const matchedPost = posts.find(post => [...(post.aliases || []),post.title].some(title => titleKeys.includes(normalizeContentTitle(title))));
-      if (matchedPost) {
-        result.reactUrl = matchedPost.url;
-        result.reactPostTitle = matchedPost.title;
-      }
-    }
-  } catch {
-    for (const result of results) {
-      const titleKeys = [result.title,result.originalTitle].map(normalizeContentTitle).filter(Boolean);
-      const matchedPost = posts.find(post => [...(post.aliases || []),post.title].some(title => titleKeys.includes(normalizeContentTitle(title))));
-      if (matchedPost) { result.reactUrl = matchedPost.url; result.reactPostTitle = matchedPost.title; }
-    }
-  }
+  try { posts = [...posts, ...await getPatreonPosts()]; } catch {}
+  await applyPatreonMatches(results,posts);
   return {source:'tmdb',results,nextCursor};
 }
 
@@ -741,9 +728,7 @@ async function getCatalogTitle(type, id) {
   };
   let posts = await getManualPatreonLinks();
   try { posts = [...posts, ...await getPatreonPosts()]; } catch {}
-  const titleKeys = [result.title,result.originalTitle].map(normalizeContentTitle).filter(Boolean);
-  const matchedPost = posts.find(post => [...(post.aliases || []),post.title].some(title => titleKeys.includes(normalizeContentTitle(title))));
-  if (matchedPost) { result.reactUrl = matchedPost.url; result.reactPostTitle = matchedPost.title; }
+  await applyPatreonMatches([result],posts);
   return result;
 }
 
@@ -799,11 +784,7 @@ async function getTrendingSuggestions(period = 'week') {
   }));
   let posts = await getManualPatreonLinks();
   try { posts = [...posts, ...await getPatreonPosts()]; } catch {}
-  for (const result of results) {
-    const key = normalizeContentTitle(result.title);
-    const matchedPost = posts.find(post => [...(post.aliases || []),post.title].some(title => normalizeContentTitle(title) === key));
-    if (matchedPost) { result.reactUrl = matchedPost.url; result.reactPostTitle = matchedPost.title; }
-  }
+  await applyPatreonMatches(results,posts);
   const value = {source:'tmdb',results};
   suggestionsCache.set(period, {value,expiresAt:Date.now() + 1800000});
   return value;
@@ -831,7 +812,7 @@ async function getCalendarMovies(year, month) {
   const results = [firstPage, ...pages].flatMap(page => page.results || [])
     .filter(item => item.id && /^\d{4}-\d{2}-\d{2}$/.test(item.release_date || '') && item.release_date >= start && item.release_date <= end)
     .map(item => ({
-      id:Number(item.id),title:item.title || item.original_title || 'Título sem nome',
+      id:Number(item.id),mediaType:'movie',title:item.title || item.original_title || 'Título sem nome',
       releaseDate:item.release_date,
       posterUrl:item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
       sourceUrl:`https://www.themoviedb.org/movie/${item.id}`
@@ -897,9 +878,7 @@ async function getRandomCatalogTitle(type, requestedGenre = 'all') {
   };
   let posts = await getManualPatreonLinks();
   try { posts = [...posts, ...await getPatreonPosts()]; } catch {}
-  const titleKeys = [result.title,result.originalTitle].map(normalizeContentTitle).filter(Boolean);
-  const matchedPost = posts.find(post => [...(post.aliases || []),post.title].some(title => titleKeys.includes(normalizeContentTitle(title))));
-  if (matchedPost) { result.reactUrl = matchedPost.url; result.reactPostTitle = matchedPost.title; }
+  await applyPatreonMatches([result],posts);
   return result;
 }
 
@@ -929,6 +908,31 @@ function normalizeContentTitle(value) {
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('pt-BR')
     .replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function patreonTitleKey(result) {
+  return `${result.mediaType}:${Number(result.id)}`;
+}
+
+async function applyPatreonMatches(results,posts) {
+  const store = await readJsonState('patreonMappings',{items:[]});
+  const mappings = Array.isArray(store?.items) ? store.items : [];
+  for (const result of results) {
+    const key = patreonTitleKey(result);
+    const specific = mappings.find(item => item.key === key);
+    if (specific?.blockAutomatic) continue;
+    if (specific?.url) {
+      result.reactUrl = specific.url;
+      result.reactPostTitle = specific.title || result.title;
+      continue;
+    }
+    const titleKeys = [result.title,result.originalTitle].map(normalizeContentTitle).filter(Boolean);
+    const matchingPosts = posts.filter(post => [...(post.aliases || []),post.title].some(title => titleKeys.includes(normalizeContentTitle(title))));
+    const uniqueUrls = [...new Set(matchingPosts.map(post => post.url))];
+    if (uniqueUrls.length !== 1) continue;
+    const matchedPost = matchingPosts.find(post => post.url === uniqueUrls[0]);
+    if (matchedPost) { result.reactUrl = matchedPost.url; result.reactPostTitle = matchedPost.title; }
+  }
 }
 
 async function getPatreonPosts() {
@@ -1248,6 +1252,48 @@ async function handle(req, res) {
       await deleteForumAttachment(result.attachment || result.removedAttachment);
       return privateJson(res,200,result.deleted ? {deleted:true} : {comment:result.comment});
     } catch (error) { return privateJson(res,error.statusCode || 500,{error:error.message || 'Não foi possível atualizar o comentário.'}); }
+  }
+  if (url.pathname === '/api/admin/patreon-mappings' && ['GET','POST','DELETE'].includes(req.method)) {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode gerenciar associações do Patreon.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    if (req.method === 'GET') {
+      const store = await readJsonState('patreonMappings',{items:[]});
+      return privateJson(res,200,{items:Array.isArray(store.items) ? store.items : []});
+    }
+    let body;
+    try { body = await readRequestJson(req); }
+    catch (error) { return privateJson(res,400,{error:error.message}); }
+    const mediaType = String(body.mediaType || '');
+    const id = Number(body.id);
+    if (!['movie','tv'].includes(mediaType) || !Number.isSafeInteger(id) || id <= 0) return privateJson(res,400,{error:'Informe o tipo e um ID válido do TMDB.'});
+    const key = `${mediaType}:${id}`;
+    try {
+      const store = await updateJsonState('patreonMappings',{items:[]},state => {
+        state.items = Array.isArray(state.items) ? state.items : [];
+        if (req.method === 'DELETE') state.items = state.items.filter(item => item.key !== key);
+        else {
+          const title = String(body.title || '').trim().slice(0,150);
+          const rawUrl = String(body.url || '').trim();
+          let safeUrl = '';
+          if (rawUrl) {
+            let parsed;
+            try { parsed = new URL(rawUrl); } catch { throw new Error('Informe um link válido do Patreon.'); }
+            if (parsed.protocol !== 'https:' || !['www.patreon.com','patreon.com'].includes(parsed.hostname) || !/\/posts\//.test(parsed.pathname)) throw new Error('Use um link HTTPS de post do Patreon.');
+            safeUrl = parsed.href;
+          }
+          if (!title) throw new Error('Informe o título da obra.');
+          const item = {key,id,mediaType,title,url:safeUrl,blockAutomatic:!safeUrl,updatedAt:new Date().toISOString()};
+          const index = state.items.findIndex(entry => entry.key === key);
+          if (index < 0) state.items.push(item); else state.items[index] = item;
+        }
+        return state.items;
+      });
+      for (const cacheKey of tmdbCache.keys()) tmdbCache.delete(cacheKey);
+      suggestionsCache.clear();
+      return privateJson(res,200,{items:store});
+    } catch (error) { return privateJson(res,400,{error:error.message || 'Não foi possível salvar a associação.'}); }
   }
   if (req.method === 'GET' && url.pathname === '/api/promotions') {
     return json(res,200,{promotions:await readPromotions()});
@@ -1598,6 +1644,7 @@ async function handle(req, res) {
       posterUrl:title.posterUrl || '',
       durationMinutes:Number(title.durationMinutes) || null,
       durationLabel:title.durationLabel || (title.durationMinutes ? `${title.durationMinutes} min` : 'Duração não informada'),
+      estimatedValue:Number(title.durationMinutes) > 0 ? Math.ceil(Number(title.durationMinutes) / 30) * 5 : null,
       scheduledAt,
       status:'pending',
       requester:{id:profile.id,login:profile.login,displayName:profile.displayName},
@@ -1735,6 +1782,15 @@ async function handle(req, res) {
       });
       return privateJson(res,200,result);
     } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível atualizar o pedido.'}); }
+  }
+  if (req.method === 'GET' && url.pathname === '/api/admin/community-members') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode consultar a lista de usuários.'});
+    const members = (await readCommunityMembers())
+      .filter(member => member?.login)
+      .sort((a,b) => String(a.displayName || a.login).localeCompare(String(b.displayName || b.login),'pt-BR'))
+      .map(({id,login,displayName}) => ({id,login,displayName:displayName || login}));
+    return privateJson(res,200,{members});
   }
   if (req.method === 'POST' && url.pathname === '/api/admin/vicoins-adjustments') {
     const profile = await getAuthenticatedProfile(req,res);

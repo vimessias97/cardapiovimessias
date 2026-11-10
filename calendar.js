@@ -64,6 +64,7 @@ function renderCalendarGrid() {
     calendarSelectedDate = button.dataset.calendarDate;
     renderCalendarGrid();
     renderCalendarDay();
+    document.querySelector('.calendar-day-panel')?.scrollIntoView({behavior:'smooth',block:'start'});
   }));
 }
 
@@ -80,7 +81,15 @@ function renderCalendarDay() {
     calendarDayList.innerHTML = '<p class="calendar-empty-day">Nenhuma estreia de cinema cadastrada para esta data.</p>';
     return;
   }
-  calendarDayList.innerHTML = movies.map(movie => `<article class="calendar-movie-card">${movie.posterUrl ? `<img src="${calendarEscape(movie.posterUrl)}" alt="Pôster de ${calendarEscape(movie.title)}" loading="lazy">` : '<div class="calendar-movie-placeholder" aria-hidden="true">✦</div>'}<div><span class="calendar-movie-kind">ESTREIA DE CINEMA</span><h3>${calendarEscape(movie.title)}</h3><p>${calendarEscape(calendarDateFormatter.format(date))}</p><a href="${calendarEscape(movie.sourceUrl)}" target="_blank" rel="noreferrer">Ver no TMDB ↗</a></div></article>`).join('');
+  calendarDayList.innerHTML = movies.map((movie,index) => `<button type="button" class="calendar-movie-card" data-calendar-movie="${index}" aria-label="Ver detalhes de ${calendarEscape(movie.title)}">${movie.posterUrl ? `<img src="${calendarEscape(movie.posterUrl)}" alt="Pôster de ${calendarEscape(movie.title)}" loading="lazy">` : '<span class="calendar-movie-placeholder" aria-hidden="true">✦</span>'}<span class="calendar-movie-copy"><span class="calendar-movie-kind">ESTREIA DE CINEMA</span><strong>${calendarEscape(movie.title)}</strong><span class="calendar-movie-date">${calendarEscape(calendarDateFormatter.format(date))}</span><span class="calendar-movie-open">Ver detalhes e trailer ↗</span></span></button>`).join('');
+  calendarDayList.querySelectorAll('[data-calendar-movie]').forEach(button => button.addEventListener('click',async () => {
+    const movie = movies[Number(button.dataset.calendarMovie)];
+    if (!movie || !window.CardapioFavorites?.getTitle || !window.openCatalogTitle) return;
+    button.disabled = true;
+    try { window.openCatalogTitle(await window.CardapioFavorites.getTitle({...movie,mediaType:'movie'})); }
+    catch (error) { calendarFeedback.textContent = error.message || 'Não foi possível abrir os detalhes deste filme.'; }
+    finally { button.disabled = false; }
+  }));
 }
 
 async function loadCalendarMonth() {

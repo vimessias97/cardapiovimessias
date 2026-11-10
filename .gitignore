@@ -10,4 +10,5 @@ youtube-videos.json
 *.tmp
 vicoins.json
 forum.json
+patreon-mappings.json
 forum-uploads/

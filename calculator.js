@@ -246,6 +246,8 @@ function bindRedemptionForm(target,item) {
   });
 }
 
+window.CardapioCalculator = {bindRedemptionForm};
+
 function trailerMarkup(item) {
   if (!item.trailer?.key) return '';
   return `<button class="title-trailer-button" type="button" data-trailer-key="${safe(item.trailer.key)}" data-trailer-name="${safe(item.trailer.name || `Trailer de ${item.title}`)}" aria-expanded="false"><span aria-hidden="true">▶</span> Reproduzir trailer</button><div class="title-trailer-frame" hidden></div>`;

@@ -39,3 +39,12 @@
 @media(max-width:1000px){.feature-strip>.feature-card{gap:7px}.feature-card>span svg{width:30px;height:30px}.sidebar-login-area{margin:10px 0 0;max-width:420px}}
 @media(max-width:760px){.feature-strip>.feature-card{padding:6px;border-bottom:1px solid #30263a}.feature-strip>.feature-card:nth-child(2){border-right:0}.feature-strip>.feature-card:nth-child(3),.feature-strip>.feature-card:nth-child(4){border-bottom:0}}
 @media(max-width:520px){.feature-strip p{font-size:11px!important}}
+.side-brand{display:none!important}.side-nav{padding-top:2px}
+.admin-patreon-manager{margin-top:26px}
+.admin-patreon-manager>label{display:block;margin:14px 0 6px;color:#ccc4d3;font-size:11px}
+.admin-patreon-manager>label input{display:block;width:100%;margin-top:7px;padding:11px 12px;border:1px solid #3a3044;border-radius:8px;background:#0e0c12;color:#f4eff8}
+.admin-patreon-manager .admin-promotion-form{display:grid;gap:12px;margin-top:12px}
+.admin-patreon-manager .admin-promotion-form label{display:grid;gap:6px}
+.admin-patreon-manager .admin-promotion-form label small{color:#a59aaa}
+.admin-patreon-manager .admin-promotion-form input,.admin-patreon-manager .admin-promotion-form select{width:100%;padding:10px 12px;border:1px solid #3a3044;border-radius:8px;background:#0e0c12;color:#f4eff8}
+.admin-patreon-manager .admin-promotion-row a{color:#d3a0ff}

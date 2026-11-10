@@ -1,8 +1,10 @@
 (() => {
   const form = document.querySelector('#adminVicoinsAdjustmentForm');
   const feedback = document.querySelector('#adminVicoinsAdjustmentFeedback');
+  const usersList = document.querySelector('#adminVicoinsUsers');
   if (!form || !feedback) return;
   const apiBases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
+  let usersLoaded = false;
 
   async function api(path,options = {}) {
     let lastError;
@@ -19,6 +21,17 @@
     }
     throw lastError || new Error('Não foi possível conectar ao servidor.');
   }
+
+  async function loadUsers() {
+    if (usersLoaded || !window.CardapioAuth?.isAdmin()) return;
+    try {
+      const data = await api('/api/admin/community-members');
+      if (usersList) usersList.innerHTML = (data.members || []).map(user => `<option value="${String(user.login).replace(/[&<>"']/g,character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]))}" label="${String(user.displayName || user.login).replace(/[&<>"']/g,'')}"></option>`).join('');
+      usersLoaded = true;
+      if (!data.members?.length) feedback.textContent = 'Ainda não há outros usuários registrados por login Twitch.';
+    } catch (error) { feedback.textContent = error.message || 'Não foi possível carregar a lista de usuários.'; }
+  }
+  form.elements.login.addEventListener('focus',loadUsers);
 
   form.addEventListener('submit',async event => {
     event.preventDefault();
@@ -54,6 +67,7 @@
     const enabled = Boolean(window.CardapioAuth?.isAdmin());
     form.hidden = !enabled;
     feedback.textContent = enabled ? '' : 'Área exclusiva do administrador.';
+    if (enabled) loadUsers();
   }
   window.addEventListener('cardapio:auth-updated',updateAccess);
   window.CardapioAuth?.ready.then(updateAccess);

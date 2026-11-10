@@ -6,7 +6,7 @@
 .react-week-day.is-today .react-week-date{color:#dbaeff;font-weight:700}
 .react-week-events{display:grid;gap:4px;min-width:0}
 .react-week-event{display:grid;grid-template-columns:minmax(0,1fr) 38px;gap:5px;align-items:center;min-width:0}
-.react-week-event span{overflow:hidden;color:#e9e1ec;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
+.react-week-event span{min-width:0;overflow:visible;color:#e9e1ec;font-size:9px;overflow-wrap:anywhere;white-space:normal;line-height:1.35}
 .react-week-event time{color:#cbbbd4;font-size:9px;text-align:right}
 .react-week-empty-day{color:#797280;font-size:9px}
 .react-week-card .rail-link{margin-top:8px}

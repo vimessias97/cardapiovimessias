@@ -32,7 +32,15 @@
       return;
     }
     topRatedFeedback.textContent = '';
-    topRatedList.innerHTML = items.map((item,index) => `<li class="top-rated-item"><span class="top-rated-rank">${String(index + 1).padStart(2,'0')}</span>${item.posterUrl ? `<img class="top-rated-poster" src="${safe(item.posterUrl)}" alt="" loading="lazy">` : '<span class="top-rated-poster top-rated-no-poster" aria-hidden="true">✦</span>'}<div class="top-rated-copy"><strong>${safe(item.title)}</strong><span class="top-rated-score"><span aria-hidden="true">★</span> ${Number(item.averageRating).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} <small>(${item.ratingCount})</small></span></div></li>`).join('');
+    topRatedList.innerHTML = items.map((item,index) => `<li class="top-rated-item"><span class="top-rated-rank">${String(index + 1).padStart(2,'0')}</span><button type="button" class="top-rated-open" data-open-top-rated="${index}" aria-label="Abrir e avaliar ${safe(item.title)}">${item.posterUrl ? `<img class="top-rated-poster" src="${safe(item.posterUrl)}" alt="" loading="lazy">` : '<span class="top-rated-poster top-rated-no-poster" aria-hidden="true">✦</span>'}<span class="top-rated-copy"><strong>${safe(item.title)}</strong><span class="top-rated-score"><span aria-hidden="true">★</span> ${Number(item.averageRating).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} <small>(${item.ratingCount})</small></span></span></button></li>`).join('');
+    topRatedList.querySelectorAll('[data-open-top-rated]').forEach(button => button.addEventListener('click',async () => {
+      const item = items[Number(button.dataset.openTopRated)];
+      if (!item || !window.CardapioFavorites?.getTitle || !window.openCatalogTitle) return;
+      button.disabled = true;
+      try { window.openCatalogTitle(await window.CardapioFavorites.getTitle(item)); }
+      catch (error) { topRatedFeedback.textContent = error.message || 'Não foi possível abrir este título.'; }
+      finally { button.disabled = false; }
+    }));
   }
 
   async function refresh() {

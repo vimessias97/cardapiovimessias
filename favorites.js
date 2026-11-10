@@ -77,7 +77,7 @@
       return;
     }
     feedback.textContent = '';
-    grid.innerHTML = ranked.map((item,index) => `<article class="community-favorite-card"><button class="community-favorite-open" type="button" data-open-favorite="${index}" aria-label="Abrir detalhes de ${safe(item.title)}"><span class="community-favorite-poster">${item.posterUrl ? `<img src="${safe(item.posterUrl)}" alt="Pôster de ${safe(item.title)}" loading="lazy">` : '<span class="community-favorite-no-poster" aria-hidden="true">✦</span>'}</span><span class="community-favorite-title">${safe(item.title)}</span></button><div class="community-favorite-votes" aria-label="${item.voteCount} corações"><span aria-hidden="true">♥</span><span>${item.voteCount}</span></div></article>`).join('');
+    grid.innerHTML = ranked.map((item,index) => `<article class="community-favorite-card"><button class="community-favorite-open" type="button" data-open-favorite="${index}" aria-label="Abrir detalhes de ${safe(item.title)}"><span class="community-favorite-poster">${item.posterUrl ? `<img src="${safe(item.posterUrl)}" alt="Pôster de ${safe(item.title)}" loading="lazy">` : '<span class="community-favorite-no-poster" aria-hidden="true">✦</span>'}</span><span class="community-favorite-title">${safe(item.title)}</span></button><div class="community-favorite-votes"><button type="button" class="community-favorite-heart${item.liked ? ' is-favorite' : ''}" data-toggle-favorite="${index}" aria-pressed="${Boolean(item.liked)}" aria-label="${item.liked ? 'Remover' : 'Adicionar'} ${safe(item.title)} ${item.liked ? 'dos' : 'aos'} favoritos">${item.liked ? '♥' : '♡'}</button><span aria-label="${item.voteCount} corações">${item.voteCount}</span></div></article>`).join('');
     grid.querySelectorAll('[data-open-favorite]').forEach(button => button.addEventListener('click', async () => {
       const item = ranked[Number(button.dataset.openFavorite)];
       if (!item) return;
@@ -89,9 +89,17 @@
       } catch (error) { feedback.textContent = error.message || 'Não foi possível carregar os detalhes deste título.'; }
       finally { button.disabled = false; }
     }));
+    grid.querySelectorAll('[data-toggle-favorite]').forEach(button => button.addEventListener('click',async () => {
+      const item = ranked[Number(button.dataset.toggleFavorite)];
+      if (!item || !window.CardapioFavorites) return;
+      button.disabled = true;
+      try { await window.CardapioFavorites.toggle(item); }
+      catch (error) { feedback.textContent = error.message || 'Não foi possível atualizar o favorito.'; button.disabled = false; }
+    }));
   }
 
   window.CardapioFavorites = {ready:refresh(),refresh,getFavorites,isLiked,count,toggle,getTitle};
+  window.addEventListener('cardapio:favorites-updated',renderPage);
   window.addEventListener('cardapio:auth-updated',refresh);
   window.setInterval(refresh, 120000);
 })();

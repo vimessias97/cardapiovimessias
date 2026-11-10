@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#09080d"><meta name="description" content="Vimessias Play — descubra filmes, séries e animes para assistir nas lives.">
-  <title>Vimessias Play</title>
+  <title>ViMessias Play</title>
+  <link rel="icon" type="image/svg+xml" href="assets/vimessias-play-mark.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
@@ -36,7 +37,7 @@
         <a class="selected" href="#inicio" data-page="home"><span>⌂</span>Início</a>
         <a href="#sorteador" data-page="sorteador"><span>⚄</span>Sorteador</a>
         <a href="#calendario" data-page="calendario"><span>▦</span>Calendário</a>
-        <a href="#sugestoes" data-page="sugestoes"><span>♡</span>Sugestões</a>
+        <a href="#sugestoes" data-page="sugestoes"><span>♡</span>Favoritos</a>
         <a href="#jogos" data-page="jogos"><span>▣</span>Jogos</a>
         <a href="#forum" data-page="forum"><span>☷</span>Fórum</a>
         <a href="#promocoes" data-page="promocoes"><span>％</span>Promoções</a>
@@ -140,7 +141,7 @@
         <section class="calendar-day-panel" aria-labelledby="calendarDayHeading"><div class="calendar-day-heading"><span class="eyebrow muted">PROGRAMAÇÃO DO DIA</span><h2 id="calendarDayHeading">Selecione uma data</h2></div><div class="calendar-day-list" id="calendarDayList" aria-live="polite"></div></section>
       </main>
       <main class="suggestions-page hidden" id="sugestoes" aria-labelledby="communitySuggestionsHeading">
-        <div class="suggestions-page-intro"><span class="eyebrow muted">ESCOLHAS DA COMUNIDADE</span><h1 id="communitySuggestionsHeading">Sugestões</h1><p>Os títulos favoritos, organizados pelos corações recebidos. Toda sexta-feira, o filme que tiver mais corações será exibido gratuitamente na live.</p></div>
+        <div class="suggestions-page-intro"><span class="eyebrow muted">ESCOLHAS DA COMUNIDADE</span><h1 id="communitySuggestionsHeading">Favoritos</h1><p>Os títulos favoritos, organizados pelos corações recebidos. Toda sexta-feira, o filme que tiver mais corações será exibido gratuitamente na live.</p></div>
         <div class="community-favorites-feedback" id="communityFavoritesFeedback" aria-live="polite">Carregando favoritos…</div>
         <div class="community-favorites-grid" id="communityFavoritesGrid"></div>
       </main>
@@ -201,23 +202,24 @@
         <section class="shop-cosmetics" aria-labelledby="shopBannersHeading"><div class="shop-cosmetics-heading"><div><span class="eyebrow muted">PERSONALIZE SEU PERFIL</span><h2 id="shopBannersHeading">Banners de perfil</h2><p>O banner aprovado é aplicado automaticamente no topo do seu perfil.</p></div></div><div class="shop-banner-featured-grid" id="shopBannerGrid" aria-live="polite"><p class="shop-empty">Carregando banner…</p></div></section>
       </main>
       <main class="account-library-page hidden" id="favoritos" aria-labelledby="myFavoritesHeading">
-        <header class="account-library-intro"><span class="eyebrow muted">SUA CONTA · TWITCH</span><h1 id="myFavoritesHeading">Filmes que favoritei</h1><p>Seus títulos favoritos ficam salvos na sua conta Twitch.</p></header>
+        <header class="account-library-intro"><span class="eyebrow muted">SUA CONTA · TWITCH</span><h1 id="myFavoritesHeading">Títulos que favoritei</h1><p>Seus títulos favoritos ficam salvos na sua conta Twitch.</p></header>
         <p class="account-library-feedback" id="myFavoritesFeedback" aria-live="polite">Carregando seus favoritos…</p>
         <div class="community-favorites-grid account-favorites-grid" id="myFavoritesGrid"></div>
       </main>
       <main class="account-library-page hidden" id="resgatados" aria-labelledby="myRedemptionsHeading">
-        <header class="account-library-intro"><span class="eyebrow muted">SUA CONTA · TWITCH</span><h1 id="myRedemptionsHeading">Filmes que resgatei</h1><p>Consulte os filmes e séries que você já resgatou.</p></header>
+        <header class="account-library-intro"><span class="eyebrow muted">SUA CONTA · TWITCH</span><h1 id="myRedemptionsHeading">Títulos que resgatei</h1><p>Consulte os filmes e séries que você já resgatou.</p></header>
         <p class="account-library-feedback" id="myRedemptionsFeedback" aria-live="polite">Carregando seus resgates…</p>
         <div class="account-redemptions-list" id="myRedemptionsList"></div>
       </main>
       <main class="admin-page hidden" id="admin" aria-labelledby="adminHeading">
         <header class="admin-page-intro"><span class="eyebrow muted">ÁREA PRIVADA · ADMINISTRADOR</span><h1 id="adminHeading">Painel <em>administrativo</em></h1><p>Revise os pedidos, ajuste a data e horário e aprove ou rejeite cada resgate.</p></header>
-        <section class="admin-redemptions-section" aria-labelledby="adminRedemptionsHeading"><div><span class="eyebrow muted">FILA DE CONTEÚDOS</span><h2 id="adminRedemptionsHeading">Pedidos de resgate</h2><p>Os pedidos pendentes aparecem primeiro para facilitar a revisão.</p></div><div class="admin-redemptions-feedback" id="adminRedemptionsFeedback" aria-live="polite">Carregando solicitações…</div><div class="admin-redemptions-list" id="adminRedemptionsList"></div></section>
+        <section class="admin-redemptions-section" aria-labelledby="adminRedemptionsHeading"><div><span class="eyebrow muted">FILA DE CONTEÚDOS</span><h2 id="adminRedemptionsHeading">Pedidos de resgate</h2><p>Os pedidos pendentes aparecem primeiro para facilitar a revisão.</p></div><div class="admin-redemptions-feedback" id="adminRedemptionsFeedback" aria-live="polite">Carregando solicitações…</div><div class="admin-redemptions-list" id="adminRedemptionsList"></div><button type="button" class="admin-redemptions-more hidden" id="adminRedemptionsMore">Ver mais pedidos</button></section>
         <section class="admin-shop-orders" aria-labelledby="adminShopOrdersHeading"><div class="admin-shop-orders-intro"><span class="eyebrow muted">RECOMPENSAS DA COMUNIDADE</span><h2 id="adminShopOrdersHeading">Pedidos da Lojinha</h2><p>Vales de conteúdo e pedidos de banners aparecem reunidos nesta área.</p></div><div class="admin-shop-orders-list"><section class="admin-shop-order-group" aria-labelledby="adminVicoinsOrdersHeading"><div><span class="eyebrow muted">VICOINS</span><h2 id="adminVicoinsOrdersHeading">Resgates de conteúdo</h2><p>Entregue o vale solicitado ou cancele para devolver os Vicoins.</p></div><p class="admin-vicoins-feedback" id="adminVicoinsFeedback" aria-live="polite">Carregando pedidos…</p><div class="admin-vicoins-list" id="adminVicoinsList"></div></section><section class="admin-shop-order-group" aria-labelledby="adminProfileBannersHeading"><div><span class="eyebrow muted">BANNERS · LIVEPIX</span><h2 id="adminProfileBannersHeading">Banner ViMessias</h2><p>Confira o pagamento antes de aprovar. O banner é liberado após sua aprovação.</p></div><p class="admin-vicoins-feedback" id="adminProfileBannersFeedback" aria-live="polite">Carregando pedidos…</p><div class="admin-vicoins-list" id="adminProfileBannersList"></div></section></div></section>
         <section class="admin-vicoins-adjustment" aria-labelledby="adminVicoinsAdjustmentHeading">
           <div><span class="eyebrow muted">GESTÃO DA COMUNIDADE</span><h2 id="adminVicoinsAdjustmentHeading">Ajustar Vicoins</h2><p>Adicione ou remova moedas do saldo de uma pessoa pelo nome de usuário da Twitch.</p></div>
           <form id="adminVicoinsAdjustmentForm" class="admin-vicoins-adjustment-form">
-            <label>Usuário Twitch<input name="login" type="text" autocomplete="off" placeholder="ex.: nome_do_usuario" maxlength="26" required></label>
+            <label>Usuário Twitch<input name="login" type="text" autocomplete="off" list="adminVicoinsUsers" placeholder="Clique e escolha ou digite o usuário" maxlength="26" required></label>
+            <datalist id="adminVicoinsUsers"></datalist>
             <label>Ação<select name="action" required><option value="add">Adicionar Vicoins</option><option value="remove">Remover Vicoins</option></select></label>
             <label>Quantidade<input name="amount" type="number" min="1" max="1000000" step="1" placeholder="100" required></label>
             <label>Motivo (opcional)<input name="reason" type="text" maxlength="120" placeholder="Ex.: prêmio de evento"></label>
@@ -225,6 +227,17 @@
           </form>
           <p class="admin-vicoins-adjustment-feedback" id="adminVicoinsAdjustmentFeedback" aria-live="polite"></p>
           <p class="admin-vicoins-adjustment-note">Sua conta administradora tem saldo ilimitado; não precisa receber ajustes.</p>
+        </section>
+        <section class="admin-promotion-manager admin-patreon-manager" aria-labelledby="adminPatreonHeading">
+          <div class="admin-promotion-manager-heading"><div><span class="eyebrow muted">CATÁLOGO · TMDB</span><h2 id="adminPatreonHeading">Associações do Patreon</h2><p>Associe um post a um título específico usando o ID do TMDB. Também é possível bloquear uma associação automática incorreta.</p></div></div>
+          <label>Buscar título no catálogo<input id="adminPatreonSearch" type="search" placeholder="Digite o nome de um filme ou série…" autocomplete="off"></label><div class="admin-promotion-search-results" id="adminPatreonSearchResults" role="listbox" aria-label="Resultados da busca TMDB"></div>
+          <form class="admin-promotion-form" id="adminPatreonForm">
+            <label>Título<input name="title" maxlength="150" placeholder="Nome do filme ou série" required></label>
+            <div class="admin-promotion-fields"><label>Tipo<select name="mediaType"><option value="movie">Filme</option><option value="tv">Série</option></select></label><label>ID do TMDB<input name="id" type="number" min="1" step="1" placeholder="Ex.: 550" required></label></div>
+            <label>Link do post do Patreon <small>(deixe em branco para bloquear a associação automática deste título)</small><input name="url" type="url" placeholder="https://www.patreon.com/.../posts/..." maxlength="500"></label>
+            <p class="admin-promotion-form-status" id="adminPatreonFeedback" aria-live="polite"></p><div class="admin-promotion-form-actions"><button type="submit" class="admin-promotion-save">Salvar associação</button></div>
+          </form>
+          <div class="admin-promotion-list" id="adminPatreonMappings" aria-live="polite"></div>
         </section>
         <section class="admin-promotion-manager" aria-labelledby="adminPromotionsHeading">
           <div class="admin-promotion-manager-heading"><div><span class="eyebrow muted">OFERTAS DA COMUNIDADE</span><h2 id="adminPromotionsHeading">Gerenciar promoções</h2><p>Monte uma coleção, escolha os títulos e defina o percentual de desconto. O site soma os valores estimados e aplica o desconto automaticamente.</p></div><button class="admin-promotion-new" id="adminPromotionNew" type="button">+ Nova promoção</button></div>
@@ -282,9 +295,9 @@
     <div class="community-member-dialog-head"><div class="community-member-identity"><img id="communityMemberAvatar" alt=""><div><span class="eyebrow muted">PERFIL DA COMUNIDADE</span><h2 id="communityMemberName"></h2></div></div><a class="vicoins-balance dialog-vicoins" id="communityMemberVicoinsLink" href="#lojinha" data-page="lojinha" title="Vicoins" aria-label="Vicoins: 0. Abrir lojinha"><img src="assets/vicoins-coin.png" alt=""><span id="communityMemberVicoinsCount">0</span></a><button type="button" class="community-member-close" id="communityMemberClose" aria-label="Fechar perfil">×</button></div>
     <section class="community-achievements" aria-labelledby="communityAchievementsHeading"><h3 id="communityAchievementsHeading">Insígnias</h3><div class="community-achievement-list" id="communityAchievementList" aria-live="polite"></div></section>
     <p class="community-member-feedback" id="communityMemberFeedback" aria-live="polite"></p>
-    <section class="community-member-section"><div class="community-member-section-heading"><h3>Filmes que resgatei</h3><div class="community-member-carousel-controls"><button type="button" data-carousel-target="communityMemberRedemptions" data-carousel-direction="-1" aria-label="Ver resgates anteriores" disabled>‹</button><button type="button" data-carousel-target="communityMemberRedemptions" data-carousel-direction="1" aria-label="Ver mais resgates" disabled>›</button></div></div><div class="community-member-titles" id="communityMemberRedemptions"></div></section>
-    <section class="community-member-section"><div class="community-member-section-heading"><h3>Filmes que favoritei</h3><div class="community-member-carousel-controls"><button type="button" data-carousel-target="communityMemberFavorites" data-carousel-direction="-1" aria-label="Ver favoritos anteriores" disabled>‹</button><button type="button" data-carousel-target="communityMemberFavorites" data-carousel-direction="1" aria-label="Ver mais favoritos" disabled>›</button></div></div><div class="community-member-titles" id="communityMemberFavorites"></div></section>
-    <section class="community-member-section"><div class="community-member-section-heading"><h3>Filmes que avaliei</h3><div class="community-member-carousel-controls"><button type="button" data-carousel-target="communityMemberRatings" data-carousel-direction="-1" aria-label="Ver avaliações anteriores" disabled>‹</button><button type="button" data-carousel-target="communityMemberRatings" data-carousel-direction="1" aria-label="Ver mais avaliações" disabled>›</button></div></div><div class="community-member-titles" id="communityMemberRatings"></div></section>
+    <section class="community-member-section"><div class="community-member-section-heading"><h3>Títulos que resgatei</h3><div class="community-member-carousel-controls"><button type="button" data-carousel-target="communityMemberRedemptions" data-carousel-direction="-1" aria-label="Ver resgates anteriores" disabled>‹</button><button type="button" data-carousel-target="communityMemberRedemptions" data-carousel-direction="1" aria-label="Ver mais resgates" disabled>›</button></div></div><div class="community-member-titles" id="communityMemberRedemptions"></div></section>
+    <section class="community-member-section"><div class="community-member-section-heading"><h3>Títulos que favoritei</h3><div class="community-member-carousel-controls"><button type="button" data-carousel-target="communityMemberFavorites" data-carousel-direction="-1" aria-label="Ver favoritos anteriores" disabled>‹</button><button type="button" data-carousel-target="communityMemberFavorites" data-carousel-direction="1" aria-label="Ver mais favoritos" disabled>›</button></div></div><div class="community-member-titles" id="communityMemberFavorites"></div></section>
+    <section class="community-member-section"><div class="community-member-section-heading"><h3>Títulos que avaliei</h3><div class="community-member-carousel-controls"><button type="button" data-carousel-target="communityMemberRatings" data-carousel-direction="-1" aria-label="Ver avaliações anteriores" disabled>‹</button><button type="button" data-carousel-target="communityMemberRatings" data-carousel-direction="1" aria-label="Ver mais avaliações" disabled>›</button></div></div><div class="community-member-titles" id="communityMemberRatings"></div></section>
   </dialog>
   <script src="favorites.js" defer></script>
   <script src="ratings.js" defer></script>
@@ -309,5 +322,6 @@
   <script src="admin-vicoins-adjustment.js" defer></script>
   <script src="admin-profile-banners.js" defer></script>
   <script src="admin-shop-banners.js" defer></script>
+  <script src="admin-patreon.js" defer></script>
 </body>
 </html>

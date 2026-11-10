@@ -45,3 +45,9 @@
 .calendar-empty-day{grid-column:1/-1;margin:0;padding:20px;border:1px dashed #3a2b45;border-radius:9px;color:#a99fb0;font-size:13px;text-align:center}
 @media(max-width:760px){.calendar-page{min-height:0;padding:28px 15px 40px}.calendar-page-heading{align-items:flex-start;flex-direction:column;margin-bottom:20px}.calendar-page-heading h1{font-size:30px}.calendar-page-heading p{font-size:14px}.calendar-controls{width:100%}.calendar-controls button:nth-child(2){flex:1}.calendar-panel,.calendar-day-panel{padding:15px}.calendar-month-heading h2{font-size:22px}.calendar-day-list{grid-template-columns:1fr}}
 @media(max-width:520px){.calendar-page{padding:22px 10px 32px}.calendar-controls button{min-height:40px}.calendar-panel,.calendar-day-panel{padding:12px}.calendar-weekdays,.calendar-grid{grid-template-columns:repeat(7,minmax(70px,1fr));gap:5px;min-width:520px}.calendar-day-cell{padding:6px}.calendar-day-number{width:23px;height:23px;font-size:11px}.calendar-cell-movie{font-size:9px}.calendar-month-heading>span{font-size:8px}.calendar-feedback{font-size:12px}}
+.calendar-movie-card{width:100%;text-align:left;cursor:pointer;font:inherit;color:inherit;transition:border-color .18s,transform .18s}
+.calendar-movie-card:hover{border-color:#a15bc6;transform:translateY(-1px)}
+.calendar-movie-copy{display:grid;align-content:center;gap:6px;min-width:0}
+.calendar-movie-copy strong{color:#eee7f1;font:600 16px/1.35 var(--serif)}
+.calendar-movie-date{color:#a99fb0;font-size:12px;text-transform:capitalize}
+.calendar-movie-open{color:#cb91ed;font-size:12px;font-weight:600}
