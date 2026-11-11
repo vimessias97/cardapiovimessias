@@ -28,6 +28,15 @@ function money(value) {
   return Number(value).toLocaleString('pt-BR', {style:'currency',currency:'BRL'});
 }
 
+function makeLocalSchedule(dateValue,timeValue) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue) || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(timeValue)) return null;
+  const [year,month,day] = dateValue.split('-').map(Number);
+  const [hour,minute] = timeValue.split(':').map(Number);
+  const date = new Date(year,month - 1,day,hour,minute,0,0);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  return date;
+}
+
 async function fetchCatalogApi(path, options = {}) {
   let lastError;
   for (const base of apiBases) {
@@ -193,7 +202,7 @@ function titleDetailsMarkup(item) {
   const hasDuration = Number.isFinite(duration) && duration > 0;
   const price = hasDuration ? money(estimatedPrice(duration)) : '';
   const seriesEstimate = item.mediaType === 'tv' && hasDuration;
-  return `${item.posterUrl ? `<img class="selected-poster" src="${safe(item.posterUrl)}" alt="Pôster de ${safe(item.title)}">` : '<div class="selected-poster no-poster" aria-hidden="true">✦</div>'}<div class="selected-copy"><span class="badge">${safe(item.kind)}</span><div class="selected-title-heading"><h3>${safe(item.title)}</h3>${favoriteMarkup(item)}</div><small class="selected-meta">${item.year || 'Ano não informado'} · Duração: ${durationText}</small><p>${safe(item.overview || 'Sinopse não informada.')}</p><div class="title-trailer-slot" data-title-trailer-key="${safe(`${item.mediaType}:${item.id}`)}">${trailerMarkup(item)}</div>${item.reactUrl ? `<a class="matched-react-link" href="${safe(item.reactUrl)}" target="_blank" rel="noopener noreferrer">Conteúdo já assistido, veja no Patreon ↗</a><div class="title-rating-widget" data-title-rating><p>Carregando avaliação…</p></div>` : `<div class="informational-estimate"><span>Estimativa informativa</span><strong>${hasDuration ? price : 'Duração indisponível'}</strong><small>${hasDuration ? `R$ 5 por bloco iniciado de 30 minutos${seriesEstimate ? ' · baseada na duração total estimada da série' : ''}.` : 'Não foi possível calcular sem uma duração cadastrada.'}</small></div>`}${item.reactUrl ? '' : `<form class="redemption-request-form" data-redemption-form><div class="redemption-form-heading"><strong>Agende o resgate</strong><span>Informe a data e o horário desejados.</span></div><div class="redemption-schedule-fields"><label>Dia / mês / ano<input type="date" name="date" required></label><label>Horário<input type="time" name="time" step="60" required></label></div><p class="redemption-request-feedback" aria-live="polite">O pedido ficará pendente de aprovação. O pagamento é concluído no LivePix.</p><button class="redemption-link" type="submit" aria-label="Registrar o resgate de ${safe(item.title)} e continuar no LivePix">Resgate pelo LivePix <span aria-hidden="true">↗</span></button></form>`}</div>`;
+  return `${item.posterUrl ? `<img class="selected-poster" src="${safe(item.posterUrl)}" alt="Pôster de ${safe(item.title)}">` : '<div class="selected-poster no-poster" aria-hidden="true">✦</div>'}<div class="selected-copy"><span class="badge">${safe(item.kind)}</span><div class="selected-title-heading"><h3>${safe(item.title)}</h3>${favoriteMarkup(item)}</div><small class="selected-meta">${item.year || 'Ano não informado'} · Duração: ${durationText}</small><p>${safe(item.overview || 'Sinopse não informada.')}</p><div class="title-trailer-slot" data-title-trailer-key="${safe(`${item.mediaType}:${item.id}`)}">${trailerMarkup(item)}</div>${item.reactUrl ? `<a class="matched-react-link" href="${safe(item.reactUrl)}" target="_blank" rel="noopener noreferrer">Conteúdo já assistido, veja no Patreon ↗</a><div class="title-rating-widget" data-title-rating><p>Carregando avaliação…</p></div>` : `<div class="informational-estimate"><span>Estimativa informativa</span><strong>${hasDuration ? price : 'Duração indisponível'}</strong><small>${hasDuration ? `R$ 5 por bloco iniciado de 30 minutos${seriesEstimate ? ' · baseada na duração total estimada da série' : ''}.` : 'Não foi possível calcular sem uma duração cadastrada.'}</small></div>`}${item.reactUrl ? '' : `<form class="redemption-request-form" data-redemption-form><div class="redemption-form-heading"><strong>Agende o resgate</strong><span>Informe a data e o horário desejados.</span></div><div class="redemption-schedule-fields"><label>Dia / mês / ano<input type="date" name="date" required></label><label>Horário<input type="text" name="time" inputmode="numeric" autocomplete="off" maxlength="5" pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]" placeholder="HH:MM" title="Digite a hora no formato 24 horas, como 20:30" required></label></div><p class="redemption-request-feedback" aria-live="polite">O pedido ficará pendente de aprovação. O pagamento é concluído no LivePix.</p><button class="redemption-link" type="submit" aria-label="Registrar o resgate de ${safe(item.title)} e continuar no LivePix">Resgate pelo LivePix <span aria-hidden="true">↗</span></button></form>`}</div>`;
 }
 
 function bindRedemptionForm(target,item) {
@@ -209,8 +218,8 @@ function bindRedemptionForm(target,item) {
     event.preventDefault();
     if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para solicitar um resgate.')) return;
     if (!form.reportValidity()) return;
-    const scheduledAt = new Date(`${dateInput.value}T${timeInput.value}:00`);
-    if (Number.isNaN(scheduledAt.getTime()) || scheduledAt <= new Date()) {
+    const scheduledAt = makeLocalSchedule(dateInput.value,timeInput.value);
+    if (!scheduledAt || scheduledAt <= new Date()) {
       feedbackText.textContent = 'Escolha uma data e um horário futuros.';
       return;
     }
@@ -304,9 +313,10 @@ function paintRatingStars(container, value) {
 
 function renderRatingWidget(container, item, stats) {
   if (!container || !stats.eligible) { container?.remove(); return; }
-  const displayRating = stats.myRating ?? stats.averageRating ?? 0;
+  // As estrelas refletem somente a nota pessoal; a média aparece no resumo.
+  const displayRating = stats.myRating ?? 0;
   const stars = Array.from({length:5},(_,index) => `<span class="rating-star"><span class="rating-star-base" aria-hidden="true">★</span><span class="rating-star-fill" aria-hidden="true">★</span><button class="rating-half-hit left" type="button" data-rating="${index + 0.5}" aria-label="Avaliar ${ratingLabel(index + 0.5)} estrelas" title="${ratingLabel(index + 0.5)} estrelas"></button><button class="rating-half-hit right" type="button" data-rating="${index + 1}" aria-label="Avaliar ${ratingLabel(index + 1)} estrelas" title="${ratingLabel(index + 1)} estrelas"></button></span>`).join('');
-  container.innerHTML = `<div class="title-rating-heading"><strong>Avalie este react</strong><small>Somente títulos com react no Patreon</small></div><div class="rating-stars" role="group" aria-label="Escolha uma nota de meia em meia estrela">${stars}</div><p class="rating-summary"></p><p class="rating-feedback" aria-live="polite"></p>`;
+  container.innerHTML = `<div class="title-rating-heading"><strong>Avalie este react</strong><small>Somente títulos com react no Patreon</small></div><div class="rating-stars" role="group" aria-label="Escolha uma nota de meia em meia estrela">${stars}</div><p class="rating-summary"></p><p class="rating-feedback" aria-live="polite"></p><div class="title-rating-history"><strong>Quem avaliou</strong><ol aria-live="polite"><li>Carregando avaliações…</li></ol></div>`;
   const summary = container.querySelector('.rating-summary');
   const feedbackText = container.querySelector('.rating-feedback');
   const starButtons = [...container.querySelectorAll('[data-rating]')];
@@ -325,14 +335,27 @@ function renderRatingWidget(container, item, stats) {
       feedbackText.textContent = 'Salvando sua avaliação…';
       try {
         stats = await window.CardapioRatings.rate(item,rating);
-        paintRatingStars(container,stats.myRating || stats.averageRating);
+        paintRatingStars(container,stats.myRating || 0);
         showSummary(stats.myRating);
         feedbackText.textContent = 'Sua avaliação foi registrada.';
+        loadRatingHistory(item,container);
       } catch (error) { feedbackText.textContent = error.message || 'Não foi possível registrar a avaliação.'; }
       finally { starButtons.forEach(item => { item.disabled = false; }); }
     });
   });
-  container.querySelector('.rating-stars').addEventListener('mouseleave',() => paintRatingStars(container,stats.myRating ?? stats.averageRating ?? 0));
+  container.querySelector('.rating-stars').addEventListener('mouseleave',() => paintRatingStars(container,stats.myRating ?? 0));
+  loadRatingHistory(item,container);
+}
+
+async function loadRatingHistory(item,container) {
+  const list = container.querySelector('.title-rating-history ol');
+  if (!list) return;
+  try {
+    const response = await fetchCatalogApi(`/api/catalog/rating-history?type=${encodeURIComponent(item.mediaType)}&id=${encodeURIComponent(item.id)}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Não foi possível carregar o histórico.');
+    list.innerHTML = data.votes?.length ? data.votes.map(vote => `<li>${vote.profileImageUrl ? `<img src="${safe(vote.profileImageUrl)}" alt="" loading="lazy">` : ''}<span>${safe(vote.displayName)}</span><strong>${ratingLabel(vote.rating)} ★</strong></li>`).join('') : '<li>Este título ainda não recebeu avaliações.</li>';
+  } catch { list.innerHTML = '<li>Não foi possível carregar o histórico agora.</li>'; }
 }
 
 async function loadTitleRating(item, target) {
@@ -495,8 +518,8 @@ manualRedemptionForm.addEventListener('submit',async event => {
     manualRedemptionFeedback.textContent = 'Informe um título e uma duração válida antes de continuar.';
     return;
   }
-  const scheduledAt = new Date(`${manualEstimateDate.value}T${manualEstimateTime.value}:00`);
-  if (Number.isNaN(scheduledAt.getTime()) || scheduledAt <= new Date()) {
+  const scheduledAt = makeLocalSchedule(manualEstimateDate.value,manualEstimateTime.value);
+  if (!scheduledAt || scheduledAt <= new Date()) {
     manualRedemptionFeedback.textContent = 'Escolha uma data e um horário futuros.';
     return;
   }

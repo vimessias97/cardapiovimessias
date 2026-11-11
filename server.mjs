@@ -570,6 +570,15 @@ function publicTopRatings(entries) {
     .slice(0,5);
 }
 
+function steamGameHeader(steamUrl) {
+  try {
+    const url = new URL(steamUrl);
+    if (url.hostname !== 'store.steampowered.com') return '';
+    const appId = /^\/app\/(\d+)(?:\/|$)/.exec(url.pathname)?.[1];
+    return appId ? `https://shared.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg` : '';
+  } catch { return ''; }
+}
+
 async function updateFavorites(update) {
   const operation = favoritesWriteQueue.then(async () => {
     return updateJsonState('favorites',[],update);
@@ -1042,6 +1051,12 @@ const startupYoutubeSnapshot = await readYoutubeVideoSnapshot();
 if (startupYoutubeSnapshot.length) youtubeVideosCache = {videos:startupYoutubeSnapshot,expiresAt:Date.now() + 300000};
 
 async function handle(req, res) {
+  const canonicalHost = String(process.env.CANONICAL_HOST || 'vimessiasplay.com.br').trim().toLowerCase();
+  const requestHost = String(req.headers.host || '').split(':')[0].toLowerCase();
+  if (process.env.NODE_ENV === 'production' && canonicalHost && requestHost !== canonicalHost) {
+    res.writeHead(308,{'location':`https://${canonicalHost}${req.url}`,'cache-control':'public, max-age=3600'});
+    return res.end();
+  }
   const url = new URL(req.url, 'http://localhost');
   const profileBannerAssetMatch = req.method === 'GET' && /^\/api\/profile-banners\/([a-f0-9-]{36}\.(?:png|jpg))$/i.exec(url.pathname);
   if (profileBannerAssetMatch) {
@@ -1419,15 +1434,20 @@ async function handle(req, res) {
   if (req.method === 'GET' && url.pathname === '/api/community/rankings') {
     const members = await readCommunityMembers();
     const memberById = new Map(members.map(member => [member.id,member]));
+    const isExcluded = member => getTwitchRole(member) === 'admin' || String(member?.login || '').toLowerCase() === 'vimessias_';
+    const rankedMember = (id,values) => {
+      const member = memberById.get(id) || {};
+      return {id,displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',...values};
+    };
     try { await reconcileApprovedRedemptionVicoins(); }
     catch { return json(res,500,{error:'Não foi possível atualizar o ranking de Vicoins.'}); }
     const store = await readVicoinsStore();
     const vicoins = Object.entries(store.balances)
       .map(([id,value]) => {
         const member = memberById.get(id) || {};
-        return {id,displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',balance:Number(value) || 0,isAdmin:getTwitchRole(member) === 'admin'};
+        return {id,displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',balance:Number(value) || 0,isAdmin:getTwitchRole({...member,id}) === 'admin'};
       })
-      .filter(member => member.balance > 0 && !member.isAdmin)
+      .filter(member => member.balance > 0 && !member.isAdmin && !isExcluded(memberById.get(member.id) || {id:member.id}))
       .sort((a,b) => b.balance - a.balance || a.displayName.localeCompare(b.displayName,'pt-BR'))
       .slice(0,5);
     const totals = new Map();
@@ -1444,11 +1464,17 @@ async function handle(req, res) {
     const redemptionSpenders = [...totals.entries()]
       .map(([id,value]) => {
         const member = memberById.get(id) || {};
-        return {id,displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',...value};
+        return rankedMember(id,value);
       })
+      .filter(member => !isExcluded(memberById.get(member.id) || {id:member.id}))
       .sort((a,b) => b.totalValue - a.totalValue || b.redemptionCount - a.redemptionCount || a.displayName.localeCompare(b.displayName,'pt-BR'))
       .slice(0,5);
-    return json(res,200,{vicoins,redemptionSpenders,redemptionValueRule:'R$ 5 por bloco iniciado de 30 minutos; considera apenas resgates aprovados.'});
+    const favoriteCounts = new Map();
+    for (const entry of await readFavorites()) for (const id of new Set(Array.isArray(entry.voters) ? entry.voters : [])) favoriteCounts.set(id,(favoriteCounts.get(id) || 0) + 1);
+    const ratingCounts = new Map();
+    for (const entry of await readRatings()) for (const id of new Set((Array.isArray(entry.votes) ? entry.votes : []).map(vote => String(vote.clientId || '')).filter(Boolean))) ratingCounts.set(id,(ratingCounts.get(id) || 0) + 1);
+    const makeActivityRank = (counts,key) => [...counts.entries()].map(([id,count]) => rankedMember(id,{[key]:count})).filter(member => member[key] > 0 && !isExcluded(memberById.get(member.id) || {id:member.id})).sort((a,b) => b[key] - a[key] || a.displayName.localeCompare(b.displayName,'pt-BR')).slice(0,5);
+    return json(res,200,{vicoins,redemptionSpenders,favoriteLeaders:makeActivityRank(favoriteCounts,'favoriteCount'),ratingLeaders:makeActivityRank(ratingCounts,'ratingCount'),redemptionValueRule:'R$ 5 por bloco iniciado de 30 minutos; considera apenas resgates aprovados.'});
   }
   if (req.method === 'GET' && url.pathname.startsWith('/api/community/members/')) {
     const memberId = url.pathname.slice('/api/community/members/'.length);
@@ -1474,7 +1500,7 @@ async function handle(req, res) {
   }
   if (req.method === 'GET' && url.pathname === '/api/shop/game-keys') {
     const store = await readVicoinsStore();
-    const games = store.gameKeys.filter(item => item?.active !== false && !item?.reservedOrderId).sort((a,b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || '')).map(({id,title,steamUrl,coinCost}) => ({id,title,steamUrl,coinCost}));
+    const games = store.gameKeys.filter(item => item?.active !== false && !item?.reservedOrderId && Number(item.stock ?? 1) > 0).sort((a,b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || '')).map(item => ({id:item.id,title:item.title,steamUrl:item.steamUrl,coinCost:item.coinCost,stock:Number(item.stock ?? 1),imageUrl:steamGameHeader(item.steamUrl)}));
     return json(res,200,{games});
   }
   if (req.method === 'POST' && url.pathname === '/api/admin/vicoins-rewards') {
@@ -1519,9 +1545,10 @@ async function handle(req, res) {
     const title = String(body.title || '').trim();
     const steamUrl = String(body.steamUrl || '').trim();
     const coinCost = Number(body.coinCost);
+    const stock = Number(body.stock);
     let parsedSteamUrl;
     try { parsedSteamUrl = new URL(steamUrl); } catch {}
-    if (title.length < 2 || title.length > 120 || !parsedSteamUrl || parsedSteamUrl.protocol !== 'https:' || parsedSteamUrl.hostname !== 'store.steampowered.com' || steamUrl.length > 500 || !Number.isSafeInteger(coinCost) || coinCost < 1 || coinCost > 1000000) return privateJson(res,400,{error:'Informe título, link HTTPS válido da Steam e preço de 1 a 1.000.000 Vicoins.'});
+    if (title.length < 2 || title.length > 120 || !parsedSteamUrl || parsedSteamUrl.protocol !== 'https:' || parsedSteamUrl.hostname !== 'store.steampowered.com' || steamUrl.length > 500 || !/^\/app\/\d+(?:\/|$)/.test(parsedSteamUrl.pathname) || !Number.isSafeInteger(coinCost) || coinCost < 1 || coinCost > 1000000 || !Number.isSafeInteger(stock) || stock < 0 || stock > 1000000) return privateJson(res,400,{error:'Informe título, link de jogo Steam, preço válido e estoque entre 0 e 1.000.000.'});
     try {
       const games = await updateVicoinsStore(store => {
         store.gameKeys = Array.isArray(store.gameKeys) ? store.gameKeys : [];
@@ -1531,9 +1558,10 @@ async function handle(req, res) {
           item.title = title;
           item.steamUrl = parsedSteamUrl.href;
           item.coinCost = coinCost;
+          item.stock = stock;
           item.updatedAt = new Date().toISOString();
         } else {
-          store.gameKeys.unshift({id:randomUUID(),title,steamUrl:parsedSteamUrl.href,coinCost,active:true,reservedOrderId:'',createdAt:new Date().toISOString(),createdBy:profile.id});
+          store.gameKeys.unshift({id:randomUUID(),title,steamUrl:parsedSteamUrl.href,coinCost,stock,active:true,reservedOrderId:'',createdAt:new Date().toISOString(),createdBy:profile.id});
         }
         return store.gameKeys.slice().sort((a,b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''));
       });
@@ -1551,7 +1579,7 @@ async function handle(req, res) {
         store.gameKeys = Array.isArray(store.gameKeys) ? store.gameKeys : [];
         const index = store.gameKeys.findIndex(game => game.id === adminGameKeyMatch[1]);
         if (index < 0) throw new Error('Jogo não encontrado.');
-        if (store.gameKeys[index].reservedOrderId) throw new Error('Este jogo tem um pedido pendente; finalize ou exclua o pedido antes de remover o cadastro.');
+        if (store.gameKeys[index].reservedOrderId || store.gameKeyOrders.some(order => order.gameKeyId === adminGameKeyMatch[1] && order.status === 'pending')) throw new Error('Este jogo tem um pedido pendente; finalize ou exclua o pedido antes de remover o cadastro.');
         store.gameKeys.splice(index,1);
         return store.gameKeys;
       });
@@ -1902,10 +1930,11 @@ async function handle(req, res) {
         store.gameKeys = Array.isArray(store.gameKeys) ? store.gameKeys : [];
         store.gameKeyOrders = Array.isArray(store.gameKeyOrders) ? store.gameKeyOrders : [];
         const game = store.gameKeys.find(item => item.id === gameKeyId && item.active !== false);
-        if (!game || game.reservedOrderId) throw new Error('Esta key não está mais disponível. Atualize a lojinha.');
+        const availableStock = Number(game?.stock ?? 1);
+        if (!game || game.reservedOrderId || !Number.isSafeInteger(availableStock) || availableStock <= 0) throw new Error('Esta key está sem estoque. Atualize a lojinha.');
         const order = {id:randomUUID(),gameKeyId:game.id,gameTitle:game.title,steamUrl:game.steamUrl,coinCost:game.coinCost,status:'pending',requester:{id:profile.id,login:profile.login,displayName:profile.displayName},createdAt:new Date().toISOString()};
         const balance = applyVicoinsTransaction(store,{userId:profile.id,amount:-game.coinCost,type:'game-key-redemption',referenceId:order.id,description:`Key de jogo: ${game.title}`});
-        game.reservedOrderId = order.id;
+        game.stock = availableStock - 1;
         store.gameKeyOrders.unshift(order);
         return {order,balance};
       });
@@ -1986,11 +2015,13 @@ async function handle(req, res) {
           if (action === 'finish') {
             if (order.status !== 'pending') throw new Error('Este pedido já foi finalizado.');
             order.status = 'delivered'; order.deliveredAt = now; order.deliveredBy = profile.id;
-            store.gameKeys = store.gameKeys.filter(game => game.id !== order.gameKeyId);
+            const game = store.gameKeys.find(item => item.id === order.gameKeyId);
+            if (game?.reservedOrderId === order.id) { game.reservedOrderId = ''; game.stock = Number(game.stock ?? 0); }
           } else {
             if (order.status === 'pending') {
               applyVicoinsTransaction(store,{userId:order.requester.id,amount:order.coinCost,type:'game-key-refund',referenceId:order.id,description:`Devolução da key de jogo excluída: ${order.gameTitle}`});
               const game = store.gameKeys.find(item => item.id === order.gameKeyId);
+              if (game) game.stock = Math.min(1000000,Number(game.stock ?? 0) + 1);
               if (game?.reservedOrderId === order.id) game.reservedOrderId = '';
             }
             order.status = 'deleted'; order.deletedAt = now; order.deletedBy = profile.id;
@@ -2267,6 +2298,18 @@ async function handle(req, res) {
       const entry = (await readRatings()).find(value => value.mediaType === type && Number(value.id) === id);
       return json(res, 200, {eligible:true,...ratingSummary(entry,profile?.id || '')});
     } catch (error) { return json(res, 502, {error:error.message || 'Não foi possível carregar as avaliações.'}); }
+  }
+  if (req.method === 'GET' && url.pathname === '/api/catalog/rating-history') {
+    const type = url.searchParams.get('type') || '';
+    const id = Number(url.searchParams.get('id'));
+    if (!['movie','tv'].includes(type) || !Number.isSafeInteger(id) || id <= 0) return json(res,400,{error:'Dados do histórico de avaliações inválidos.'});
+    const entry = (await readRatings()).find(value => value.mediaType === type && Number(value.id) === id);
+    const memberById = new Map((await readCommunityMembers()).map(member => [String(member.id),member]));
+    const votes = (Array.isArray(entry?.votes) ? entry.votes : []).filter(vote => Number.isFinite(vote.rating)).map(vote => {
+      const member = memberById.get(String(vote.clientId)) || {};
+      return {displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',rating:vote.rating};
+    }).sort((a,b) => b.rating - a.rating || a.displayName.localeCompare(b.displayName,'pt-BR'));
+    return json(res,200,{votes});
   }
   if (req.method === 'POST' && url.pathname === '/api/catalog/rating') {
     const profile = await getAuthenticatedProfile(req,res);

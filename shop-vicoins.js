@@ -136,7 +136,9 @@
     gameKeysRoot.innerHTML = gameKeys.map(game => {
       const cost = Number(game.coinCost) || 0;
       const insufficient = authenticated && !infiniteBalance && balance < cost;
-      return `<article class="shop-game-key-card"><span class="shop-game-key-kicker">KEY DE JOGO</span><h3>${safe(game.title)}</h3><a href="${safe(game.steamUrl)}" target="_blank" rel="noopener noreferrer">Ver na Steam ↗</a><div class="shop-reward-cost"><img src="assets/vicoins-coin.png?v=2" alt=""><strong>${cost.toLocaleString('pt-BR')}</strong><span>Vicoins</span></div><button type="button" data-game-key-redeem="${safe(game.id)}" ${insufficient ? 'disabled' : ''}>${!authenticated ? 'Entrar para resgatar' : insufficient ? 'Saldo insuficiente' : 'Resgatar key'}</button></article>`;
+      const image = safe(game.imageUrl || '');
+      const stock = Number(game.stock ?? 1);
+      return `<article class="shop-game-key-card">${image ? `<img class="shop-game-key-art" src="${image}" alt="Capa de ${safe(game.title)}" loading="lazy" onerror="this.hidden=true">` : '<div class="shop-game-key-art shop-game-key-art-fallback" aria-hidden="true">🎮</div>'}<span class="shop-game-key-kicker">KEY DE JOGO</span><h3>${safe(game.title)}</h3><p class="shop-game-key-stock">Restam ${stock} ${stock === 1 ? 'unidade' : 'unidades'} no estoque</p><a href="${safe(game.steamUrl)}" target="_blank" rel="noopener noreferrer">Ver na Steam ↗</a><div class="shop-reward-cost"><img src="assets/vicoins-coin.png?v=2" alt=""><strong>${cost.toLocaleString('pt-BR')}</strong><span>Vicoins</span></div><button type="button" data-game-key-redeem="${safe(game.id)}" ${insufficient ? 'disabled' : ''}>${!authenticated ? 'Entrar para resgatar' : insufficient ? 'Saldo insuficiente' : 'Resgatar key'}</button></article>`;
     }).join('');
   }
 

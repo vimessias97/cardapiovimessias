@@ -31,7 +31,7 @@
       list.innerHTML = '<p class="admin-game-keys-empty">Nenhum jogo cadastrado ainda.</p>';
       return;
     }
-    list.innerHTML = games.map(game => `<article class="admin-game-key-item" data-game-key="${safe(game.id)}"><label>Título<input name="title" type="text" maxlength="120" value="${safe(game.title)}" required></label><label>Link Steam<input name="steamUrl" type="url" maxlength="500" value="${safe(game.steamUrl)}" required></label><label>Vicoins<input name="coinCost" type="number" min="1" max="1000000" step="1" value="${Number(game.coinCost)}" required></label><div class="admin-game-key-item-actions"><button type="button" data-game-key-save="${safe(game.id)}">Salvar</button><button type="button" class="is-delete" data-game-key-delete="${safe(game.id)}" ${game.reservedOrderId ? 'disabled title="Finalize ou exclua o pedido pendente primeiro"' : ''}>Excluir</button></div>${game.reservedOrderId ? '<small class="admin-game-key-reserved">Reservado por um pedido pendente.</small>' : ''}</article>`).join('');
+    list.innerHTML = games.map(game => `<article class="admin-game-key-item" data-game-key="${safe(game.id)}"><label>Título<input name="title" type="text" maxlength="120" value="${safe(game.title)}" required></label><label>Link Steam<input name="steamUrl" type="url" maxlength="500" value="${safe(game.steamUrl)}" required></label><label>Vicoins<input name="coinCost" type="number" min="1" max="1000000" step="1" value="${Number(game.coinCost)}" required></label><label>Estoque<input name="stock" type="number" min="0" max="1000000" step="1" value="${Number(game.stock ?? (game.reservedOrderId ? 0 : 1))}" required></label><div class="admin-game-key-item-actions"><button type="button" data-game-key-save="${safe(game.id)}">Salvar</button><button type="button" class="is-delete" data-game-key-delete="${safe(game.id)}" ${game.reservedOrderId ? 'disabled title="Finalize ou exclua o pedido pendente primeiro"' : ''}>Excluir</button></div>${game.reservedOrderId ? '<small class="admin-game-key-reserved">Pedido antigo reservado.</small>' : ''}</article>`).join('');
   }
 
   async function load() {
@@ -82,9 +82,10 @@
         const title = card.querySelector('[name="title"]').value.trim();
         const steamUrl = card.querySelector('[name="steamUrl"]').value.trim();
         const coinCost = Number(card.querySelector('[name="coinCost"]').value);
+        const stock = Number(card.querySelector('[name="stock"]').value);
         const url = new URL(steamUrl);
-        if (url.protocol !== 'https:' || url.hostname !== 'store.steampowered.com' || !Number.isSafeInteger(coinCost) || coinCost < 1 || coinCost > 1000000 || title.length < 2) throw new Error('Confira o título, o link da Steam e o preço em Vicoins.');
-        await api('/api/admin/shop-game-keys',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:game.id,title,steamUrl,coinCost})});
+        if (url.protocol !== 'https:' || url.hostname !== 'store.steampowered.com' || !/^\/app\/\d+/.test(url.pathname) || !Number.isSafeInteger(coinCost) || coinCost < 1 || coinCost > 1000000 || !Number.isSafeInteger(stock) || stock < 0 || title.length < 2) throw new Error('Confira o título, o link da Steam, o preço e o estoque.');
+        await api('/api/admin/shop-game-keys',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:game.id,title,steamUrl,coinCost,stock})});
         feedback.textContent = 'Jogo atualizado.';
       } else {
         if (game.reservedOrderId || !window.confirm(`Excluir “${game.title}” da lojinha? Pedidos anteriores serão preservados.`)) { button.disabled = false; return; }

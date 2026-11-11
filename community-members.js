@@ -2,6 +2,8 @@
   const list = document.querySelector('#communityMembersList');
   const vicoinsRankingList = document.querySelector('#communityVicoinsRankList');
   const redeemersRankingList = document.querySelector('#communityRedeemersRankList');
+  const favoritesRankingList = document.querySelector('#communityFavoritesRankList');
+  const ratingsRankingList = document.querySelector('#communityRatingsRankList');
   const dialog = document.querySelector('#communityMemberDialog');
   const close = document.querySelector('#communityMemberClose');
   const avatar = document.querySelector('#communityMemberAvatar');
@@ -177,9 +179,12 @@
     }
     target.innerHTML = items.map((member,index) => {
       const avatarMarkup = member.profileImageUrl ? `<img src="${safe(member.profileImageUrl)}" alt="" loading="lazy">` : '<span class="community-ranking-avatar-fallback" aria-hidden="true">✦</span>';
+      const activityCount = type === 'favorites' ? member.favoriteCount : member.ratingCount;
       const value = type === 'vicoins'
         ? `<span class="community-ranking-value is-vicoins"><img src="assets/vicoins-coin.png?v=2" alt=""><strong>${Number(member.balance || 0).toLocaleString('pt-BR')}</strong></span>`
-        : `<span class="community-ranking-value"><strong>${Number(member.totalValue || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong><small>${Number(member.redemptionCount || 0)} ${Number(member.redemptionCount) === 1 ? 'resgate' : 'resgates'}</small></span>`;
+        : type === 'redemptions'
+          ? `<span class="community-ranking-value"><strong>${Number(member.totalValue || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong><small>${Number(member.redemptionCount || 0)} ${Number(member.redemptionCount) === 1 ? 'resgate' : 'resgates'}</small></span>`
+          : `<span class="community-ranking-value"><strong>${Number(activityCount || 0).toLocaleString('pt-BR')}</strong><small>${type === 'favorites' ? 'favoritos' : 'avaliações'}</small></span>`;
       return `<li class="community-ranking-row"><span class="community-ranking-position">${index + 1}</span><button type="button" class="community-ranking-profile" data-profile-id="${safe(member.id)}">${avatarMarkup}<span>${safe(member.displayName || 'Usuário Twitch')}</span></button>${value}</li>`;
     }).join('');
   }
@@ -189,10 +194,14 @@
       const data = await api('/api/community/rankings');
       renderRanking(vicoinsRankingList,data.vicoins,'vicoins');
       renderRanking(redeemersRankingList,data.redemptionSpenders,'redemptions');
+      renderRanking(favoritesRankingList,data.favoriteLeaders,'favorites');
+      renderRanking(ratingsRankingList,data.ratingLeaders,'ratings');
     } catch (error) {
       const message = safe(error.message || 'Não foi possível carregar este ranking.');
       vicoinsRankingList.innerHTML = `<li class="community-ranking-empty">${message}</li>`;
       redeemersRankingList.innerHTML = `<li class="community-ranking-empty">${message}</li>`;
+      favoritesRankingList.innerHTML = `<li class="community-ranking-empty">${message}</li>`;
+      ratingsRankingList.innerHTML = `<li class="community-ranking-empty">${message}</li>`;
     }
   }
 
@@ -211,7 +220,7 @@
     const button = event.target.closest('[data-member-id]');
     if (button) openProfile(button.dataset.memberId);
   });
-  for (const ranking of [vicoinsRankingList,redeemersRankingList]) ranking.addEventListener('click',event => {
+  for (const ranking of [vicoinsRankingList,redeemersRankingList,favoritesRankingList,ratingsRankingList]) ranking.addEventListener('click',event => {
     const button = event.target.closest('[data-profile-id]');
     if (button) openProfile(button.dataset.profileId);
   });

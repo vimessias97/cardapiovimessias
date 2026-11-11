@@ -136,7 +136,7 @@ randomizeButton.addEventListener('click', async () => {
 
 function randomRedemptionMarkup(item) {
   if (item.reactUrl) return '';
-  return `<form class="redemption-request-form random-redemption-form" data-redemption-form><div class="redemption-form-heading"><strong>Agende o resgate</strong><span>Informe a data e o horário desejados.</span></div><div class="redemption-schedule-fields"><label>Dia / mês / ano<input type="date" name="date" required></label><label>Horário<input type="time" name="time" step="60" required></label></div><p class="redemption-request-feedback" aria-live="polite">O pedido ficará pendente de aprovação. O pagamento é concluído no LivePix.</p><button class="redemption-link" type="submit">Resgate pelo LivePix <span aria-hidden="true">↗</span></button></form>`;
+  return `<form class="redemption-request-form random-redemption-form" data-redemption-form><div class="redemption-form-heading"><strong>Agende o resgate</strong><span>Informe a data e o horário desejados.</span></div><div class="redemption-schedule-fields"><label>Dia / mês / ano<input type="date" name="date" required></label><label>Horário<input type="text" name="time" inputmode="numeric" autocomplete="off" maxlength="5" pattern="(?:[01][0-9]|2[0-3]):[0-5][0-9]" placeholder="HH:MM" title="Digite a hora no formato 24 horas, como 20:30" required></label></div><p class="redemption-request-feedback" aria-live="polite">O pedido ficará pendente de aprovação. O pagamento é concluído no LivePix.</p><button class="redemption-link" type="submit">Resgate pelo LivePix <span aria-hidden="true">↗</span></button></form>`;
 }
 
 function renderRandomTitle(item) {
