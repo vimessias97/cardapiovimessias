@@ -142,7 +142,7 @@
       const ownProfile = String(window.CardapioAuth?.getUser()?.id || '') === String(memberId);
       const data = await api(ownProfile ? '/api/account/profile' : `/api/community/members/${encodeURIComponent(memberId)}`);
       const profile = data.profile || {};
-      name.textContent = profile.displayName || profile.login || 'Perfil Twitch';
+      name.innerHTML = window.CardapioClubVime?.name(profile.displayName || profile.login || 'Perfil Twitch',profile.isClubVime) || safe(profile.displayName || profile.login || 'Perfil Twitch');
       setVicoins(profile.vicoins,true,profile.vicoinsInfinite);
       setProfileBanner(profile.banner);
       renderAchievements(data.achievements || {});
@@ -166,7 +166,7 @@
         list.innerHTML = '<p class="community-members-empty">Os novos membros aparecerão aqui após entrarem com a Twitch.</p>';
         return;
       }
-      list.innerHTML = members.map(member => `<button class="community-member-link" type="button" data-member-id="${safe(member.id)}" aria-label="Ver perfil de ${safe(member.displayName || member.login)}">${member.profileImageUrl ? `<img src="${safe(member.profileImageUrl)}" alt="" loading="lazy">` : '<span class="community-member-avatar-fallback" aria-hidden="true">✦</span>'}<span>${safe(member.displayName || member.login)}</span></button>`).join('');
+      list.innerHTML = members.map(member => `<button class="community-member-link" type="button" data-member-id="${safe(member.id)}" aria-label="Ver perfil de ${safe(member.displayName || member.login)}">${member.profileImageUrl ? `<img src="${safe(member.profileImageUrl)}" alt="" loading="lazy">` : '<span class="community-member-avatar-fallback" aria-hidden="true">✦</span>'}<span>${window.CardapioClubVime?.name(member.displayName || member.login,member.clubVime) || safe(member.displayName || member.login)}</span></button>`).join('');
     } catch (error) {
       list.innerHTML = `<p class="community-members-empty">${safe(error.message || 'Não foi possível carregar os membros.')}</p>`;
     }
@@ -185,7 +185,7 @@
         : type === 'redemptions'
           ? `<span class="community-ranking-value"><strong>${Number(member.totalValue || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong><small>${Number(member.redemptionCount || 0)} ${Number(member.redemptionCount) === 1 ? 'resgate' : 'resgates'}</small></span>`
           : `<span class="community-ranking-value"><strong>${Number(activityCount || 0).toLocaleString('pt-BR')}</strong><small>${type === 'favorites' ? 'favoritos' : 'avaliações'}</small></span>`;
-      return `<li class="community-ranking-row"><span class="community-ranking-position">${index + 1}</span><button type="button" class="community-ranking-profile" data-profile-id="${safe(member.id)}">${avatarMarkup}<span>${safe(member.displayName || 'Usuário Twitch')}</span></button>${value}</li>`;
+      return `<li class="community-ranking-row"><span class="community-ranking-position">${index + 1}</span><button type="button" class="community-ranking-profile" data-profile-id="${safe(member.id)}">${avatarMarkup}<span>${window.CardapioClubVime?.name(member.displayName || 'Usuário Twitch',member.clubVime) || safe(member.displayName || 'Usuário Twitch')}</span></button>${value}</li>`;
     }).join('');
   }
 

@@ -354,7 +354,7 @@ async function loadRatingHistory(item,container) {
     const response = await fetchCatalogApi(`/api/catalog/rating-history?type=${encodeURIComponent(item.mediaType)}&id=${encodeURIComponent(item.id)}`);
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Não foi possível carregar o histórico.');
-    list.innerHTML = data.votes?.length ? data.votes.map(vote => `<li>${vote.profileImageUrl ? `<img src="${safe(vote.profileImageUrl)}" alt="" loading="lazy">` : ''}<span>${safe(vote.displayName)}</span><strong>${ratingLabel(vote.rating)} ★</strong></li>`).join('') : '<li>Este título ainda não recebeu avaliações.</li>';
+    list.innerHTML = data.votes?.length ? data.votes.map(vote => `<li>${vote.profileImageUrl ? `<img src="${safe(vote.profileImageUrl)}" alt="" loading="lazy">` : ''}<span>${window.CardapioClubVime?.name(vote.displayName,vote.clubVime) || safe(vote.displayName)}</span><strong>${ratingLabel(vote.rating)} ★</strong></li>`).join('') : '<li>Este título ainda não recebeu avaliações.</li>';
   } catch { list.innerHTML = '<li>Não foi possível carregar o histórico agora.</li>'; }
 }
 

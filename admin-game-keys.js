@@ -5,6 +5,8 @@
   if (!form || !list || !feedback) return;
   const apiBases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
   let games = [];
+  let expanded = false;
+  const moreButton = document.querySelector('#adminGameKeysMore');
 
   function safe(value = '') {
     return String(value).replace(/[&<>"']/g,character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
@@ -29,9 +31,11 @@
   function render() {
     if (!games.length) {
       list.innerHTML = '<p class="admin-game-keys-empty">Nenhum jogo cadastrado ainda.</p>';
+      moreButton?.classList.add('hidden');
       return;
     }
-    list.innerHTML = games.map(game => `<article class="admin-game-key-item" data-game-key="${safe(game.id)}"><label>Título<input name="title" type="text" maxlength="120" value="${safe(game.title)}" required></label><label>Link Steam<input name="steamUrl" type="url" maxlength="500" value="${safe(game.steamUrl)}" required></label><label>Vicoins<input name="coinCost" type="number" min="1" max="1000000" step="1" value="${Number(game.coinCost)}" required></label><label>Estoque<input name="stock" type="number" min="0" max="1000000" step="1" value="${Number(game.stock ?? (game.reservedOrderId ? 0 : 1))}" required></label><div class="admin-game-key-item-actions"><button type="button" data-game-key-save="${safe(game.id)}">Salvar</button><button type="button" class="is-delete" data-game-key-delete="${safe(game.id)}" ${game.reservedOrderId ? 'disabled title="Finalize ou exclua o pedido pendente primeiro"' : ''}>Excluir</button></div>${game.reservedOrderId ? '<small class="admin-game-key-reserved">Pedido antigo reservado.</small>' : ''}</article>`).join('');
+    list.innerHTML = games.slice(0,expanded ? games.length : 3).map(game => `<article class="admin-game-key-item" data-game-key="${safe(game.id)}"><label>Título<input name="title" type="text" maxlength="120" value="${safe(game.title)}" required></label><label>Link Steam<input name="steamUrl" type="url" maxlength="500" value="${safe(game.steamUrl)}" required></label><label>Capa direta da Steam (opcional)<input name="imageUrl" type="url" maxlength="2000" value="${safe(game.imageUrl || '')}" placeholder="https://shared.steamstatic.com/..."></label><label>Vicoins<input name="coinCost" type="number" min="1" max="1000000" step="1" value="${Number(game.coinCost)}" required></label><label>Estoque<input name="stock" type="number" min="0" max="1000000" step="1" value="${Number(game.stock ?? (game.reservedOrderId ? 0 : 1))}" required></label><div class="admin-game-key-item-actions"><button type="button" data-game-key-save="${safe(game.id)}">Salvar</button><button type="button" class="is-delete" data-game-key-delete="${safe(game.id)}" ${game.reservedOrderId ? 'disabled title="Finalize ou exclua o pedido pendente primeiro"' : ''}>Excluir</button></div>${game.reservedOrderId ? '<small class="admin-game-key-reserved">Pedido antigo reservado.</small>' : ''}</article>`).join('');
+    if (moreButton) { moreButton.hidden = games.length <= 3; moreButton.classList.toggle('hidden',games.length <= 3); moreButton.textContent = expanded ? 'Ver menos' : `Ver mais (${games.length - 3})`; }
   }
 
   async function load() {
@@ -81,11 +85,12 @@
         feedback.textContent = 'Salvando alterações…';
         const title = card.querySelector('[name="title"]').value.trim();
         const steamUrl = card.querySelector('[name="steamUrl"]').value.trim();
+        const imageUrl = card.querySelector('[name="imageUrl"]').value.trim();
         const coinCost = Number(card.querySelector('[name="coinCost"]').value);
         const stock = Number(card.querySelector('[name="stock"]').value);
         const url = new URL(steamUrl);
         if (url.protocol !== 'https:' || url.hostname !== 'store.steampowered.com' || !/^\/app\/\d+/.test(url.pathname) || !Number.isSafeInteger(coinCost) || coinCost < 1 || coinCost > 1000000 || !Number.isSafeInteger(stock) || stock < 0 || title.length < 2) throw new Error('Confira o título, o link da Steam, o preço e o estoque.');
-        await api('/api/admin/shop-game-keys',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:game.id,title,steamUrl,coinCost,stock})});
+        await api('/api/admin/shop-game-keys',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:game.id,title,steamUrl,imageUrl,coinCost,stock})});
         feedback.textContent = 'Jogo atualizado.';
       } else {
         if (game.reservedOrderId || !window.confirm(`Excluir “${game.title}” da lojinha? Pedidos anteriores serão preservados.`)) { button.disabled = false; return; }
@@ -100,6 +105,7 @@
       button.disabled = false;
     }
   });
+  moreButton?.addEventListener('click',() => { expanded = !expanded; render(); });
 
   window.addEventListener('cardapio:auth-updated',load);
   window.CardapioAdminGameKeys = {load};

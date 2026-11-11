@@ -10,6 +10,9 @@
   const moreBannersGrid = document.querySelector('#shopMoreBannersGrid');
   const moreBannersDialog = document.querySelector('#shopMoreBannersDialog');
   const moreBannersClose = document.querySelector('#shopMoreBannersClose');
+  const clubBannerChoice = document.querySelector('#clubVimeBannerChoice');
+  const clubFeedback = document.querySelector('#clubVimeFeedback');
+  const clubRequestButton = document.querySelector('#clubVimeRequest');
   const apiBases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
   let rewards = [
     {id:'content-15',contentLimit:15,coinCost:500},
@@ -27,6 +30,7 @@
   let bannerInventory = {owned:[],equipped:null};
   let bannerOrders = [];
   let equippedProfileBannerId = '';
+  let clubMembership = {active:false,pending:false,order:null};
 
   function safe(value = '') {
     return String(value).replace(/[&<>"']/g,character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
@@ -138,7 +142,10 @@
       const insufficient = authenticated && !infiniteBalance && balance < cost;
       const image = safe(game.imageUrl || '');
       const stock = Number(game.stock ?? 1);
-      return `<article class="shop-game-key-card">${image ? `<img class="shop-game-key-art" src="${image}" alt="Capa de ${safe(game.title)}" loading="lazy" onerror="this.hidden=true">` : '<div class="shop-game-key-art shop-game-key-art-fallback" aria-hidden="true">🎮</div>'}<span class="shop-game-key-kicker">KEY DE JOGO</span><h3>${safe(game.title)}</h3><p class="shop-game-key-stock">Restam ${stock} ${stock === 1 ? 'unidade' : 'unidades'} no estoque</p><a href="${safe(game.steamUrl)}" target="_blank" rel="noopener noreferrer">Ver na Steam ↗</a><div class="shop-reward-cost"><img src="assets/vicoins-coin.png?v=2" alt=""><strong>${cost.toLocaleString('pt-BR')}</strong><span>Vicoins</span></div><button type="button" data-game-key-redeem="${safe(game.id)}" ${insufficient ? 'disabled' : ''}>${!authenticated ? 'Entrar para resgatar' : insufficient ? 'Saldo insuficiente' : 'Resgatar key'}</button></article>`;
+      const art = image
+        ? `<div class="shop-game-key-art-wrap"><img class="shop-game-key-art" src="${image}" alt="Capa de ${safe(game.title)}" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><div class="shop-game-key-art-fallback" aria-hidden="true" hidden>🎮</div></div>`
+        : '<div class="shop-game-key-art-wrap"><div class="shop-game-key-art-fallback" aria-hidden="true">🎮</div></div>';
+      return `<article class="shop-game-key-card">${art}<span class="shop-game-key-kicker">KEY DE JOGO</span><h3>${safe(game.title)}</h3><p class="shop-game-key-stock">Restam ${stock} ${stock === 1 ? 'unidade' : 'unidades'} no estoque</p><a href="${safe(game.steamUrl)}" target="_blank" rel="noopener noreferrer">Ver na Steam ↗</a><div class="shop-reward-cost"><img src="assets/vicoins-coin.png?v=2" alt=""><strong>${cost.toLocaleString('pt-BR')}</strong><span>Vicoins</span></div><button type="button" data-game-key-redeem="${safe(game.id)}" ${insufficient ? 'disabled' : ''}>${!authenticated ? 'Entrar para resgatar' : insufficient ? 'Saldo insuficiente' : 'Resgatar key'}</button></article>`;
     }).join('');
   }
 
@@ -183,11 +190,29 @@
   function renderBanners() {
     const authenticated = window.CardapioAuth?.isAuthenticated();
     const owned = new Set(Array.isArray(bannerInventory.owned) ? bannerInventory.owned : []);
-    const featured = bannerCatalog.find(banner => banner.paymentType === 'livepix');
-    const more = bannerCatalog.filter(banner => banner.paymentType !== 'livepix');
+    const featured = bannerCatalog.find(banner => banner.id === 'vimessias') || bannerCatalog[0];
+    const more = bannerCatalog.filter(banner => banner.id !== featured?.id);
     const moreCount = more.length;
     bannerGrid.innerHTML = `${featured ? bannerCardMarkup(featured,authenticated,owned) : '<p class="shop-empty">Banner LivePix indisponível no momento.</p>'}<button type="button" class="shop-banner-card shop-more-banners-card" data-open-banners><span class="shop-more-banners-preview"><span aria-hidden="true">▧</span><strong>Confira mais banners</strong></span><span class="shop-more-banners-details"><strong>Ver coleção completa</strong><small>${moreCount ? `${moreCount} ${moreCount === 1 ? 'banner disponível' : 'banners disponíveis'} · Abrir ↗` : 'Novas opções em breve'}</small></span></button>`;
     moreBannersGrid.innerHTML = more.length ? more.map(banner => bannerCardMarkup(banner,authenticated,owned)).join('') : '<p class="shop-empty shop-more-banners-empty">Ainda não há outros banners cadastrados. Volte em breve para conferir as novidades.</p>';
+    renderClubVime();
+  }
+
+  function renderClubVime() {
+    if (!clubBannerChoice || !clubFeedback || !clubRequestButton) return;
+    const options = bannerCatalog.filter(banner => banner.paymentType === 'livepix');
+    const selected = clubBannerChoice.value;
+    clubBannerChoice.innerHTML = '<option value="">Escolha um banner</option>' + options.map(banner => `<option value="${safe(banner.id)}">${safe(banner.name)}</option>`).join('');
+    if (options.some(banner => banner.id === selected)) clubBannerChoice.value = selected;
+    const authenticated = window.CardapioAuth?.isAuthenticated();
+    clubBannerChoice.disabled = !authenticated || clubMembership.active || clubMembership.pending || !options.length;
+    clubRequestButton.disabled = !authenticated || clubMembership.active || clubMembership.pending || !options.length;
+    if (!authenticated) clubFeedback.textContent = 'Entre com a Twitch para solicitar o Clube Vime.';
+    else if (clubMembership.active) clubFeedback.textContent = 'Clube Vime ativo. Banner e 500 Vicoins liberados.';
+    else if (clubMembership.pending) clubFeedback.textContent = 'Pedido enviado. Aguarde a conferência do pagamento no painel administrativo.';
+    else if (!options.length) clubFeedback.textContent = 'Nenhum banner disponível para incluir no momento.';
+    else clubFeedback.textContent = 'Escolha seu banner. Após pagar R$ 10 pelo LivePix, aguarde a aprovação do administrador.';
+    clubRequestButton.textContent = clubMembership.active ? 'Clube Vime ativo' : clubMembership.pending ? 'Pedido aguardando aprovação' : 'Solicitar Clube Vime · R$ 10';
   }
 
   async function load() {
@@ -195,6 +220,7 @@
       updateBalance(0,true,false);
       bannerInventory = {owned:[],equipped:null};
       bannerOrders = [];
+      clubMembership = {active:false,pending:false,order:null};
       equippedProfileBannerId = '';
       try {
         const [catalog,offerData,gameData] = await Promise.all([api('/api/shop/profile-banners'),api('/api/shop/rewards'),api('/api/shop/game-keys')]);
@@ -215,6 +241,7 @@
       bannerInventory = inventory;
       equippedProfileBannerId = inventory.equipped?.id || '';
       bannerOrders = Array.isArray(ordersData.orders) ? ordersData.orders : [];
+      clubMembership = ordersData.clubVime || {active:false,pending:false,order:null};
       bannerCatalog = Array.isArray(catalog.banners) ? catalog.banners : [];
       gameKeys = Array.isArray(gameData.games) ? gameData.games : [];
       rewards = Array.isArray(offerData.rewards) ? offerData.rewards : rewards;
@@ -316,6 +343,22 @@
       feedback.textContent = data.alreadyOwned ? 'Este banner já está liberado no seu perfil.' : `Banner resgatado. Foram descontados ${Number(banner.coinCost).toLocaleString('pt-BR')} Vicoins.`;
     } catch (error) { feedback.textContent = error.message || 'Não foi possível resgatar este banner.'; }
   }
+
+  clubRequestButton?.addEventListener('click',async () => {
+    if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para solicitar o Clube Vime.')) return;
+    if (!clubBannerChoice.value) { clubFeedback.textContent = 'Escolha o banner incluído no Clube Vime.'; return; }
+    if (clubMembership.active || clubMembership.pending) return;
+    if (!window.confirm('Solicitar o Clube Vime por R$ 10? Depois do pagamento pelo LivePix, o administrador aprovará o pedido e liberará o banner escolhido e 500 Vicoins.')) return;
+    clubRequestButton.disabled = true;
+    clubFeedback.textContent = 'Registrando o pedido do Clube Vime…';
+    try {
+      const data = await api('/api/shop/club-vime-orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({bannerId:clubBannerChoice.value})});
+      clubMembership = {active:false,pending:true,order:data.order};
+      renderClubVime();
+      clubFeedback.innerHTML = 'Pedido registrado. <a href="https://livepix.gg/vimessias" target="_blank" rel="noopener noreferrer">Pague R$ 10 no LivePix ↗</a> e aguarde a aprovação.';
+      window.dispatchEvent(new CustomEvent('cardapio:vicoins-orders-updated'));
+    } catch (error) { clubFeedback.textContent = error.message || 'Não foi possível solicitar o Clube Vime.'; renderClubVime(); }
+  });
 
   function handleBannerGridClick(event) {
     const open = event.target.closest('[data-open-banners]');

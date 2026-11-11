@@ -1,0 +1,21 @@
+.club-vime-display-name{color:#f3cf72!important;font-weight:700;text-shadow:0 0 14px #dba63855}
+.club-vime-crown{color:#ffdf74;white-space:nowrap;text-shadow:0 0 10px #e0a92888}
+.club-vime-home-card,.club-vime-shop-card{display:flex;align-items:center;gap:20px;padding:22px 26px;border:1px solid #8b63a0;border-radius:18px;background:radial-gradient(ellipse at 10% 0%,#52256a66,transparent 55%),linear-gradient(135deg,#17121d,#0e0c12);box-shadow:0 12px 34px #0005}
+.club-vime-home-card{margin:28px 0}
+.club-vime-home-crown{font-size:38px;filter:drop-shadow(0 0 14px #e1ad42aa)}
+.club-vime-home-card h2,.club-vime-shop-card h2{margin:3px 0 6px;color:#f2d077;letter-spacing:.12em}
+.club-vime-home-card p,.club-vime-shop-card p{margin:0;color:#ded5e7;line-height:1.55}
+.club-vime-home-card>a{margin-left:auto;white-space:nowrap;color:#e3bff4;font-weight:700}
+.club-vime-shop-card{margin:0 0 26px;align-items:flex-start}
+.club-vime-shop-copy{flex:1;min-width:0}
+.club-vime-shop-copy ul{display:flex;flex-wrap:wrap;gap:8px 20px;margin:14px 0 0;padding-left:19px;color:#e8dfed}
+.club-vime-shop-checkout{display:grid;gap:10px;min-width:min(290px,34%)}
+.club-vime-shop-checkout label{font-weight:700}
+.club-vime-shop-checkout select{width:100%;padding:12px;border:1px solid #68447c;border-radius:10px;background:#100d14;color:#fff;font:inherit}
+.club-vime-shop-checkout p{font-size:.92rem;min-height:2.6em}
+.club-vime-shop-checkout button{padding:13px;border:1px solid #b47ad5;border-radius:11px;background:linear-gradient(110deg,#7732a0,#552274);color:#fff;font:inherit;font-weight:700;cursor:pointer}
+.club-vime-shop-checkout button:disabled{opacity:.58;cursor:not-allowed}
+.club-vime-shop-checkout a{color:#e0a9ff;font-weight:700}
+.admin-list-more{display:block;margin:14px auto 0;padding:9px 18px;border:1px solid #76528a;border-radius:9px;background:#1a1420;color:#ead6f4;font:inherit;font-weight:700;cursor:pointer}
+.admin-list-more.hidden,[hidden].admin-list-more{display:none}
+@media(max-width:760px){.club-vime-home-card,.club-vime-shop-card{align-items:stretch;flex-direction:column;padding:18px}.club-vime-home-card>a{margin-left:0}.club-vime-shop-checkout{min-width:0}}

@@ -5,6 +5,8 @@
   if (!form || !list || !feedback) return;
   const apiBases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
   let banners = [];
+  let expanded = false;
+  const moreButton = document.querySelector('#adminShopBannerMore');
 
   function safe(value = '') {
     return String(value).replace(/[&<>"']/g,character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
@@ -29,9 +31,11 @@
   function render() {
     if (!banners.length) {
       list.innerHTML = '<p class="admin-shop-banner-empty">Nenhum banner manual cadastrado.</p>';
+      moreButton?.classList.add('hidden');
       return;
     }
-    list.innerHTML = banners.map(banner => `<article class="admin-shop-banner-item"><img src="${safe(banner.imageUrl)}" alt="Prévia do banner ${safe(banner.name)}"><div><strong>${safe(banner.name)}</strong><span>${Number(banner.coinCost).toLocaleString('pt-BR')} Vicoins</span></div><button type="button" data-delete-banner="${safe(banner.id)}">Excluir</button></article>`).join('');
+    list.innerHTML = banners.slice(0,expanded ? banners.length : 3).map(banner => `<article class="admin-shop-banner-item"><img src="${safe(banner.imageUrl)}" alt="Prévia do banner ${safe(banner.name)}"><div><strong>${safe(banner.name)}</strong><span>R$ 5,00 · LivePix</span></div><button type="button" data-delete-banner="${safe(banner.id)}">Excluir</button></article>`).join('');
+    if (moreButton) { moreButton.hidden = banners.length <= 3; moreButton.classList.toggle('hidden',banners.length <= 3); moreButton.textContent = expanded ? 'Ver menos' : `Ver mais (${banners.length - 3})`; }
   }
 
   async function load() {
@@ -69,10 +73,8 @@
     if (!window.CardapioAuth?.isAdmin()) return;
     const data = new FormData(form);
     const file = data.get('image');
-    const coinCost = Number(data.get('coinCost'));
     if (!(file instanceof File) || !file.size) { feedback.textContent = 'Escolha a imagem do banner.'; return; }
     if (file.size > 4 * 1024 * 1024) { feedback.textContent = 'A imagem precisa ter até 4 MB.'; return; }
-    if (!Number.isSafeInteger(coinCost) || coinCost < 1) { feedback.textContent = 'Informe um custo válido em Vicoins.'; return; }
     const submit = form.querySelector('[type="submit"]');
     submit.disabled = true;
     feedback.textContent = 'Validando imagem e cadastrando banner…';
@@ -82,7 +84,7 @@
       const dimensionsValid = bitmap.width === 1600 && bitmap.height === 240;
       bitmap.close();
       if (!dimensionsValid) throw new Error('A imagem precisa ter exatamente 1600 × 240 px.');
-      await api('/api/admin/profile-banners',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:data.get('name'),coinCost,image})});
+      await api('/api/admin/profile-banners',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:data.get('name'),image})});
       form.reset();
       await load();
       feedback.textContent = 'Banner adicionado à lojinha.';
@@ -108,6 +110,8 @@
       button.disabled = false;
     }
   });
+
+  moreButton?.addEventListener('click',() => { expanded = !expanded; render(); });
 
   window.addEventListener('cardapio:auth-updated',load);
   window.CardapioAdminShopBanners = {load};

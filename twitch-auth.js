@@ -76,7 +76,7 @@ function updateTwitchUi(profile) {
     : 'Entre com a Twitch para jogar os desafios.';
   if (authenticated) {
     const name = profile.displayName || profile.login;
-    sidebarUserName.textContent = name;
+    sidebarUserName.innerHTML = window.CardapioClubVime?.name(name,profile.isClubVime) || name;
     sidebarUserRole.textContent = profile.role === 'admin' ? 'ADMINISTRADOR' : 'USUÁRIO TWITCH';
     sidebarUserRole.classList.toggle('is-admin', profile.role === 'admin');
     if (profile.profileImageUrl) {

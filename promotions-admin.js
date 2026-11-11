@@ -15,6 +15,8 @@
   let selectedTitles = [];
   let searchTimer;
   let searchSequence = 0;
+  let promotionsExpanded = false;
+  const moreButton = document.querySelector('#adminPromotionMore');
 
   function safe(value = '') {
     return String(value).replace(/[&<>"']/g,character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
@@ -39,9 +41,11 @@
   function renderList() {
     if (!promotions.length) {
       list.innerHTML = '<p class="admin-promotion-empty">Nenhuma coleção cadastrada.</p>';
+      moreButton?.classList.add('hidden');
       return;
     }
-    list.innerHTML = promotions.map(item => `<article class="admin-promotion-row"><div><strong>${safe(item.name)}</strong><small>${item.titles.length} título(s) · ${safe(item.discountPercent)}% OFF</small></div><div><button type="button" data-promotion-edit="${safe(item.id)}">Editar</button><button type="button" data-promotion-delete="${safe(item.id)}">Excluir</button></div></article>`).join('');
+    list.innerHTML = promotions.slice(0,promotionsExpanded ? promotions.length : 3).map(item => `<article class="admin-promotion-row"><div><strong>${safe(item.name)}</strong><small>${item.titles.length} título(s) · ${safe(item.discountPercent)}% OFF</small></div><div><button type="button" data-promotion-edit="${safe(item.id)}">Editar</button><button type="button" data-promotion-delete="${safe(item.id)}">Excluir</button></div></article>`).join('');
+    if (moreButton) { moreButton.hidden = promotions.length <= 3; moreButton.classList.toggle('hidden',promotions.length <= 3); moreButton.textContent = promotionsExpanded ? 'Ver menos' : `Ver mais (${promotions.length - 3})`; }
   }
 
   function renderSelected() {
@@ -174,6 +178,7 @@
     if (edit) editPromotion(edit.dataset.promotionEdit);
     if (remove) deletePromotion(remove.dataset.promotionDelete);
   });
+  moreButton?.addEventListener('click',() => { promotionsExpanded = !promotionsExpanded; renderList(); });
   selectedBox.addEventListener('click',event => {
     const remove = event.target.closest('[data-selected-remove]');
     if (!remove) return;

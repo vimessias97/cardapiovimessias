@@ -35,24 +35,27 @@
   }
 
   function statusLabel(order) {
+    if (order.orderType === 'club-vime') return ({pending:'Aguardando pagamento',approved:'Clube Vime ativo · banner liberado',completed:'Finalizado',deleted:'Excluído'})[order.status] || 'Pendente';
     if (order.orderType === 'paid-banner') return ({pending:'Aguardando pagamento',approved:'Aprovado · banner liberado',completed:'Finalizado',rejected:'Rejeitado',deleted:'Excluído'})[order.status] || 'Pendente';
     if (order.orderType === 'game-key') return ({pending:'Aguardando entrega da key',delivered:'Finalizado · key entregue',deleted:'Excluído'})[order.status] || 'Pendente';
     return ({pending:'Pendente',delivered:'Finalizado',cancelled:'Cancelado · Vicoins devolvidos',deleted:'Excluído'})[order.status] || 'Pendente';
   }
 
   function actionMarkup(order) {
-    const finishLabel = order.orderType === 'paid-banner' ? 'Finalizar' : order.orderType === 'game-key' ? 'Finalizar após entregar a key' : 'Finalizar';
-    const canFinish = order.status === 'pending' && order.orderType !== 'paid-banner' || order.status === 'approved' && order.orderType === 'paid-banner';
-    const approve = order.orderType === 'paid-banner' && order.status === 'pending' ? `<button type="button" data-shop-order-action="approve" data-order-type="${safe(order.orderType)}" data-order-id="${safe(order.id)}">Confirmar pagamento e liberar</button>` : '';
+    const paidOrder = order.orderType === 'paid-banner' || order.orderType === 'club-vime';
+    const finishLabel = paidOrder ? 'Finalizar' : order.orderType === 'game-key' ? 'Finalizar após entregar a key' : 'Finalizar';
+    const canFinish = order.status === 'pending' && !paidOrder || order.status === 'approved' && paidOrder;
+    const approve = paidOrder && order.status === 'pending' ? `<button type="button" data-shop-order-action="approve" data-order-type="${safe(order.orderType)}" data-order-id="${safe(order.id)}">${order.orderType === 'club-vime' ? 'Confirmar R$ 10 e ativar Clube' : 'Confirmar pagamento e liberar'}</button>` : '';
     const finish = canFinish ? `<button type="button" data-shop-order-action="finish" data-order-type="${safe(order.orderType)}" data-order-id="${safe(order.id)}">${finishLabel}</button>` : '';
-    const deleteLabel = order.status === 'pending' && order.orderType !== 'paid-banner' ? 'Excluir e devolver Vicoins' : 'Excluir pedido';
+    const deleteLabel = order.status === 'pending' && !paidOrder ? 'Excluir e devolver Vicoins' : 'Excluir pedido';
     return `<div class="admin-vicoins-actions">${approve}${finish}<button type="button" class="is-delete" data-shop-order-action="delete" data-order-type="${safe(order.orderType)}" data-order-id="${safe(order.id)}">${deleteLabel}</button></div>`;
   }
 
   function orderCopy(order) {
     const requester = order.requester?.displayName || order.requester?.login || 'Usuário Twitch';
     const login = order.requester?.login ? ` · @${safe(order.requester.login)}` : '';
-    if (order.orderType === 'paid-banner') return `<span class="admin-vicoins-order-kind">BANNER · LIVEPIX</span><h3>${safe(order.bannerName || 'Banner ViMessias')}</h3><p>Solicitado por <strong>${safe(requester)}</strong>${login}</p><small>${money(order.amount)} via LivePix · ${safe(dateLabel(order.createdAt))}</small>${order.status === 'pending' ? `<p><a class="admin-banner-livepix" href="${safe(order.paymentUrl || 'https://livepix.gg/vimessias')}" target="_blank" rel="noopener noreferrer">Abrir LivePix ↗</a></p>` : ''}`;
+    if (order.orderType === 'club-vime') return `<span class="admin-vicoins-order-kind">CLUBE VIME · LIVEPIX</span><h3>CLUBE VIME</h3><p>Solicitado por <strong>${window.CardapioClubVime?.name(requester,order.requester?.clubVime) || safe(requester)}</strong>${login}</p><p>Banner incluído: <strong>${safe(order.bannerName || 'Não informado')}</strong></p><small>${money(order.amount)} via LivePix · inclui 500 Vicoins e nome dourado com 👑 · ${safe(dateLabel(order.createdAt))}</small>${order.status === 'pending' ? `<p><a class="admin-banner-livepix" href="${safe(order.paymentUrl || 'https://livepix.gg/vimessias')}" target="_blank" rel="noopener noreferrer">Abrir LivePix ↗</a></p>` : ''}`;
+    if (order.orderType === 'paid-banner') return `<span class="admin-vicoins-order-kind">BANNER · LIVEPIX</span><h3>${safe(order.bannerName || 'Banner ViMessias')}</h3><p>Solicitado por <strong>${window.CardapioClubVime?.name(requester,order.requester?.clubVime) || safe(requester)}</strong>${login}</p><small>${money(order.amount)} via LivePix · ${safe(dateLabel(order.createdAt))}</small>${order.status === 'pending' ? `<p><a class="admin-banner-livepix" href="${safe(order.paymentUrl || 'https://livepix.gg/vimessias')}" target="_blank" rel="noopener noreferrer">Abrir LivePix ↗</a></p>` : ''}`;
     if (order.orderType === 'game-key') return `<span class="admin-vicoins-order-kind">KEY DE JOGO</span><h3>${safe(order.gameTitle || 'Jogo')}</h3><p>Solicitado por <strong>${safe(requester)}</strong>${login}</p><p><a href="${safe(order.steamUrl || 'https://store.steampowered.com/')}" target="_blank" rel="noopener noreferrer">Página do jogo na Steam ↗</a></p><small>${Number(order.coinCost || 0).toLocaleString('pt-BR')} Vicoins · ${safe(dateLabel(order.createdAt))}</small>`;
     return `<span class="admin-vicoins-order-kind">VALE DE CONTEÚDO</span><h3>Resgate até ${money(order.contentLimit)}</h3>${order.requestedTitle ? `<p>Conteúdo desejado: <strong>${safe(order.requestedTitle)}</strong></p>` : ''}<p>Solicitado por <strong>${safe(requester)}</strong>${login}</p><small>${Number(order.coinCost || 0).toLocaleString('pt-BR')} Vicoins · ${safe(dateLabel(order.createdAt))}</small>`;
   }
@@ -89,10 +92,10 @@
     const order = orders.find(item => item.id === id && item.orderType === orderType);
     if (!order) return;
     const person = order.requester?.displayName || order.requester?.login || 'este usuário';
-    if (action === 'approve' && !window.confirm(`Confirma que recebeu ${money(order.amount)} no LivePix de ${person} e quer liberar o banner?`)) return;
+    if (action === 'approve' && !window.confirm(`Confirma que recebeu ${money(order.amount)} no LivePix de ${person} e quer aprovar ${orderType === 'club-vime' ? 'o Clube Vime, creditando 500 Vicoins e liberando o banner' : 'o banner'}?`)) return;
     if (action === 'finish' && !window.confirm(orderType === 'game-key' ? `Confirma que entregou a key de “${order.gameTitle}” para ${person}?` : 'Finalizar este pedido da lojinha?')) return;
     if (action === 'delete') {
-      const message = orderType === 'paid-banner'
+      const message = orderType === 'paid-banner' || orderType === 'club-vime'
         ? `Excluir o pedido de banner de ${person} da lista? Isso não estorna eventual pagamento feito no LivePix.`
         : order.status === 'pending'
           ? `Excluir o pedido de ${person}? Os ${Number(order.coinCost || 0).toLocaleString('pt-BR')} Vicoins serão devolvidos.`
@@ -100,12 +103,12 @@
       if (!window.confirm(message)) return;
     }
     button.disabled = true;
-    feedback.textContent = action === 'approve' ? 'Confirmando o pagamento e liberando o banner…' : action === 'finish' ? 'Finalizando pedido…' : 'Excluindo pedido…';
+    feedback.textContent = action === 'approve' ? orderType === 'club-vime' ? 'Ativando Clube Vime e liberando benefícios…' : 'Confirmando o pagamento e liberando o banner…' : action === 'finish' ? 'Finalizando pedido…' : 'Excluindo pedido…';
     try {
       const data = await api('/api/admin/shop-orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id,orderType,action})});
       orders = Array.isArray(data.orders) ? data.orders : [];
       render();
-      feedback.textContent = action === 'approve' ? 'Pagamento confirmado e banner liberado no perfil.' : action === 'finish' ? 'Pedido finalizado.' : orderType !== 'paid-banner' && order.status === 'pending' ? 'Pedido excluído e Vicoins devolvidos.' : 'Pedido excluído da lista.';
+      feedback.textContent = action === 'approve' ? orderType === 'club-vime' ? 'Clube Vime ativado: 500 Vicoins, banner equipado e nome dourado com coroa.' : 'Pagamento confirmado e banner liberado no perfil.' : action === 'finish' ? 'Pedido finalizado.' : orderType !== 'paid-banner' && orderType !== 'club-vime' && order.status === 'pending' ? 'Pedido excluído e Vicoins devolvidos.' : 'Pedido excluído da lista.';
       window.dispatchEvent(new CustomEvent('cardapio:vicoins-orders-updated'));
       window.CardapioVicoinsShop?.load();
     } catch (error) {

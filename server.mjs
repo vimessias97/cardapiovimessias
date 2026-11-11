@@ -424,19 +424,20 @@ async function deleteForumAttachment(attachment) {
 }
 
 async function readVicoinsStore() {
-  const value = await readJsonState('vicoins',{balances:{},transactions:[],orders:[],bannerOrders:[],gameKeys:[],gameKeyOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}});
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {balances:{},transactions:[],orders:[],bannerOrders:[],gameKeys:[],gameKeyOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}};
+  const defaults = {balances:{},transactions:[],orders:[],bannerOrders:[],gameKeys:[],gameKeyOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{},clubVimeMembers:[]};
+  const value = await readJsonState('vicoins',defaults);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return defaults;
   if (value.balances && typeof value.balances === 'object' && !Array.isArray(value.balances)) {
-    return {balances:value.balances,transactions:Array.isArray(value.transactions) ? value.transactions : [],orders:Array.isArray(value.orders) ? value.orders : [],bannerOrders:Array.isArray(value.bannerOrders) ? value.bannerOrders : [],gameKeys:Array.isArray(value.gameKeys) ? value.gameKeys : [],gameKeyOrders:Array.isArray(value.gameKeyOrders) ? value.gameKeyOrders : [],customProfileBanners:Array.isArray(value.customProfileBanners) ? value.customProfileBanners : [],removedProfileBanners:Array.isArray(value.removedProfileBanners) ? value.removedProfileBanners : [],dailyClaims:value.dailyClaims && typeof value.dailyClaims === 'object' && !Array.isArray(value.dailyClaims) ? value.dailyClaims : {},profileBannerInventory:value.profileBannerInventory && typeof value.profileBannerInventory === 'object' && !Array.isArray(value.profileBannerInventory) ? value.profileBannerInventory : {}};
+    return {balances:value.balances,transactions:Array.isArray(value.transactions) ? value.transactions : [],orders:Array.isArray(value.orders) ? value.orders : [],bannerOrders:Array.isArray(value.bannerOrders) ? value.bannerOrders : [],gameKeys:Array.isArray(value.gameKeys) ? value.gameKeys : [],gameKeyOrders:Array.isArray(value.gameKeyOrders) ? value.gameKeyOrders : [],customProfileBanners:Array.isArray(value.customProfileBanners) ? value.customProfileBanners : [],removedProfileBanners:Array.isArray(value.removedProfileBanners) ? value.removedProfileBanners : [],dailyClaims:value.dailyClaims && typeof value.dailyClaims === 'object' && !Array.isArray(value.dailyClaims) ? value.dailyClaims : {},profileBannerInventory:value.profileBannerInventory && typeof value.profileBannerInventory === 'object' && !Array.isArray(value.profileBannerInventory) ? value.profileBannerInventory : {},clubVimeMembers:Array.isArray(value.clubVimeMembers) ? value.clubVimeMembers : []};
   }
-  return {balances:value,transactions:[],orders:[],bannerOrders:[],gameKeys:[],gameKeyOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}};
+  return {...defaults,balances:value};
 }
 
 function getProfileBannerRewards(store) {
   const removed = new Set(Array.isArray(store.removedProfileBanners) ? store.removedProfileBanners : []);
   const builtIn = profileBannerRewards.filter(item => !removed.has(item.id));
   const custom = Array.isArray(store.customProfileBanners) ? store.customProfileBanners : [];
-  return [...builtIn,...custom.filter(item => item && typeof item.id === 'string' && Number.isSafeInteger(item.coinCost) && item.coinCost > 0)];
+  return [...builtIn,...custom.filter(item => item && typeof item.id === 'string' && typeof item.name === 'string' && typeof item.imageUrl === 'string').map(item => ({...item,paymentType:'livepix',amount:5,coinCost:5}))];
 }
 
 function getProfileBannerInventory(store,userId) {
@@ -445,6 +446,10 @@ function getProfileBannerInventory(store,userId) {
   const owned = Array.isArray(saved?.owned) ? [...new Set(saved.owned.filter(id => rewards.some(item => item.id === id)))] : [];
   const equippedId = rewards.some(item => item.id === saved?.equipped) ? saved.equipped : '';
   return {owned,equipped:rewards.find(item => item.id === equippedId) || null};
+}
+
+function hasClubVime(store,userId) {
+  return Array.isArray(store.clubVimeMembers) && store.clubVimeMembers.includes(String(userId));
 }
 
 async function updateVicoinsStore(update) {
@@ -577,6 +582,18 @@ function steamGameHeader(steamUrl) {
     const appId = /^\/app\/(\d+)(?:\/|$)/.exec(url.pathname)?.[1];
     return appId ? `https://shared.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg` : '';
   } catch { return ''; }
+}
+
+function parseSteamImageUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    const host = url.hostname.toLowerCase();
+    const steamHosted = host === 'steamstatic.com' || host.endsWith('.steamstatic.com') || host === 'steamcdn-a.akamaihd.net' || host === 'steamuserimages-a.akamaihd.net';
+    if (url.protocol !== 'https:' || !steamHosted || raw.length > 2000) throw new Error();
+    return url.href;
+  } catch { throw new Error('Use um link HTTPS direto de uma imagem hospedada na Steam.'); }
 }
 
 async function updateFavorites(update) {
@@ -1119,6 +1136,7 @@ async function handle(req, res) {
   if (req.method === 'GET' && url.pathname === '/api/auth/me') {
     const {configured} = twitchConfig();
     const profile = await getAuthenticatedProfile(req,res);
+    if (profile) profile.isClubVime = hasClubVime(await readVicoinsStore(),profile.id);
     return privateJson(res, 200, profile
       ? {authenticated:true,configured,profile}
       : {authenticated:false,configured});
@@ -1149,12 +1167,15 @@ async function handle(req, res) {
   }
   if (req.method === 'GET' && url.pathname === '/api/forum/topics') {
     const viewer = await getAuthenticatedProfile(req,res);
+    const clubVimeStore = await readVicoinsStore();
     const topics = (await readForumTopics())
       .sort((a,b) => Date.parse(b.updatedAt || b.createdAt) - Date.parse(a.updatedAt || a.createdAt))
       .slice(0,100);
     return json(res,200,{topics:topics.map(topic => {
       const likedBy = Array.isArray(topic.likedBy) ? topic.likedBy : [];
-      return {...topic,likeCount:likedBy.length,likedByMe:Boolean(viewer && likedBy.includes(viewer.id)),likedBy:undefined};
+      const author = topic.author ? {...topic.author,clubVime:hasClubVime(clubVimeStore,topic.author.id)} : topic.author;
+      const comments = Array.isArray(topic.comments) ? topic.comments.map(comment => ({...comment,author:comment.author ? {...comment.author,clubVime:hasClubVime(clubVimeStore,comment.author.id)} : comment.author})) : topic.comments;
+      return {...topic,author,comments,likeCount:likedBy.length,likedByMe:Boolean(viewer && likedBy.includes(viewer.id)),likedBy:undefined};
     })});
   }
   const forumLikeMatch = /^\/api\/forum\/topics\/([a-f0-9-]{36})\/like$/i.exec(url.pathname);
@@ -1418,30 +1439,33 @@ async function handle(req, res) {
     return json(res,200,{redemptions:entries});
   }
   if (req.method === 'GET' && url.pathname === '/api/redemptions/recent') {
+    const clubVimeStore = await readVicoinsStore();
     const entries = (await readRedemptions())
       .filter(entry => ['approved','completed'].includes(entry.status))
       .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
-      .map(entry => ({id:entry.id,catalogId:entry.catalogId || null,title:entry.title,mediaType:entry.mediaType,posterUrl:entry.posterUrl,durationMinutes:entry.durationMinutes,durationLabel:entry.durationLabel,scheduledAt:entry.scheduledAt,requester:{id:entry.requester?.id || '',login:entry.requester?.login || '',displayName:entry.requester?.displayName || ''}}));
+      .map(entry => ({id:entry.id,catalogId:entry.catalogId || null,title:entry.title,mediaType:entry.mediaType,posterUrl:entry.posterUrl,durationMinutes:entry.durationMinutes,durationLabel:entry.durationLabel,scheduledAt:entry.scheduledAt,requester:{id:entry.requester?.id || '',login:entry.requester?.login || '',displayName:entry.requester?.displayName || '',clubVime:hasClubVime(clubVimeStore,entry.requester?.id)}}));
     return json(res,200,{redemptions:entries});
   }
   if (req.method === 'GET' && url.pathname === '/api/community/members') {
+    const clubVimeStore = await readVicoinsStore();
     const members = (await readCommunityMembers())
       .sort((a,b) => (Date.parse(b.joinedAt || '') || 0) - (Date.parse(a.joinedAt || '') || 0))
       .slice(0,8)
-      .map(({id,login,displayName,profileImageUrl,joinedAt}) => ({id,login,displayName,profileImageUrl,joinedAt}));
+      .map(({id,login,displayName,profileImageUrl,joinedAt,clubVime}) => ({id,login,displayName,profileImageUrl,joinedAt,clubVime:Boolean(clubVime || hasClubVime(clubVimeStore,id))}));
     return json(res,200,{members});
   }
   if (req.method === 'GET' && url.pathname === '/api/community/rankings') {
     const members = await readCommunityMembers();
     const memberById = new Map(members.map(member => [member.id,member]));
+    let store;
     const isExcluded = member => getTwitchRole(member) === 'admin' || String(member?.login || '').toLowerCase() === 'vimessias_';
     const rankedMember = (id,values) => {
       const member = memberById.get(id) || {};
-      return {id,displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',...values};
+      return {id,displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',clubVime:Boolean(member.clubVime || hasClubVime(store,id)),...values};
     };
     try { await reconcileApprovedRedemptionVicoins(); }
     catch { return json(res,500,{error:'Não foi possível atualizar o ranking de Vicoins.'}); }
-    const store = await readVicoinsStore();
+    store = await readVicoinsStore();
     const vicoins = Object.entries(store.balances)
       .map(([id,value]) => {
         const member = memberById.get(id) || {};
@@ -1492,7 +1516,7 @@ async function handle(req, res) {
     const vicoinsStore = await readVicoinsStore();
     const bannerInventory = getProfileBannerInventory(vicoinsStore,memberId);
     const isAdmin = getTwitchRole(member) === 'admin';
-    const profile = {id:member.id,login:member.login,displayName:member.displayName,profileImageUrl:member.profileImageUrl,joinedAt:member.joinedAt,vicoins:await getVicoinsBalance(memberId,isAdmin),vicoinsInfinite:isAdmin,banner:bannerInventory.equipped};
+    const profile = {id:member.id,login:member.login,displayName:member.displayName,profileImageUrl:member.profileImageUrl,joinedAt:member.joinedAt,isClubVime:Boolean(member.clubVime || hasClubVime(vicoinsStore,memberId)),vicoins:await getVicoinsBalance(memberId,isAdmin),vicoinsInfinite:isAdmin,banner:bannerInventory.equipped};
     return json(res,200,{profile,favorites,redemptions,ratings,achievements,badges:await getCommunityBadgesForMember(memberId)});
   }
   if (req.method === 'GET' && url.pathname === '/api/shop/rewards') {
@@ -1500,7 +1524,7 @@ async function handle(req, res) {
   }
   if (req.method === 'GET' && url.pathname === '/api/shop/game-keys') {
     const store = await readVicoinsStore();
-    const games = store.gameKeys.filter(item => item?.active !== false && !item?.reservedOrderId && Number(item.stock ?? 1) > 0).sort((a,b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || '')).map(item => ({id:item.id,title:item.title,steamUrl:item.steamUrl,coinCost:item.coinCost,stock:Number(item.stock ?? 1),imageUrl:steamGameHeader(item.steamUrl)}));
+    const games = store.gameKeys.filter(item => item?.active !== false && !item?.reservedOrderId && Number(item.stock ?? 1) > 0).sort((a,b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || '')).map(item => ({id:item.id,title:item.title,steamUrl:item.steamUrl,coinCost:item.coinCost,stock:Number(item.stock ?? 1),imageUrl:item.imageUrl || steamGameHeader(item.steamUrl)}));
     return json(res,200,{games});
   }
   if (req.method === 'POST' && url.pathname === '/api/admin/vicoins-rewards') {
@@ -1544,11 +1568,15 @@ async function handle(req, res) {
     const id = String(body.id || '').trim();
     const title = String(body.title || '').trim();
     const steamUrl = String(body.steamUrl || '').trim();
+    const imageUrl = String(body.imageUrl || '').trim();
     const coinCost = Number(body.coinCost);
     const stock = Number(body.stock);
     let parsedSteamUrl;
     try { parsedSteamUrl = new URL(steamUrl); } catch {}
     if (title.length < 2 || title.length > 120 || !parsedSteamUrl || parsedSteamUrl.protocol !== 'https:' || parsedSteamUrl.hostname !== 'store.steampowered.com' || steamUrl.length > 500 || !/^\/app\/\d+(?:\/|$)/.test(parsedSteamUrl.pathname) || !Number.isSafeInteger(coinCost) || coinCost < 1 || coinCost > 1000000 || !Number.isSafeInteger(stock) || stock < 0 || stock > 1000000) return privateJson(res,400,{error:'Informe título, link de jogo Steam, preço válido e estoque entre 0 e 1.000.000.'});
+    let directImageUrl = '';
+    try { directImageUrl = parseSteamImageUrl(imageUrl); }
+    catch (error) { return privateJson(res,400,{error:error.message}); }
     try {
       const games = await updateVicoinsStore(store => {
         store.gameKeys = Array.isArray(store.gameKeys) ? store.gameKeys : [];
@@ -1557,11 +1585,12 @@ async function handle(req, res) {
           if (!item) throw new Error('Jogo não encontrado para edição.');
           item.title = title;
           item.steamUrl = parsedSteamUrl.href;
+          item.imageUrl = directImageUrl;
           item.coinCost = coinCost;
           item.stock = stock;
           item.updatedAt = new Date().toISOString();
         } else {
-          store.gameKeys.unshift({id:randomUUID(),title,steamUrl:parsedSteamUrl.href,coinCost,stock,active:true,reservedOrderId:'',createdAt:new Date().toISOString(),createdBy:profile.id});
+          store.gameKeys.unshift({id:randomUUID(),title,steamUrl:parsedSteamUrl.href,imageUrl:directImageUrl,coinCost,stock,active:true,reservedOrderId:'',createdAt:new Date().toISOString(),createdBy:profile.id});
         }
         return store.gameKeys.slice().sort((a,b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''));
       });
@@ -1601,8 +1630,7 @@ async function handle(req, res) {
     try { body = await readRequestJson(req,5_700_000); }
     catch (error) { return privateJson(res,400,{error:error.message}); }
     const name = String(body.name || '').trim().slice(0,60);
-    const coinCost = Number(body.coinCost);
-    if (!name || !Number.isSafeInteger(coinCost) || coinCost < 1 || coinCost > 1_000_000) return privateJson(res,400,{error:'Informe um nome e um custo de 1 a 1.000.000 Vicoins.'});
+    if (!name) return privateJson(res,400,{error:'Informe um nome para o banner.'});
     let image;
     try { image = decodeProfileBannerImage(body.image); }
     catch (error) { return privateJson(res,400,{error:error.message}); }
@@ -1611,7 +1639,7 @@ async function handle(req, res) {
     try {
       if (persistenceMode === 'supabase') await uploadStorageObject('profile-banners',filename,image.buffer,image.extension === 'jpg' ? 'image/jpeg' : 'image/png');
       else await writeFile(path.join(profileBannersDir,filename),image.buffer,{flag:'wx'});
-      const banner = {id,name,coinCost,imageUrl:`/api/profile-banners/${filename}`,paymentType:'vicoins',custom:true,createdAt:new Date().toISOString()};
+      const banner = {id,name,coinCost:5,amount:5,imageUrl:`/api/profile-banners/${filename}`,paymentType:'livepix',custom:true,createdAt:new Date().toISOString()};
       const banners = await updateVicoinsStore(store => {
         store.customProfileBanners = Array.isArray(store.customProfileBanners) ? store.customProfileBanners : [];
         store.customProfileBanners.push(banner);
@@ -1669,7 +1697,7 @@ async function handle(req, res) {
     const achievements = {favorites:favorites.length,ratings:ratings.length,redemptions:redemptions.length};
     const vicoinsStore = await readVicoinsStore();
     const bannerInventory = getProfileBannerInventory(vicoinsStore,profile.id);
-    return privateJson(res,200,{profile:{...profile,vicoins:await getVicoinsBalance(profile.id,profile.role === 'admin'),vicoinsInfinite:profile.role === 'admin',banner:bannerInventory.equipped},favorites,redemptions,ratings,achievements,badges:await getCommunityBadgesForMember(profile.id)});
+    return privateJson(res,200,{profile:{...profile,isClubVime:hasClubVime(vicoinsStore,profile.id),vicoins:await getVicoinsBalance(profile.id,profile.role === 'admin'),vicoinsInfinite:profile.role === 'admin',banner:bannerInventory.equipped},favorites,redemptions,ratings,achievements,badges:await getCommunityBadgesForMember(profile.id)});
   }
   if (req.method === 'GET' && url.pathname === '/api/account/profile-banner') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -1703,8 +1731,9 @@ async function handle(req, res) {
     const profile = await getAuthenticatedProfile(req,res);
     if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para consultar seus pedidos de banner.'});
     const store = await readVicoinsStore();
-    const orders = store.bannerOrders.filter(order => order.requester?.id === profile.id).sort((a,b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0,10);
-    return privateJson(res,200,{orders});
+    const orders = store.bannerOrders.filter(order => order.requester?.id === profile.id && order.orderType !== 'club-vime').sort((a,b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0,10);
+    const clubVimeOrder = store.bannerOrders.filter(order => order.requester?.id === profile.id && order.orderType === 'club-vime').sort((a,b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0] || null;
+    return privateJson(res,200,{orders,clubVime:{active:hasClubVime(store,profile.id),pending:clubVimeOrder?.status === 'pending',order:clubVimeOrder}});
   }
   if (req.method === 'POST' && url.pathname === '/api/shop/profile-banner-orders') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -1714,7 +1743,8 @@ async function handle(req, res) {
     let body;
     try { body = await readRequestJson(req); }
     catch (error) { return privateJson(res,400,{error:error.message}); }
-    const reward = profileBannerRewards.find(item => item.id === String(body.bannerId || ''));
+    const storeSnapshot = await readVicoinsStore();
+    const reward = getProfileBannerRewards(storeSnapshot).find(item => item.id === String(body.bannerId || ''));
     if (!reward || reward.paymentType !== 'livepix') return privateJson(res,400,{error:'Banner inválido para solicitação.'});
     try {
       const result = await updateVicoinsStore(store => {
@@ -1723,12 +1753,39 @@ async function handle(req, res) {
         if (inventory.owned.includes(reward.id)) throw new Error('Este banner já foi liberado no seu perfil.');
         const pending = store.bannerOrders.find(order => order.requester?.id === profile.id && order.bannerId === reward.id && order.status === 'pending');
         if (pending) return {order:pending,alreadyPending:true};
-        const order = {id:randomUUID(),bannerId:reward.id,bannerName:reward.name,amount:reward.amount,currency:'BRL',paymentUrl:'https://livepix.gg/vimessias',status:'pending',requester:{id:profile.id,login:profile.login,displayName:profile.displayName,profileImageUrl:profile.profileImageUrl || profile.profile_image_url || ''},createdAt:new Date().toISOString()};
+        const currentReward = getProfileBannerRewards(store).find(item => item.id === reward.id);
+        if (!currentReward || currentReward.paymentType !== 'livepix') throw new Error('Este banner não está mais disponível.');
+        const order = {id:randomUUID(),orderType:'paid-banner',bannerId:currentReward.id,bannerName:currentReward.name,amount:5,currency:'BRL',paymentUrl:'https://livepix.gg/vimessias',status:'pending',requester:{id:profile.id,login:profile.login,displayName:profile.displayName,profileImageUrl:profile.profileImageUrl || profile.profile_image_url || ''},createdAt:new Date().toISOString()};
         store.bannerOrders.push(order);
         return {order,alreadyPending:false};
       });
       return privateJson(res,201,result);
     } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível solicitar este banner.'}); }
+  }
+  if (req.method === 'POST' && url.pathname === '/api/shop/club-vime-orders') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para solicitar o Clube Vime.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req); } catch (error) { return privateJson(res,400,{error:error.message}); }
+    try {
+      const result = await updateVicoinsStore(store => {
+        store.bannerOrders = Array.isArray(store.bannerOrders) ? store.bannerOrders : [];
+        store.clubVimeMembers = Array.isArray(store.clubVimeMembers) ? store.clubVimeMembers : [];
+        if (hasClubVime(store,profile.id)) throw new Error('Esta conta já é membro do Clube Vime.');
+        const pending = store.bannerOrders.find(order => order.orderType === 'club-vime' && order.requester?.id === profile.id && order.status === 'pending');
+        if (pending) return {order:pending,alreadyPending:true};
+        const reward = getProfileBannerRewards(store).find(item => item.id === String(body.bannerId || '') && item.paymentType === 'livepix');
+        if (!reward) throw new Error('Escolha um banner disponível para incluir no Clube Vime.');
+        const inventory = getProfileBannerInventory(store,profile.id);
+        if (inventory.owned.includes(reward.id)) throw new Error('Você já possui esse banner. Escolha outro banner para o Clube Vime.');
+        const order = {id:randomUUID(),orderType:'club-vime',bannerId:reward.id,bannerName:reward.name,amount:10,currency:'BRL',paymentUrl:'https://livepix.gg/vimessias',status:'pending',requester:{id:profile.id,login:profile.login,displayName:profile.displayName,profileImageUrl:profile.profileImageUrl || ''},createdAt:new Date().toISOString()};
+        store.bannerOrders.unshift(order);
+        return {order,alreadyPending:false};
+      });
+      return privateJson(res,201,result);
+    } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível solicitar o Clube Vime.'}); }
   }
   if (req.method === 'POST' && url.pathname === '/api/shop/profile-banners') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -1947,7 +2004,7 @@ async function handle(req, res) {
     const store = await readVicoinsStore();
     const orders = [
       ...store.orders.filter(order => order.status !== 'deleted').map(order => ({...order,orderType:'content-voucher'})),
-      ...store.bannerOrders.filter(order => order.status !== 'deleted').map(order => ({...order,orderType:'paid-banner'})),
+      ...store.bannerOrders.filter(order => order.status !== 'deleted').map(order => ({...order,orderType:order.orderType || 'paid-banner'})),
       ...(Array.isArray(store.gameKeyOrders) ? store.gameKeyOrders : []).filter(order => order.status !== 'deleted').map(order => ({...order,orderType:'game-key'}))
     ].sort((a,b) => {
       const rank = status => status === 'pending' ? 0 : status === 'approved' ? 1 : 2;
@@ -1966,7 +2023,7 @@ async function handle(req, res) {
     const id = String(body.id || '');
     const orderType = String(body.orderType || '');
     const action = String(body.action || '');
-    if (!/^[a-f0-9-]{36}$/i.test(id) || !['content-voucher','paid-banner','game-key'].includes(orderType) || !['approve','finish','delete'].includes(action)) return privateJson(res,400,{error:'Ação inválida para o pedido da lojinha.'});
+    if (!/^[a-f0-9-]{36}$/i.test(id) || !['content-voucher','paid-banner','club-vime','game-key'].includes(orderType) || !['approve','finish','delete'].includes(action)) return privateJson(res,400,{error:'Ação inválida para o pedido da lojinha.'});
     try {
       const result = await updateVicoinsStore(store => {
         store.orders = Array.isArray(store.orders) ? store.orders : [];
@@ -1985,14 +2042,21 @@ async function handle(req, res) {
             if (order.status === 'pending') applyVicoinsTransaction(store,{userId:order.requester.id,amount:order.coinCost,type:'shop-refund',referenceId:order.id,description:`Devolução do pedido excluído da lojinha até R$ ${order.contentLimit}`});
             order.status = 'deleted'; order.deletedAt = now; order.deletedBy = profile.id;
           }
-        } else if (orderType === 'paid-banner') {
+        } else if (orderType === 'paid-banner' || orderType === 'club-vime') {
           store.bannerOrders = Array.isArray(store.bannerOrders) ? store.bannerOrders : [];
           const order = store.bannerOrders.find(item => item.id === id);
           if (!order) throw new Error('Pedido de banner não encontrado.');
+          if ((order.orderType || 'paid-banner') !== orderType) throw new Error('O tipo deste pedido não corresponde à solicitação.');
           if (action === 'approve') {
             if (order.status !== 'pending') throw new Error('Este pedido já foi analisado.');
-            const reward = profileBannerRewards.find(item => item.id === order.bannerId && item.paymentType === 'livepix');
+            const reward = getProfileBannerRewards(store).find(item => item.id === order.bannerId && item.paymentType === 'livepix');
             if (!reward) throw new Error('O banner desta solicitação não está disponível.');
+            if (orderType === 'club-vime') {
+              store.clubVimeMembers = Array.isArray(store.clubVimeMembers) ? store.clubVimeMembers : [];
+              if (store.clubVimeMembers.includes(String(order.requester.id))) throw new Error('Este usuário já está no Clube Vime.');
+              applyVicoinsTransaction(store,{userId:order.requester.id,amount:500,type:'club-vime',referenceId:order.id,description:'Bônus de entrada no Clube Vime'});
+              store.clubVimeMembers.push(String(order.requester.id));
+            }
             store.profileBannerInventory = store.profileBannerInventory || {};
             const inventory = store.profileBannerInventory[order.requester.id] || {owned:[],equipped:''};
             inventory.owned = Array.isArray(inventory.owned) ? inventory.owned : [];
@@ -2001,7 +2065,7 @@ async function handle(req, res) {
             store.profileBannerInventory[order.requester.id] = inventory;
             order.status = 'approved'; order.approvedAt = now; order.approvedBy = profile.id;
           } else if (action === 'finish') {
-            if (order.status !== 'approved') throw new Error('Aprove o pagamento do banner antes de finalizar.');
+            if (order.status !== 'approved') throw new Error('Aprove o pagamento antes de finalizar.');
             order.status = 'completed'; order.completedAt = now; order.completedBy = profile.id;
           } else {
             order.status = 'deleted'; order.deletedAt = now; order.deletedBy = profile.id;
@@ -2027,7 +2091,7 @@ async function handle(req, res) {
             order.status = 'deleted'; order.deletedAt = now; order.deletedBy = profile.id;
           }
         }
-        return {orders:[...store.orders.filter(item => item.status !== 'deleted').map(item => ({...item,orderType:'content-voucher'})),...store.bannerOrders.filter(item => item.status !== 'deleted').map(item => ({...item,orderType:'paid-banner'})),...store.gameKeyOrders.filter(item => item.status !== 'deleted').map(item => ({...item,orderType:'game-key'}))].sort((a,b) => (a.status === 'pending' ? 0 : a.status === 'approved' ? 1 : 2) - (b.status === 'pending' ? 0 : b.status === 'approved' ? 1 : 2) || Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''))};
+        return {orders:[...store.orders.filter(item => item.status !== 'deleted').map(item => ({...item,orderType:'content-voucher'})),...store.bannerOrders.filter(item => item.status !== 'deleted').map(item => ({...item,orderType:item.orderType || 'paid-banner'})),...store.gameKeyOrders.filter(item => item.status !== 'deleted').map(item => ({...item,orderType:'game-key'}))].sort((a,b) => (a.status === 'pending' ? 0 : a.status === 'approved' ? 1 : 2) - (b.status === 'pending' ? 0 : b.status === 'approved' ? 1 : 2) || Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''))};
       });
       return privateJson(res,200,result);
     } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível atualizar o pedido.'}); }
@@ -2036,7 +2100,7 @@ async function handle(req, res) {
     const profile = await getAuthenticatedProfile(req,res);
     if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode ver os pedidos de banner.'});
     const store = await readVicoinsStore();
-    const orders = store.bannerOrders.slice().sort((a,b) => Number(a.status !== 'pending') - Number(b.status !== 'pending') || Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    const orders = store.bannerOrders.filter(order => order.orderType !== 'club-vime').slice().sort((a,b) => Number(a.status !== 'pending') - Number(b.status !== 'pending') || Date.parse(b.createdAt) - Date.parse(a.createdAt));
     return privateJson(res,200,{orders});
   }
   if (req.method === 'POST' && url.pathname === '/api/admin/profile-banner-orders') {
@@ -2053,12 +2117,12 @@ async function handle(req, res) {
     try {
       const result = await updateVicoinsStore(store => {
         store.bannerOrders = Array.isArray(store.bannerOrders) ? store.bannerOrders : [];
-        const order = store.bannerOrders.find(item => item.id === id);
+        const order = store.bannerOrders.find(item => item.id === id && item.orderType !== 'club-vime');
         if (!order) throw new Error('Pedido de banner não encontrado.');
         if (order.status !== 'pending') throw new Error('Este pedido já foi finalizado.');
         const now = new Date().toISOString();
         if (action === 'approve') {
-          const reward = profileBannerRewards.find(item => item.id === order.bannerId && item.paymentType === 'livepix');
+          const reward = getProfileBannerRewards(store).find(item => item.id === order.bannerId && item.paymentType === 'livepix');
           if (!reward) throw new Error('O banner desta solicitação não está disponível.');
           store.profileBannerInventory = store.profileBannerInventory || {};
           const inventory = store.profileBannerInventory[order.requester.id] || {owned:[],equipped:''};
@@ -2305,9 +2369,10 @@ async function handle(req, res) {
     if (!['movie','tv'].includes(type) || !Number.isSafeInteger(id) || id <= 0) return json(res,400,{error:'Dados do histórico de avaliações inválidos.'});
     const entry = (await readRatings()).find(value => value.mediaType === type && Number(value.id) === id);
     const memberById = new Map((await readCommunityMembers()).map(member => [String(member.id),member]));
+    const vicoinsStore = await readVicoinsStore();
     const votes = (Array.isArray(entry?.votes) ? entry.votes : []).filter(vote => Number.isFinite(vote.rating)).map(vote => {
       const member = memberById.get(String(vote.clientId)) || {};
-      return {displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',rating:vote.rating};
+      return {displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',clubVime:hasClubVime(vicoinsStore,vote.clientId),rating:vote.rating};
     }).sort((a,b) => b.rating - a.rating || a.displayName.localeCompare(b.displayName,'pt-BR'));
     return json(res,200,{votes});
   }
