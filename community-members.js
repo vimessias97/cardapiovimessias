@@ -130,7 +130,6 @@
     setVicoins(0,true);
     feedback.textContent = '';
     renderAchievements();
-    renderProfileBadges([]);
     redemptions.replaceChildren();
     favorites.replaceChildren();
     ratedTitles.replaceChildren();
