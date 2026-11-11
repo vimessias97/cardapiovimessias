@@ -424,12 +424,12 @@ async function deleteForumAttachment(attachment) {
 }
 
 async function readVicoinsStore() {
-  const value = await readJsonState('vicoins',{balances:{},transactions:[],orders:[],bannerOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}});
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {balances:{},transactions:[],orders:[],bannerOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}};
+  const value = await readJsonState('vicoins',{balances:{},transactions:[],orders:[],bannerOrders:[],gameKeys:[],gameKeyOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}});
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {balances:{},transactions:[],orders:[],bannerOrders:[],gameKeys:[],gameKeyOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}};
   if (value.balances && typeof value.balances === 'object' && !Array.isArray(value.balances)) {
-    return {balances:value.balances,transactions:Array.isArray(value.transactions) ? value.transactions : [],orders:Array.isArray(value.orders) ? value.orders : [],bannerOrders:Array.isArray(value.bannerOrders) ? value.bannerOrders : [],customProfileBanners:Array.isArray(value.customProfileBanners) ? value.customProfileBanners : [],removedProfileBanners:Array.isArray(value.removedProfileBanners) ? value.removedProfileBanners : [],dailyClaims:value.dailyClaims && typeof value.dailyClaims === 'object' && !Array.isArray(value.dailyClaims) ? value.dailyClaims : {},profileBannerInventory:value.profileBannerInventory && typeof value.profileBannerInventory === 'object' && !Array.isArray(value.profileBannerInventory) ? value.profileBannerInventory : {}};
+    return {balances:value.balances,transactions:Array.isArray(value.transactions) ? value.transactions : [],orders:Array.isArray(value.orders) ? value.orders : [],bannerOrders:Array.isArray(value.bannerOrders) ? value.bannerOrders : [],gameKeys:Array.isArray(value.gameKeys) ? value.gameKeys : [],gameKeyOrders:Array.isArray(value.gameKeyOrders) ? value.gameKeyOrders : [],customProfileBanners:Array.isArray(value.customProfileBanners) ? value.customProfileBanners : [],removedProfileBanners:Array.isArray(value.removedProfileBanners) ? value.removedProfileBanners : [],dailyClaims:value.dailyClaims && typeof value.dailyClaims === 'object' && !Array.isArray(value.dailyClaims) ? value.dailyClaims : {},profileBannerInventory:value.profileBannerInventory && typeof value.profileBannerInventory === 'object' && !Array.isArray(value.profileBannerInventory) ? value.profileBannerInventory : {}};
   }
-  return {balances:value,transactions:[],orders:[],bannerOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}};
+  return {balances:value,transactions:[],orders:[],bannerOrders:[],gameKeys:[],gameKeyOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}};
 }
 
 function getProfileBannerRewards(store) {
@@ -449,7 +449,7 @@ function getProfileBannerInventory(store,userId) {
 
 async function updateVicoinsStore(update) {
   const operation = vicoinsWriteQueue.then(async () => {
-    return updateJsonState('vicoins',{balances:{},transactions:[],orders:[],bannerOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}},update);
+    return updateJsonState('vicoins',{balances:{},transactions:[],orders:[],bannerOrders:[],gameKeys:[],gameKeyOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}},update);
   });
   vicoinsWriteQueue = operation.catch(() => {});
   return operation;
@@ -1472,6 +1472,11 @@ async function handle(req, res) {
   if (req.method === 'GET' && url.pathname === '/api/shop/rewards') {
     return json(res,200,{rewards:await readVicoinsRewards()});
   }
+  if (req.method === 'GET' && url.pathname === '/api/shop/game-keys') {
+    const store = await readVicoinsStore();
+    const games = store.gameKeys.filter(item => item?.active !== false && !item?.reservedOrderId).sort((a,b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || '')).map(({id,title,steamUrl,coinCost}) => ({id,title,steamUrl,coinCost}));
+    return json(res,200,{games});
+  }
   if (req.method === 'POST' && url.pathname === '/api/admin/vicoins-rewards') {
     const profile = await getAuthenticatedProfile(req,res);
     if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode alterar os valores dos vales.'});
@@ -1495,6 +1500,63 @@ async function handle(req, res) {
     const store = await readVicoinsStore();
     const banners = getProfileBannerRewards(store).map(({id,name,imageUrl,paymentType,amount,coinCost}) => ({id,name,imageUrl,paymentType,amount,coinCost}));
     return json(res,200,{banners});
+  }
+  if (req.method === 'GET' && url.pathname === '/api/admin/shop-game-keys') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode gerenciar keys de jogos.'});
+    const store = await readVicoinsStore();
+    return privateJson(res,200,{games:store.gameKeys.slice().sort((a,b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''))});
+  }
+  if (req.method === 'POST' && url.pathname === '/api/admin/shop-game-keys') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode cadastrar keys de jogos.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req); }
+    catch (error) { return privateJson(res,400,{error:error.message}); }
+    const id = String(body.id || '').trim();
+    const title = String(body.title || '').trim();
+    const steamUrl = String(body.steamUrl || '').trim();
+    const coinCost = Number(body.coinCost);
+    let parsedSteamUrl;
+    try { parsedSteamUrl = new URL(steamUrl); } catch {}
+    if (title.length < 2 || title.length > 120 || !parsedSteamUrl || parsedSteamUrl.protocol !== 'https:' || parsedSteamUrl.hostname !== 'store.steampowered.com' || steamUrl.length > 500 || !Number.isSafeInteger(coinCost) || coinCost < 1 || coinCost > 1000000) return privateJson(res,400,{error:'Informe título, link HTTPS válido da Steam e preço de 1 a 1.000.000 Vicoins.'});
+    try {
+      const games = await updateVicoinsStore(store => {
+        store.gameKeys = Array.isArray(store.gameKeys) ? store.gameKeys : [];
+        if (id) {
+          const item = store.gameKeys.find(game => game.id === id);
+          if (!item) throw new Error('Jogo não encontrado para edição.');
+          item.title = title;
+          item.steamUrl = parsedSteamUrl.href;
+          item.coinCost = coinCost;
+          item.updatedAt = new Date().toISOString();
+        } else {
+          store.gameKeys.unshift({id:randomUUID(),title,steamUrl:parsedSteamUrl.href,coinCost,active:true,reservedOrderId:'',createdAt:new Date().toISOString(),createdBy:profile.id});
+        }
+        return store.gameKeys.slice().sort((a,b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''));
+      });
+      return privateJson(res,200,{games});
+    } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível salvar o jogo.'}); }
+  }
+  const adminGameKeyMatch = /^\/api\/admin\/shop-game-keys\/([a-f0-9-]{36})$/i.exec(url.pathname);
+  if (req.method === 'DELETE' && adminGameKeyMatch) {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode excluir jogos da lojinha.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    try {
+      const games = await updateVicoinsStore(store => {
+        store.gameKeys = Array.isArray(store.gameKeys) ? store.gameKeys : [];
+        const index = store.gameKeys.findIndex(game => game.id === adminGameKeyMatch[1]);
+        if (index < 0) throw new Error('Jogo não encontrado.');
+        if (store.gameKeys[index].reservedOrderId) throw new Error('Este jogo tem um pedido pendente; finalize ou exclua o pedido antes de remover o cadastro.');
+        store.gameKeys.splice(index,1);
+        return store.gameKeys;
+      });
+      return privateJson(res,200,{games});
+    } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível excluir o jogo.'}); }
   }
   if (req.method === 'GET' && url.pathname === '/api/admin/profile-banners') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -1824,6 +1886,120 @@ async function handle(req, res) {
       });
       return privateJson(res,201,result);
     } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível resgatar esta oferta.'}); }
+  }
+  if (req.method === 'POST' && url.pathname === '/api/shop/game-key-orders') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para resgatar uma key de jogo.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req); }
+    catch (error) { return privateJson(res,400,{error:error.message}); }
+    const gameKeyId = String(body.gameKeyId || '');
+    if (!/^[a-f0-9-]{36}$/i.test(gameKeyId)) return privateJson(res,400,{error:'Selecione um jogo válido.'});
+    try {
+      const result = await updateVicoinsStore(store => {
+        store.gameKeys = Array.isArray(store.gameKeys) ? store.gameKeys : [];
+        store.gameKeyOrders = Array.isArray(store.gameKeyOrders) ? store.gameKeyOrders : [];
+        const game = store.gameKeys.find(item => item.id === gameKeyId && item.active !== false);
+        if (!game || game.reservedOrderId) throw new Error('Esta key não está mais disponível. Atualize a lojinha.');
+        const order = {id:randomUUID(),gameKeyId:game.id,gameTitle:game.title,steamUrl:game.steamUrl,coinCost:game.coinCost,status:'pending',requester:{id:profile.id,login:profile.login,displayName:profile.displayName},createdAt:new Date().toISOString()};
+        const balance = applyVicoinsTransaction(store,{userId:profile.id,amount:-game.coinCost,type:'game-key-redemption',referenceId:order.id,description:`Key de jogo: ${game.title}`});
+        game.reservedOrderId = order.id;
+        store.gameKeyOrders.unshift(order);
+        return {order,balance};
+      });
+      return privateJson(res,201,result);
+    } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível solicitar esta key.'}); }
+  }
+  if (req.method === 'GET' && url.pathname === '/api/admin/shop-orders') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode ver os pedidos da lojinha.'});
+    const store = await readVicoinsStore();
+    const orders = [
+      ...store.orders.filter(order => order.status !== 'deleted').map(order => ({...order,orderType:'content-voucher'})),
+      ...store.bannerOrders.filter(order => order.status !== 'deleted').map(order => ({...order,orderType:'paid-banner'})),
+      ...(Array.isArray(store.gameKeyOrders) ? store.gameKeyOrders : []).filter(order => order.status !== 'deleted').map(order => ({...order,orderType:'game-key'}))
+    ].sort((a,b) => {
+      const rank = status => status === 'pending' ? 0 : status === 'approved' ? 1 : 2;
+      return rank(a.status) - rank(b.status) || Date.parse(b.createdAt || '') - Date.parse(a.createdAt || '');
+    });
+    return privateJson(res,200,{orders});
+  }
+  if (req.method === 'POST' && url.pathname === '/api/admin/shop-orders') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode atualizar pedidos da lojinha.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req); }
+    catch (error) { return privateJson(res,400,{error:error.message}); }
+    const id = String(body.id || '');
+    const orderType = String(body.orderType || '');
+    const action = String(body.action || '');
+    if (!/^[a-f0-9-]{36}$/i.test(id) || !['content-voucher','paid-banner','game-key'].includes(orderType) || !['approve','finish','delete'].includes(action)) return privateJson(res,400,{error:'Ação inválida para o pedido da lojinha.'});
+    try {
+      const result = await updateVicoinsStore(store => {
+        store.orders = Array.isArray(store.orders) ? store.orders : [];
+        store.bannerOrders = Array.isArray(store.bannerOrders) ? store.bannerOrders : [];
+        store.gameKeys = Array.isArray(store.gameKeys) ? store.gameKeys : [];
+        store.gameKeyOrders = Array.isArray(store.gameKeyOrders) ? store.gameKeyOrders : [];
+        const now = new Date().toISOString();
+        if (orderType === 'content-voucher') {
+          const order = (Array.isArray(store.orders) ? store.orders : []).find(item => item.id === id);
+          if (!order) throw new Error('Pedido de vale não encontrado.');
+          if (action === 'approve') throw new Error('Este tipo de pedido não exige aprovação de pagamento.');
+          if (action === 'finish') {
+            if (order.status !== 'pending') throw new Error('Este pedido já foi finalizado.');
+            order.status = 'delivered'; order.deliveredAt = now; order.deliveredBy = profile.id;
+          } else {
+            if (order.status === 'pending') applyVicoinsTransaction(store,{userId:order.requester.id,amount:order.coinCost,type:'shop-refund',referenceId:order.id,description:`Devolução do pedido excluído da lojinha até R$ ${order.contentLimit}`});
+            order.status = 'deleted'; order.deletedAt = now; order.deletedBy = profile.id;
+          }
+        } else if (orderType === 'paid-banner') {
+          store.bannerOrders = Array.isArray(store.bannerOrders) ? store.bannerOrders : [];
+          const order = store.bannerOrders.find(item => item.id === id);
+          if (!order) throw new Error('Pedido de banner não encontrado.');
+          if (action === 'approve') {
+            if (order.status !== 'pending') throw new Error('Este pedido já foi analisado.');
+            const reward = profileBannerRewards.find(item => item.id === order.bannerId && item.paymentType === 'livepix');
+            if (!reward) throw new Error('O banner desta solicitação não está disponível.');
+            store.profileBannerInventory = store.profileBannerInventory || {};
+            const inventory = store.profileBannerInventory[order.requester.id] || {owned:[],equipped:''};
+            inventory.owned = Array.isArray(inventory.owned) ? inventory.owned : [];
+            if (!inventory.owned.includes(reward.id)) inventory.owned.push(reward.id);
+            inventory.equipped = reward.id;
+            store.profileBannerInventory[order.requester.id] = inventory;
+            order.status = 'approved'; order.approvedAt = now; order.approvedBy = profile.id;
+          } else if (action === 'finish') {
+            if (order.status !== 'approved') throw new Error('Aprove o pagamento do banner antes de finalizar.');
+            order.status = 'completed'; order.completedAt = now; order.completedBy = profile.id;
+          } else {
+            order.status = 'deleted'; order.deletedAt = now; order.deletedBy = profile.id;
+          }
+        } else {
+          store.gameKeys = Array.isArray(store.gameKeys) ? store.gameKeys : [];
+          store.gameKeyOrders = Array.isArray(store.gameKeyOrders) ? store.gameKeyOrders : [];
+          const order = store.gameKeyOrders.find(item => item.id === id);
+          if (!order) throw new Error('Pedido de key não encontrado.');
+          if (action === 'approve') throw new Error('Este pedido não exige confirmação de pagamento.');
+          if (action === 'finish') {
+            if (order.status !== 'pending') throw new Error('Este pedido já foi finalizado.');
+            order.status = 'delivered'; order.deliveredAt = now; order.deliveredBy = profile.id;
+            store.gameKeys = store.gameKeys.filter(game => game.id !== order.gameKeyId);
+          } else {
+            if (order.status === 'pending') {
+              applyVicoinsTransaction(store,{userId:order.requester.id,amount:order.coinCost,type:'game-key-refund',referenceId:order.id,description:`Devolução da key de jogo excluída: ${order.gameTitle}`});
+              const game = store.gameKeys.find(item => item.id === order.gameKeyId);
+              if (game?.reservedOrderId === order.id) game.reservedOrderId = '';
+            }
+            order.status = 'deleted'; order.deletedAt = now; order.deletedBy = profile.id;
+          }
+        }
+        return {orders:[...store.orders.filter(item => item.status !== 'deleted').map(item => ({...item,orderType:'content-voucher'})),...store.bannerOrders.filter(item => item.status !== 'deleted').map(item => ({...item,orderType:'paid-banner'})),...store.gameKeyOrders.filter(item => item.status !== 'deleted').map(item => ({...item,orderType:'game-key'}))].sort((a,b) => (a.status === 'pending' ? 0 : a.status === 'approved' ? 1 : 2) - (b.status === 'pending' ? 0 : b.status === 'approved' ? 1 : 2) || Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''))};
+      });
+      return privateJson(res,200,result);
+    } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível atualizar o pedido.'}); }
   }
   if (req.method === 'GET' && url.pathname === '/api/admin/profile-banner-orders') {
     const profile = await getAuthenticatedProfile(req,res);

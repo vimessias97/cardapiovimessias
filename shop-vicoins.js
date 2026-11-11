@@ -5,6 +5,8 @@
   const dailyClaimButton = document.querySelector('#claimDailyVicoins');
   const dailyTimer = document.querySelector('#dailyVicoinsTimer');
   const bannerGrid = document.querySelector('#shopBannerGrid');
+  const gameKeysRoot = document.querySelector('#shopGameKeysList');
+  const gameKeysFeedback = document.querySelector('#shopGameKeysFeedback');
   const moreBannersGrid = document.querySelector('#shopMoreBannersGrid');
   const moreBannersDialog = document.querySelector('#shopMoreBannersDialog');
   const moreBannersClose = document.querySelector('#shopMoreBannersClose');
@@ -21,6 +23,7 @@
   let dailyEligible = false;
   let dailyTimerInterval = null;
   let bannerCatalog = [];
+  let gameKeys = [];
   let bannerInventory = {owned:[],equipped:null};
   let bannerOrders = [];
   let equippedProfileBannerId = '';
@@ -52,6 +55,7 @@
     if (broadcast) window.dispatchEvent(new CustomEvent('cardapio:vicoins-updated',{detail:{balance,infinite:infiniteBalance}}));
     renderRewards();
     renderBanners();
+    renderGameKeys();
   }
 
   function renderDailyStatus() {
@@ -122,6 +126,40 @@
     }));
   }
 
+  function renderGameKeys() {
+    if (!gameKeysRoot) return;
+    if (!gameKeys.length) {
+      gameKeysRoot.innerHTML = '<p class="shop-empty">Nenhuma key está disponível no momento. Volte em breve.</p>';
+      return;
+    }
+    const authenticated = window.CardapioAuth?.isAuthenticated();
+    gameKeysRoot.innerHTML = gameKeys.map(game => {
+      const cost = Number(game.coinCost) || 0;
+      const insufficient = authenticated && !infiniteBalance && balance < cost;
+      return `<article class="shop-game-key-card"><span class="shop-game-key-kicker">KEY DE JOGO</span><h3>${safe(game.title)}</h3><a href="${safe(game.steamUrl)}" target="_blank" rel="noopener noreferrer">Ver na Steam ↗</a><div class="shop-reward-cost"><img src="assets/vicoins-coin.png?v=2" alt=""><strong>${cost.toLocaleString('pt-BR')}</strong><span>Vicoins</span></div><button type="button" data-game-key-redeem="${safe(game.id)}" ${insufficient ? 'disabled' : ''}>${!authenticated ? 'Entrar para resgatar' : insufficient ? 'Saldo insuficiente' : 'Resgatar key'}</button></article>`;
+    }).join('');
+  }
+
+  async function redeemGameKey(button) {
+    if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para resgatar uma key de jogo.')) return;
+    const game = gameKeys.find(item => item.id === button.dataset.gameKeyRedeem);
+    if (!game) return;
+    if (!infiniteBalance && balance < Number(game.coinCost)) { gameKeysFeedback.textContent = 'Você não tem Vicoins suficientes para este jogo.'; return; }
+    if (!window.confirm(`Solicitar a key de “${game.title}” por ${Number(game.coinCost).toLocaleString('pt-BR')} Vicoins? O saldo será descontado agora e o administrador fará a entrega.`)) return;
+    button.disabled = true;
+    gameKeysFeedback.textContent = 'Registrando o pedido da key…';
+    try {
+      const data = await api('/api/shop/game-key-orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({gameKeyId:game.id})});
+      updateBalance(data.balance);
+      await load();
+      gameKeysFeedback.textContent = `Pedido de “${game.title}” enviado ao painel administrativo. Foram descontados ${Number(game.coinCost).toLocaleString('pt-BR')} Vicoins.`;
+      window.dispatchEvent(new CustomEvent('cardapio:vicoins-orders-updated'));
+    } catch (error) {
+      gameKeysFeedback.textContent = error.message || 'Não foi possível solicitar esta key.';
+      button.disabled = false;
+    }
+  }
+
   function bannerCardMarkup(banner,authenticated,owned) {
     const hasBanner = owned.has(banner.id);
     const equipped = equippedProfileBannerId === banner.id;
@@ -157,26 +195,30 @@
       bannerOrders = [];
       equippedProfileBannerId = '';
       try {
-        const [catalog,offerData] = await Promise.all([api('/api/shop/profile-banners'),api('/api/shop/rewards')]);
+        const [catalog,offerData,gameData] = await Promise.all([api('/api/shop/profile-banners'),api('/api/shop/rewards'),api('/api/shop/game-keys')]);
         bannerCatalog = Array.isArray(catalog.banners) ? catalog.banners : [];
+        gameKeys = Array.isArray(gameData.games) ? gameData.games : [];
         rewards = Array.isArray(offerData.rewards) ? offerData.rewards : rewards; renderRewards();
       } catch (error) { feedback.textContent = error.message || 'Não foi possível carregar os banners.'; }
       renderBanners();
+      renderGameKeys();
       loadDailyStatus();
       if (!feedback.textContent.includes('carregar os banners')) feedback.textContent = 'Entre com a Twitch para consultar seu saldo e resgatar uma oferta.';
       return;
     }
     feedback.textContent = 'Carregando seu saldo e seus pedidos…';
     try {
-      const [wallet,inventory,ordersData,catalog,offerData] = await Promise.all([api('/api/account/vicoins'),api('/api/account/profile-banner'),api('/api/account/profile-banner-orders'),api('/api/shop/profile-banners'),api('/api/shop/rewards')]);
+      const [wallet,inventory,ordersData,catalog,offerData,gameData] = await Promise.all([api('/api/account/vicoins'),api('/api/account/profile-banner'),api('/api/account/profile-banner-orders'),api('/api/shop/profile-banners'),api('/api/shop/rewards'),api('/api/shop/game-keys')]);
       updateBalance(wallet.balance,true,wallet.infinite);
       bannerInventory = inventory;
       equippedProfileBannerId = inventory.equipped?.id || '';
       bannerOrders = Array.isArray(ordersData.orders) ? ordersData.orders : [];
       bannerCatalog = Array.isArray(catalog.banners) ? catalog.banners : [];
+      gameKeys = Array.isArray(gameData.games) ? gameData.games : [];
       rewards = Array.isArray(offerData.rewards) ? offerData.rewards : rewards;
       renderRewards();
       renderBanners();
+      renderGameKeys();
       await loadDailyStatus();
       feedback.textContent = 'Escolha um vale compatível com o conteúdo que deseja resgatar.';
     } catch (error) {
@@ -285,6 +327,11 @@
   moreBannersClose.addEventListener('click',() => moreBannersDialog.close());
   moreBannersDialog.addEventListener('click',event => { if (event.target === moreBannersDialog) moreBannersDialog.close(); });
 
+  gameKeysRoot?.addEventListener('click',event => {
+    const button = event.target.closest('[data-game-key-redeem]');
+    if (button) redeemGameKey(button);
+  });
+
   window.CardapioVicoinsShop = {load};
   window.addEventListener('cardapio:auth-updated',load);
   window.addEventListener('cardapio:vicoins-updated',event => updateBalance(event.detail?.balance,false,event.detail?.infinite));
@@ -295,4 +342,5 @@
   renderDailyStatus();
   renderRewards();
   renderBanners();
+  renderGameKeys();
 })();
