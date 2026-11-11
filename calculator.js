@@ -193,7 +193,7 @@ function titleDetailsMarkup(item) {
   const hasDuration = Number.isFinite(duration) && duration > 0;
   const price = hasDuration ? money(estimatedPrice(duration)) : '';
   const seriesEstimate = item.mediaType === 'tv' && hasDuration;
-  return `${item.posterUrl ? `<img class="selected-poster" src="${safe(item.posterUrl)}" alt="Pôster de ${safe(item.title)}">` : '<div class="selected-poster no-poster" aria-hidden="true">✦</div>'}<div class="selected-copy"><span class="badge">${safe(item.kind)}</span><div class="selected-title-heading"><h3>${safe(item.title)}</h3>${favoriteMarkup(item)}</div><small class="selected-meta">${item.year || 'Ano não informado'} · Duração: ${durationText}</small><p>${safe(item.overview || 'Sinopse não informada.')}</p><div class="title-trailer-slot" data-title-trailer-key="${safe(`${item.mediaType}:${item.id}`)}">${trailerMarkup(item)}</div>${item.reactUrl ? `<a class="matched-react-link" href="${safe(item.reactUrl)}" target="_blank" rel="noopener noreferrer">Conteúdo já assistido, veja no Patreon ↗</a><div class="title-rating-widget" data-title-rating><p>Carregando avaliação…</p></div>` : `<div class="informational-estimate"><span>Estimativa informativa</span><strong>${hasDuration ? price : 'Duração indisponível'}</strong><small>${hasDuration ? `R$ 5 por bloco iniciado de 30 minutos${seriesEstimate ? ' · baseada na duração total estimada da série' : ''}.` : 'Não foi possível calcular sem uma duração cadastrada.'}</small></div>`}${item.reactUrl ? '' : `<form class="redemption-request-form" data-redemption-form><div class="redemption-form-heading"><strong>Agende o resgate</strong><span>Informe a data e o horário desejados.</span></div><div class="redemption-schedule-fields"><label>Dia / mês / ano<input type="date" name="date" required></label><label>Horário<input type="time" name="time" required></label></div><p class="redemption-request-feedback" aria-live="polite">O pedido ficará pendente de aprovação. O pagamento é concluído no LivePix.</p><button class="redemption-link" type="submit" aria-label="Registrar o resgate de ${safe(item.title)} e continuar no LivePix">Resgate pelo LivePix <span aria-hidden="true">↗</span></button></form>`}</div>`;
+  return `${item.posterUrl ? `<img class="selected-poster" src="${safe(item.posterUrl)}" alt="Pôster de ${safe(item.title)}">` : '<div class="selected-poster no-poster" aria-hidden="true">✦</div>'}<div class="selected-copy"><span class="badge">${safe(item.kind)}</span><div class="selected-title-heading"><h3>${safe(item.title)}</h3>${favoriteMarkup(item)}</div><small class="selected-meta">${item.year || 'Ano não informado'} · Duração: ${durationText}</small><p>${safe(item.overview || 'Sinopse não informada.')}</p><div class="title-trailer-slot" data-title-trailer-key="${safe(`${item.mediaType}:${item.id}`)}">${trailerMarkup(item)}</div>${item.reactUrl ? `<a class="matched-react-link" href="${safe(item.reactUrl)}" target="_blank" rel="noopener noreferrer">Conteúdo já assistido, veja no Patreon ↗</a><div class="title-rating-widget" data-title-rating><p>Carregando avaliação…</p></div>` : `<div class="informational-estimate"><span>Estimativa informativa</span><strong>${hasDuration ? price : 'Duração indisponível'}</strong><small>${hasDuration ? `R$ 5 por bloco iniciado de 30 minutos${seriesEstimate ? ' · baseada na duração total estimada da série' : ''}.` : 'Não foi possível calcular sem uma duração cadastrada.'}</small></div>`}${item.reactUrl ? '' : `<form class="redemption-request-form" data-redemption-form><div class="redemption-form-heading"><strong>Agende o resgate</strong><span>Informe a data e o horário desejados.</span></div><div class="redemption-schedule-fields"><label>Dia / mês / ano<input type="date" name="date" required></label><label>Horário<input type="time" name="time" step="60" required></label></div><p class="redemption-request-feedback" aria-live="polite">O pedido ficará pendente de aprovação. O pagamento é concluído no LivePix.</p><button class="redemption-link" type="submit" aria-label="Registrar o resgate de ${safe(item.title)} e continuar no LivePix">Resgate pelo LivePix <span aria-hidden="true">↗</span></button></form>`}</div>`;
 }
 
 function bindRedemptionForm(target,item) {
@@ -245,8 +245,6 @@ function bindRedemptionForm(target,item) {
     }
   });
 }
-
-window.CardapioCalculator = {bindRedemptionForm};
 
 function trailerMarkup(item) {
   if (!item.trailer?.key) return '';
@@ -407,6 +405,41 @@ function openCatalogTitle(item) {
 }
 
 window.openCatalogTitle = openCatalogTitle;
+async function openRecentTitle(recentItem) {
+  const mediaType = recentItem?.mediaType;
+  const catalogId = Number(recentItem?.catalogId);
+  let item = null;
+  try {
+    if (['movie','tv'].includes(mediaType) && Number.isSafeInteger(catalogId) && catalogId > 0) {
+      const response = await fetchCatalogApi(`/api/catalog/title?type=${encodeURIComponent(mediaType)}&id=${catalogId}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Não foi possível abrir as informações do título.');
+      item = data.result;
+    } else if (['movie','tv'].includes(mediaType) && recentItem?.title) {
+      const response = await fetchCatalogApi(`/api/catalog/search-tmdb?q=${encodeURIComponent(recentItem.title)}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Não foi possível localizar o título no catálogo.');
+      const normalizedTitle = recentItem.title.toLocaleLowerCase('pt-BR');
+      const matches = (data.results || []).filter(result => result.mediaType === mediaType);
+      const exactMatches = matches.filter(result => String(result.title || '').toLocaleLowerCase('pt-BR') === normalizedTitle);
+      const posterMatches = recentItem.posterUrl ? matches.filter(result => result.posterUrl === recentItem.posterUrl) : [];
+      item = posterMatches.length === 1 ? posterMatches[0] : exactMatches.length === 1 ? exactMatches[0] : matches.length === 1 ? matches[0] : null;
+      if (item) {
+        const detailsResponse = await fetchCatalogApi(`/api/catalog/title?type=${encodeURIComponent(mediaType)}&id=${Number(item.id)}`);
+        const detailsData = await detailsResponse.json();
+        if (detailsResponse.ok) item = detailsData.result;
+      }
+    }
+  } catch (error) {
+    feedback.textContent = error.message || 'Não foi possível abrir as informações do título.';
+    feedback.classList.add('is-visible');
+    return false;
+  }
+  if (!item) return false;
+  openCatalogTitle(item);
+  return true;
+}
+window.CardapioCalculator = {bindRedemptionForm,openRecentTitle};
 catalogTitleDialogClose.addEventListener('click', () => catalogTitleDialog.close());
 catalogTitleDialog.addEventListener('click', event => {
   if (event.target === catalogTitleDialog) catalogTitleDialog.close();

@@ -6,7 +6,6 @@
   const close = document.querySelector('#communityMemberClose');
   const avatar = document.querySelector('#communityMemberAvatar');
   const name = document.querySelector('#communityMemberName');
-  const profileBadges = document.querySelector('#communityMemberBadges');
   const feedback = document.querySelector('#communityMemberFeedback');
   const redemptions = document.querySelector('#communityMemberRedemptions');
   const favorites = document.querySelector('#communityMemberFavorites');
@@ -46,12 +45,6 @@
     }
     dialogHead.style.setProperty('--community-profile-banner',`url("${imageUrl}")`);
     dialogHead.classList.add('has-profile-banner');
-  }
-
-  function renderProfileBadges(badges = []) {
-    const items = Array.isArray(badges) ? badges : [];
-    profileBadges.hidden = !items.length;
-    profileBadges.innerHTML = items.map(badge => `<span class="community-profile-badge" role="img" tabindex="0" title="${safe(badge.name)}" aria-label="Insígnia: ${safe(badge.name)}" data-badge-name="${safe(badge.name)}">${safe(badge.symbol)}</span>`).join('');
   }
 
   function renderAchievements(achievements = {}) {
@@ -151,7 +144,6 @@
       name.textContent = profile.displayName || profile.login || 'Perfil Twitch';
       setVicoins(profile.vicoins,true,profile.vicoinsInfinite);
       setProfileBanner(profile.banner);
-      renderProfileBadges(data.badges || []);
       renderAchievements(data.achievements || {});
       if (profile.profileImageUrl) {
         avatar.src = profile.profileImageUrl;

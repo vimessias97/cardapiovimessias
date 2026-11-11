@@ -125,6 +125,20 @@ function redirect(res, location) {
   res.end();
 }
 
+function safeTwitchReturnTo(value) {
+  try {
+    const target = new URL(String(value || '/'), 'http://vimessias.local');
+    if (target.origin !== 'http://vimessias.local' || target.pathname.startsWith('/auth/')) return '/';
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch { return '/'; }
+}
+
+function twitchReturnRedirect(returnTo, status) {
+  const target = new URL(safeTwitchReturnTo(returnTo), 'http://vimessias.local');
+  target.searchParams.set('twitch', status);
+  return `${target.pathname}${target.search}${target.hash}`;
+}
+
 function clearTwitchSession(req, res) {
   const cookies = parseCookies(req);
   if (cookies.cardapio_twitch_session) twitchSessions.delete(cookies.cardapio_twitch_session);
@@ -1041,10 +1055,11 @@ async function handle(req, res) {
   }
   if (req.method === 'GET' && url.pathname === '/auth/twitch/start') {
     const {clientId,redirectUri,configured} = twitchConfig();
-    if (!configured) return redirect(res, '/?twitch=not-configured#inicio');
+    const returnTo = safeTwitchReturnTo(url.searchParams.get('returnTo'));
+    if (!configured) return redirect(res, twitchReturnRedirect(returnTo,'not-configured'));
     for (const [key, value] of twitchOAuthStates) if (value.expiresAt <= Date.now()) twitchOAuthStates.delete(key);
     const state = randomBytes(32).toString('base64url');
-    twitchOAuthStates.set(state, {expiresAt:Date.now() + 10 * 60 * 1000});
+    twitchOAuthStates.set(state, {expiresAt:Date.now() + 10 * 60 * 1000,returnTo});
     setCookie(res, 'cardapio_twitch_oauth_state', state, `oauth-state${cookieOptions(req)}`);
     const authorize = new URL('https://id.twitch.tv/oauth2/authorize');
     authorize.search = new URLSearchParams({client_id:clientId,redirect_uri:redirectUri,response_type:'code',state}).toString();
@@ -1058,7 +1073,7 @@ async function handle(req, res) {
     res.setHeader('set-cookie', clearStateCookie);
     if (url.searchParams.has('error') || !state || !cookies.cardapio_twitch_oauth_state || cookies.cardapio_twitch_oauth_state !== state || !pending || pending.expiresAt <= Date.now()) {
       if (state) twitchOAuthStates.delete(state);
-      return redirect(res, '/?twitch=cancelled#inicio');
+      return redirect(res, twitchReturnRedirect(pending?.returnTo || '/','cancelled'));
     }
     twitchOAuthStates.delete(state);
     try {
@@ -1081,9 +1096,9 @@ async function handle(req, res) {
         validatedAt:Date.now(),expiresAt:Date.now() + 7 * 24 * 60 * 60 * 1000
       });
       res.setHeader('set-cookie', [clearStateCookie, `cardapio_twitch_session=${encodeURIComponent(sessionId)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800${cookieOptions(req)}`]);
-      return redirect(res, '/?twitch=connected#inicio');
+      return redirect(res, twitchReturnRedirect(pending.returnTo,'connected'));
     } catch {
-      return redirect(res, '/?twitch=failed#inicio');
+      return redirect(res, twitchReturnRedirect(pending.returnTo,'failed'));
     }
   }
   if (req.method === 'GET' && url.pathname === '/api/auth/me') {
@@ -1391,7 +1406,7 @@ async function handle(req, res) {
     const entries = (await readRedemptions())
       .filter(entry => ['approved','completed'].includes(entry.status))
       .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
-      .map(entry => ({id:entry.id,title:entry.title,mediaType:entry.mediaType,posterUrl:entry.posterUrl,durationMinutes:entry.durationMinutes,durationLabel:entry.durationLabel,scheduledAt:entry.scheduledAt,requester:{id:entry.requester?.id || '',login:entry.requester?.login || '',displayName:entry.requester?.displayName || ''}}));
+      .map(entry => ({id:entry.id,catalogId:entry.catalogId || null,title:entry.title,mediaType:entry.mediaType,posterUrl:entry.posterUrl,durationMinutes:entry.durationMinutes,durationLabel:entry.durationLabel,scheduledAt:entry.scheduledAt,requester:{id:entry.requester?.id || '',login:entry.requester?.login || '',displayName:entry.requester?.displayName || ''}}));
     return json(res,200,{redemptions:entries});
   }
   if (req.method === 'GET' && url.pathname === '/api/community/members') {
@@ -1685,6 +1700,7 @@ async function handle(req, res) {
     }
     const redemption = {
       id:randomUUID(),
+      catalogId:manual ? null : id,
       title:title.title,
       mediaType:type,
       posterUrl:title.posterUrl || '',

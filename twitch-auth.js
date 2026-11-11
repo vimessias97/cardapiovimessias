@@ -8,6 +8,10 @@ const sidebarUserRole = document.querySelector('#sidebarUserRole');
 const sidebarUserLogout = document.querySelector('#sidebarUserLogout');
 const gamesAccessNote = document.querySelector('#gamesAccessNote');
 const adminPanelNav = document.querySelector('#adminPanelNav');
+const twitchLoginDialog = document.querySelector('#twitchLoginDialog');
+const twitchLoginDialogMessage = document.querySelector('#twitchLoginDialogMessage');
+const twitchLoginDialogAction = document.querySelector('#twitchLoginDialogAction');
+const twitchLoginDialogClose = document.querySelector('#twitchLoginDialogClose');
 let currentTwitchUser = null;
 let resolveAuthReady;
 const authReady = new Promise(resolve => { resolveAuthReady = resolve; });
@@ -15,6 +19,50 @@ const authReady = new Promise(resolve => { resolveAuthReady = resolve; });
 function showTwitchFeedback(message) {
   twitchAuthFeedback.textContent = message;
   twitchAuthFeedback.classList.add('is-visible');
+}
+
+function currentPageReturnTo() {
+  return `${location.pathname}${location.search}${location.hash}`;
+}
+
+function updateTwitchLoginHref() {
+  const href = `/auth/twitch/start?returnTo=${encodeURIComponent(currentPageReturnTo())}`;
+  twitchLogin.href = href;
+  if (twitchLoginDialogAction) twitchLoginDialogAction.href = href;
+}
+
+function savePageStateBeforeLogin() {
+  try {
+    const fields = [...document.querySelectorAll('input:not([type="hidden"]):not([type="file"]):not([type="password"]),textarea,select')]
+      .filter(field => field.id || field.name)
+      .map(field => ({id:field.id || '',name:field.name || '',value:field.value,checked:'checked' in field ? field.checked : undefined}));
+    sessionStorage.setItem('vimessias-twitch-return-state',JSON.stringify({scrollY:window.scrollY,fields}));
+  } catch {}
+}
+
+function restorePageStateAfterLogin() {
+  try {
+    const raw = sessionStorage.getItem('vimessias-twitch-return-state');
+    if (!raw) return;
+    sessionStorage.removeItem('vimessias-twitch-return-state');
+    const saved = JSON.parse(raw);
+    for (const fieldState of saved.fields || []) {
+      const field = fieldState.id ? document.getElementById(fieldState.id) : document.querySelector(`[name="${CSS.escape(fieldState.name)}"]`);
+      if (!field) continue;
+      field.value = fieldState.value ?? '';
+      if (typeof fieldState.checked === 'boolean') field.checked = fieldState.checked;
+      field.dispatchEvent(new Event('input',{bubbles:true}));
+      field.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    requestAnimationFrame(() => window.scrollTo({top:Number(saved.scrollY) || 0,behavior:'auto'}));
+  } catch {}
+}
+
+function promptTwitchLogin(message) {
+  showTwitchFeedback(message);
+  if (twitchLoginDialogMessage) twitchLoginDialogMessage.textContent = message;
+  updateTwitchLoginHref();
+  if (twitchLoginDialog && !twitchLoginDialog.open) twitchLoginDialog.showModal();
 }
 
 function updateTwitchUi(profile) {
@@ -71,6 +119,16 @@ async function logoutTwitch() {
 }
 
 sidebarUserLogout.addEventListener('click',logoutTwitch);
+twitchLoginDialogClose?.addEventListener('click',() => twitchLoginDialog.close());
+twitchLoginDialog?.addEventListener('click',event => { if (event.target === twitchLoginDialog) twitchLoginDialog.close(); });
+twitchLogin.addEventListener('click',event => {
+  if (currentTwitchUser) return;
+  event.preventDefault();
+  savePageStateBeforeLogin();
+  updateTwitchLoginHref();
+  location.assign(twitchLogin.href);
+});
+twitchLoginDialogAction?.addEventListener('click',() => savePageStateBeforeLogin());
 
 window.CardapioAuth = {
   getUser:() => currentTwitchUser,
@@ -79,9 +137,7 @@ window.CardapioAuth = {
   isAdmin:() => currentTwitchUser?.role === 'admin',
   requireLogin(message = 'Entre com sua conta Twitch para usar este recurso.') {
     if (currentTwitchUser) return true;
-    showTwitchFeedback(message);
-    twitchLogin.focus({preventScroll:true});
-    twitchLogin.scrollIntoView({behavior:'smooth',block:'nearest'});
+    promptTwitchLogin(message);
     return false;
   }
 };
@@ -94,6 +150,12 @@ const twitchMessages = {
   'not-configured':'Para ativar o login, configure o aplicativo Twitch no arquivo .env.'
 };
 if (twitchMessages[twitchStatus]) showTwitchFeedback(twitchMessages[twitchStatus]);
-if (twitchStatus) history.replaceState(null, '', `${location.pathname}${location.hash}`);
+if (twitchStatus) {
+  const cleanUrl = new URL(location.href);
+  cleanUrl.searchParams.delete('twitch');
+  history.replaceState(null, '', `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
+}
+updateTwitchLoginHref();
+restorePageStateAfterLogin();
 loadTwitchAccount();
 window.setInterval(loadTwitchAccount, 55 * 60 * 1000);

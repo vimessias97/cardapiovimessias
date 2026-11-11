@@ -84,7 +84,7 @@
                   <label for="manualEstimateMinutes">Minutos<input id="manualEstimateMinutes" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="0"></label>
                 </div>
                 <div class="manual-estimate-result" aria-live="polite"><span id="manualEstimateLabel">Informe o título e a duração para calcular.</span><strong id="manualEstimatePrice">—</strong></div>
-                <div class="redemption-schedule-fields manual-redemption-schedule"><label>Dia / mês / ano<input type="date" id="manualEstimateDate" required></label><label>Horário<input type="time" id="manualEstimateTime" required></label></div>
+                <div class="redemption-schedule-fields manual-redemption-schedule"><label>Dia / mês / ano<input type="date" id="manualEstimateDate" required></label><label>Horário<input type="time" id="manualEstimateTime" step="60" required></label></div>
                 <p class="manual-estimate-note">R$ 5,00 por cada bloco iniciado de 30 minutos, arredondado para cima.</p>
                 <p class="manual-redemption-feedback" id="manualRedemptionFeedback" aria-live="polite">Preencha os dados para enviar o pedido de resgate.</p>
                 <button class="redemption-link manual-redemption-submit" type="submit">Resgate no LivePix <span aria-hidden="true">↗</span></button>
@@ -223,7 +223,6 @@
           <p class="admin-vicoins-adjustment-feedback" id="adminVicoinsAdjustmentFeedback" aria-live="polite"></p>
           <p class="admin-vicoins-adjustment-note">Sua conta administradora tem saldo ilimitado; não precisa receber ajustes.</p>
         </section>
-        <section class="admin-community-badges" aria-labelledby="adminCommunityBadgesHeading"><div><span class="eyebrow muted">PERFIL DA COMUNIDADE</span><h2 id="adminCommunityBadgesHeading">Insígnias da comunidade</h2><p>Crie insígnias com um símbolo e escolha quais usuários Twitch vão recebê-las. Você pode alterar os destinatários ou excluir uma insígnia.</p></div><form id="adminCommunityBadgeForm" class="admin-community-badge-form"><label>Nome da insígnia<input name="name" type="text" maxlength="48" placeholder="Ex.: Fã de carteirinha" required></label><label>Símbolo<input name="symbol" type="text" maxlength="24" placeholder="🏆" required></label><label>Quem recebe<select name="memberIds" id="adminCommunityBadgeRecipients" multiple size="5" aria-describedby="adminCommunityBadgeRecipientsHelp"></select><small id="adminCommunityBadgeRecipientsHelp">Use Ctrl ou Shift para selecionar várias pessoas. A seleção pode ser alterada depois.</small></label><button type="submit">Criar insígnia</button></form><p id="adminCommunityBadgesFeedback" class="admin-community-badges-feedback" aria-live="polite">Carregando usuários…</p><div class="admin-community-badges-list" id="adminCommunityBadgesList"></div></section>
         <section class="admin-promotion-manager admin-patreon-manager" aria-labelledby="adminPatreonHeading">
           <div class="admin-promotion-manager-heading"><div><span class="eyebrow muted">CATÁLOGO · TMDB</span><h2 id="adminPatreonHeading">Associações do Patreon</h2><p>Associe um post a um título específico usando o ID do TMDB. Também é possível bloquear uma associação automática incorreta.</p></div></div>
           <label>Buscar título no catálogo<input id="adminPatreonSearch" type="search" placeholder="Digite o nome de um filme ou série…" autocomplete="off"></label><div class="admin-promotion-search-results" id="adminPatreonSearchResults" role="listbox" aria-label="Resultados da busca TMDB"></div>
@@ -260,6 +259,13 @@
     <button class="catalog-title-dialog-close" id="catalogTitleDialogClose" type="button" aria-label="Fechar detalhes">×</button>
     <article class="selected-title" id="dialogTitle"></article>
   </dialog>
+  <dialog class="twitch-login-dialog" id="twitchLoginDialog" aria-labelledby="twitchLoginDialogHeading">
+    <button class="twitch-login-dialog-close" id="twitchLoginDialogClose" type="button" aria-label="Fechar">×</button>
+    <span class="twitch-login-dialog-icon" aria-hidden="true">◉</span>
+    <h2 id="twitchLoginDialogHeading">Conecte sua Twitch</h2>
+    <p id="twitchLoginDialogMessage">Entre com sua conta Twitch para usar este recurso.</p>
+    <a class="twitch-login-dialog-action" id="twitchLoginDialogAction" href="/auth/twitch/start">Conectar com a Twitch</a>
+  </dialog>
   <dialog class="emoji-game-dialog" id="emojiGameDialog" aria-labelledby="emojiGameTitle">
     <div class="emoji-game-dialog-head"><div><span class="eyebrow muted">DESAFIO DE CINEMA E TV</span><h2 id="emojiGameTitle">Adivinhe por emojis</h2></div><button class="emoji-game-close" id="emojiGameClose" type="button" aria-label="Fechar jogo">×</button></div>
     <div class="emoji-game-status"><span id="emojiGameProgress">Pergunta 1 de 10</span><span>Pontos: <strong id="emojiGameScore">0</strong></span></div>
@@ -279,7 +285,7 @@
   </dialog>
   <dialog class="shop-more-banners-dialog" id="shopMoreBannersDialog" aria-labelledby="shopMoreBannersHeading"><div class="shop-more-banners-head"><div><span class="eyebrow muted">PERSONALIZE SEU PERFIL</span><h2 id="shopMoreBannersHeading">Confira mais banners</h2></div><button type="button" id="shopMoreBannersClose" aria-label="Fechar banners">×</button></div><p>Resgate com Vicoins ou equipe um banner que já está no seu perfil.</p><div class="shop-banner-grid" id="shopMoreBannersGrid" aria-live="polite"></div></dialog>
   <dialog class="community-member-dialog" id="communityMemberDialog" aria-labelledby="communityMemberName">
-    <div class="community-member-dialog-head"><div class="community-member-identity"><img id="communityMemberAvatar" alt=""><div class="community-member-name-block"><span class="eyebrow muted">PERFIL DA COMUNIDADE</span><h2 id="communityMemberName"></h2><div class="community-profile-badges" id="communityMemberBadges" aria-label="Insígnias do perfil" hidden></div></div></div><a class="vicoins-balance dialog-vicoins" id="communityMemberVicoinsLink" href="#lojinha" data-page="lojinha" title="Vicoins" aria-label="Vicoins: 0. Abrir lojinha"><img src="assets/vicoins-coin.png?v=2" alt=""><span id="communityMemberVicoinsCount">0</span></a><button type="button" class="community-member-close" id="communityMemberClose" aria-label="Fechar perfil">×</button></div>
+    <div class="community-member-dialog-head"><div class="community-member-identity"><img id="communityMemberAvatar" alt=""><div class="community-member-name-block"><span class="eyebrow muted">PERFIL DA COMUNIDADE</span><h2 id="communityMemberName"></h2></div></div><a class="vicoins-balance dialog-vicoins" id="communityMemberVicoinsLink" href="#lojinha" data-page="lojinha" title="Vicoins" aria-label="Vicoins: 0. Abrir lojinha"><img src="assets/vicoins-coin.png?v=2" alt=""><span id="communityMemberVicoinsCount">0</span></a><button type="button" class="community-member-close" id="communityMemberClose" aria-label="Fechar perfil">×</button></div>
     <section class="community-achievements" aria-labelledby="communityAchievementsHeading"><h3 id="communityAchievementsHeading">Insígnias</h3><div class="community-achievement-list" id="communityAchievementList" aria-live="polite"></div></section>
     <p class="community-member-feedback" id="communityMemberFeedback" aria-live="polite"></p>
     <section class="community-member-section"><div class="community-member-section-heading"><h3>Títulos que resgatei</h3><div class="community-member-carousel-controls"><button type="button" data-carousel-target="communityMemberRedemptions" data-carousel-direction="-1" aria-label="Ver resgates anteriores" disabled>‹</button><button type="button" data-carousel-target="communityMemberRedemptions" data-carousel-direction="1" aria-label="Ver mais resgates" disabled>›</button></div></div><div class="community-member-titles" id="communityMemberRedemptions"></div></section>
@@ -306,7 +312,6 @@
   <script src="shop-vicoins.js" defer></script>
   <script src="admin-vicoins.js" defer></script>
   <script src="admin-vicoins-adjustment.js" defer></script>
-  <script src="admin-community-badges.js" defer></script>
   <script src="admin-profile-banners.js" defer></script>
   <script src="admin-shop-banners.js" defer></script>
   <script src="admin-patreon.js" defer></script>
