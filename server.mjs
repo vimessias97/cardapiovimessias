@@ -449,7 +449,12 @@ function getProfileBannerInventory(store,userId) {
 }
 
 function hasClubVime(store,userId) {
-  return Array.isArray(store.clubVimeMembers) && store.clubVimeMembers.includes(String(userId));
+  return Boolean(getClubVimeMembership(store,userId)?.expiresAt && Date.parse(getClubVimeMembership(store,userId).expiresAt) > Date.now());
+}
+
+function getClubVimeMembership(store,userId) {
+  if (!Array.isArray(store.clubVimeMembers)) return null;
+  return store.clubVimeMembers.find(member => member && typeof member === 'object' && String(member.userId) === String(userId)) || null;
 }
 
 async function updateVicoinsStore(update) {
@@ -1136,7 +1141,12 @@ async function handle(req, res) {
   if (req.method === 'GET' && url.pathname === '/api/auth/me') {
     const {configured} = twitchConfig();
     const profile = await getAuthenticatedProfile(req,res);
-    if (profile) profile.isClubVime = hasClubVime(await readVicoinsStore(),profile.id);
+    if (profile) {
+      const store = await readVicoinsStore();
+      const membership = getClubVimeMembership(store,profile.id);
+      profile.isClubVime = hasClubVime(store,profile.id);
+      profile.clubVimeExpiresAt = membership?.expiresAt || null;
+    }
     return privateJson(res, 200, profile
       ? {authenticated:true,configured,profile}
       : {authenticated:false,configured});
@@ -1173,8 +1183,8 @@ async function handle(req, res) {
       .slice(0,100);
     return json(res,200,{topics:topics.map(topic => {
       const likedBy = Array.isArray(topic.likedBy) ? topic.likedBy : [];
-      const author = topic.author ? {...topic.author,clubVime:hasClubVime(clubVimeStore,topic.author.id)} : topic.author;
-      const comments = Array.isArray(topic.comments) ? topic.comments.map(comment => ({...comment,author:comment.author ? {...comment.author,clubVime:hasClubVime(clubVimeStore,comment.author.id)} : comment.author})) : topic.comments;
+      const author = topic.author ? {...topic.author,clubVime:hasClubVime(clubVimeStore,topic.author.id),clubVimeExpiresAt:getClubVimeMembership(clubVimeStore,topic.author.id)?.expiresAt || null} : topic.author;
+      const comments = Array.isArray(topic.comments) ? topic.comments.map(comment => ({...comment,author:comment.author ? {...comment.author,clubVime:hasClubVime(clubVimeStore,comment.author.id),clubVimeExpiresAt:getClubVimeMembership(clubVimeStore,comment.author.id)?.expiresAt || null} : comment.author})) : topic.comments;
       return {...topic,author,comments,likeCount:likedBy.length,likedByMe:Boolean(viewer && likedBy.includes(viewer.id)),likedBy:undefined};
     })});
   }
@@ -1443,7 +1453,7 @@ async function handle(req, res) {
     const entries = (await readRedemptions())
       .filter(entry => ['approved','completed'].includes(entry.status))
       .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
-      .map(entry => ({id:entry.id,catalogId:entry.catalogId || null,title:entry.title,mediaType:entry.mediaType,posterUrl:entry.posterUrl,durationMinutes:entry.durationMinutes,durationLabel:entry.durationLabel,scheduledAt:entry.scheduledAt,requester:{id:entry.requester?.id || '',login:entry.requester?.login || '',displayName:entry.requester?.displayName || '',clubVime:hasClubVime(clubVimeStore,entry.requester?.id)}}));
+      .map(entry => { const membership = getClubVimeMembership(clubVimeStore,entry.requester?.id); return {id:entry.id,catalogId:entry.catalogId || null,title:entry.title,mediaType:entry.mediaType,posterUrl:entry.posterUrl,durationMinutes:entry.durationMinutes,durationLabel:entry.durationLabel,scheduledAt:entry.scheduledAt,requester:{id:entry.requester?.id || '',login:entry.requester?.login || '',displayName:entry.requester?.displayName || '',clubVime:hasClubVime(clubVimeStore,entry.requester?.id),clubVimeExpiresAt:membership?.expiresAt || null}}; });
     return json(res,200,{redemptions:entries});
   }
   if (req.method === 'GET' && url.pathname === '/api/community/members') {
@@ -1451,7 +1461,7 @@ async function handle(req, res) {
     const members = (await readCommunityMembers())
       .sort((a,b) => (Date.parse(b.joinedAt || '') || 0) - (Date.parse(a.joinedAt || '') || 0))
       .slice(0,8)
-      .map(({id,login,displayName,profileImageUrl,joinedAt,clubVime}) => ({id,login,displayName,profileImageUrl,joinedAt,clubVime:Boolean(clubVime || hasClubVime(clubVimeStore,id))}));
+      .map(({id,login,displayName,profileImageUrl,joinedAt}) => ({id,login,displayName,profileImageUrl,joinedAt,clubVime:hasClubVime(clubVimeStore,id),clubVimeExpiresAt:getClubVimeMembership(clubVimeStore,id)?.expiresAt || null}));
     return json(res,200,{members});
   }
   if (req.method === 'GET' && url.pathname === '/api/community/rankings') {
@@ -1461,7 +1471,7 @@ async function handle(req, res) {
     const isExcluded = member => getTwitchRole(member) === 'admin' || String(member?.login || '').toLowerCase() === 'vimessias_';
     const rankedMember = (id,values) => {
       const member = memberById.get(id) || {};
-      return {id,displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',clubVime:Boolean(member.clubVime || hasClubVime(store,id)),...values};
+      return {id,displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',clubVime:hasClubVime(store,id),clubVimeExpiresAt:getClubVimeMembership(store,id)?.expiresAt || null,...values};
     };
     try { await reconcileApprovedRedemptionVicoins(); }
     catch { return json(res,500,{error:'Não foi possível atualizar o ranking de Vicoins.'}); }
@@ -1469,7 +1479,7 @@ async function handle(req, res) {
     const vicoins = Object.entries(store.balances)
       .map(([id,value]) => {
         const member = memberById.get(id) || {};
-        return {id,displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',balance:Number(value) || 0,isAdmin:getTwitchRole({...member,id}) === 'admin'};
+        return {id,displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',clubVime:hasClubVime(store,id),clubVimeExpiresAt:getClubVimeMembership(store,id)?.expiresAt || null,balance:Number(value) || 0,isAdmin:getTwitchRole({...member,id}) === 'admin'};
       })
       .filter(member => member.balance > 0 && !member.isAdmin && !isExcluded(memberById.get(member.id) || {id:member.id}))
       .sort((a,b) => b.balance - a.balance || a.displayName.localeCompare(b.displayName,'pt-BR'))
@@ -1516,7 +1526,7 @@ async function handle(req, res) {
     const vicoinsStore = await readVicoinsStore();
     const bannerInventory = getProfileBannerInventory(vicoinsStore,memberId);
     const isAdmin = getTwitchRole(member) === 'admin';
-    const profile = {id:member.id,login:member.login,displayName:member.displayName,profileImageUrl:member.profileImageUrl,joinedAt:member.joinedAt,isClubVime:Boolean(member.clubVime || hasClubVime(vicoinsStore,memberId)),vicoins:await getVicoinsBalance(memberId,isAdmin),vicoinsInfinite:isAdmin,banner:bannerInventory.equipped};
+    const profile = {id:member.id,login:member.login,displayName:member.displayName,profileImageUrl:member.profileImageUrl,joinedAt:member.joinedAt,isClubVime:hasClubVime(vicoinsStore,memberId),clubVimeExpiresAt:getClubVimeMembership(vicoinsStore,memberId)?.expiresAt || null,vicoins:await getVicoinsBalance(memberId,isAdmin),vicoinsInfinite:isAdmin,banner:bannerInventory.equipped};
     return json(res,200,{profile,favorites,redemptions,ratings,achievements,badges:await getCommunityBadgesForMember(memberId)});
   }
   if (req.method === 'GET' && url.pathname === '/api/shop/rewards') {
@@ -1654,6 +1664,33 @@ async function handle(req, res) {
       return privateJson(res,500,{error:error.message || 'Não foi possível salvar o banner.'});
     }
   }
+  if (req.method === 'POST' && url.pathname === '/api/admin/profile-banner-grants') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode conceder banners.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req); } catch (error) { return privateJson(res,400,{error:error.message}); }
+    const userId = String(body.userId || '');
+    const bannerId = String(body.bannerId || '');
+    if (!userId || userId.length > 64 || !bannerId) return privateJson(res,400,{error:'Escolha um usuário e um banner.'});
+    try {
+      const members = await readCommunityMembers();
+      if (!members.some(member => String(member.id) === userId)) throw new Error('Usuário Twitch não encontrado.');
+      const result = await updateVicoinsStore(store => {
+        const banner = getProfileBannerRewards(store).find(item => item.id === bannerId);
+        if (!banner) throw new Error('Banner não encontrado.');
+        store.profileBannerInventory = store.profileBannerInventory || {};
+        const inventory = store.profileBannerInventory[userId] || {owned:[],equipped:''};
+        inventory.owned = Array.isArray(inventory.owned) ? inventory.owned : [];
+        if (!inventory.owned.includes(banner.id)) inventory.owned.push(banner.id);
+        inventory.equipped = banner.id;
+        store.profileBannerInventory[userId] = inventory;
+        return {bannerName:banner.name,userId,inventory:getProfileBannerInventory(store,userId)};
+      });
+      return privateJson(res,200,result);
+    } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível conceder o banner.'}); }
+  }
   const adminBannerDeleteMatch = /^\/api\/admin\/profile-banners\/([a-f0-9-]{36})$/i.exec(url.pathname);
   if (req.method === 'DELETE' && adminBannerDeleteMatch) {
     const profile = await getAuthenticatedProfile(req,res);
@@ -1697,7 +1734,7 @@ async function handle(req, res) {
     const achievements = {favorites:favorites.length,ratings:ratings.length,redemptions:redemptions.length};
     const vicoinsStore = await readVicoinsStore();
     const bannerInventory = getProfileBannerInventory(vicoinsStore,profile.id);
-    return privateJson(res,200,{profile:{...profile,isClubVime:hasClubVime(vicoinsStore,profile.id),vicoins:await getVicoinsBalance(profile.id,profile.role === 'admin'),vicoinsInfinite:profile.role === 'admin',banner:bannerInventory.equipped},favorites,redemptions,ratings,achievements,badges:await getCommunityBadgesForMember(profile.id)});
+    return privateJson(res,200,{profile:{...profile,isClubVime:hasClubVime(vicoinsStore,profile.id),clubVimeExpiresAt:getClubVimeMembership(vicoinsStore,profile.id)?.expiresAt || null,vicoins:await getVicoinsBalance(profile.id,profile.role === 'admin'),vicoinsInfinite:profile.role === 'admin',banner:bannerInventory.equipped},favorites,redemptions,ratings,achievements,badges:await getCommunityBadgesForMember(profile.id)});
   }
   if (req.method === 'GET' && url.pathname === '/api/account/profile-banner') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -1733,7 +1770,8 @@ async function handle(req, res) {
     const store = await readVicoinsStore();
     const orders = store.bannerOrders.filter(order => order.requester?.id === profile.id && order.orderType !== 'club-vime').sort((a,b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0,10);
     const clubVimeOrder = store.bannerOrders.filter(order => order.requester?.id === profile.id && order.orderType === 'club-vime').sort((a,b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0] || null;
-    return privateJson(res,200,{orders,clubVime:{active:hasClubVime(store,profile.id),pending:clubVimeOrder?.status === 'pending',order:clubVimeOrder}});
+    const membership = getClubVimeMembership(store,profile.id);
+    return privateJson(res,200,{orders,clubVime:{active:hasClubVime(store,profile.id),expiresAt:membership?.expiresAt || null,pending:clubVimeOrder?.status === 'pending',order:clubVimeOrder}});
   }
   if (req.method === 'POST' && url.pathname === '/api/shop/profile-banner-orders') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -1776,11 +1814,7 @@ async function handle(req, res) {
         if (hasClubVime(store,profile.id)) throw new Error('Esta conta já é membro do Clube Vime.');
         const pending = store.bannerOrders.find(order => order.orderType === 'club-vime' && order.requester?.id === profile.id && order.status === 'pending');
         if (pending) return {order:pending,alreadyPending:true};
-        const reward = getProfileBannerRewards(store).find(item => item.id === String(body.bannerId || '') && item.paymentType === 'livepix');
-        if (!reward) throw new Error('Escolha um banner disponível para incluir no Clube Vime.');
-        const inventory = getProfileBannerInventory(store,profile.id);
-        if (inventory.owned.includes(reward.id)) throw new Error('Você já possui esse banner. Escolha outro banner para o Clube Vime.');
-        const order = {id:randomUUID(),orderType:'club-vime',bannerId:reward.id,bannerName:reward.name,amount:10,currency:'BRL',paymentUrl:'https://livepix.gg/vimessias',status:'pending',requester:{id:profile.id,login:profile.login,displayName:profile.displayName,profileImageUrl:profile.profileImageUrl || ''},createdAt:new Date().toISOString()};
+        const order = {id:randomUUID(),orderType:'club-vime',amount:10,currency:'BRL',paymentUrl:'https://livepix.gg/vimessias',status:'pending',requester:{id:profile.id,login:profile.login,displayName:profile.displayName,profileImageUrl:profile.profileImageUrl || ''},createdAt:new Date().toISOString()};
         store.bannerOrders.unshift(order);
         return {order,alreadyPending:false};
       });
@@ -2003,9 +2037,9 @@ async function handle(req, res) {
     if (profile?.role !== 'admin') return privateJson(res,403,{error:'Apenas o administrador pode ver os pedidos da lojinha.'});
     const store = await readVicoinsStore();
     const orders = [
-      ...store.orders.filter(order => order.status !== 'deleted').map(order => ({...order,orderType:'content-voucher'})),
-      ...store.bannerOrders.filter(order => order.status !== 'deleted').map(order => ({...order,orderType:order.orderType || 'paid-banner'})),
-      ...(Array.isArray(store.gameKeyOrders) ? store.gameKeyOrders : []).filter(order => order.status !== 'deleted').map(order => ({...order,orderType:'game-key'}))
+      ...store.orders.filter(order => !['deleted','delivered','completed'].includes(order.status)).map(order => ({...order,orderType:'content-voucher'})),
+      ...store.bannerOrders.filter(order => !['deleted','completed'].includes(order.status)).map(order => ({...order,orderType:order.orderType || 'paid-banner'})),
+      ...(Array.isArray(store.gameKeyOrders) ? store.gameKeyOrders : []).filter(order => !['deleted','delivered','completed'].includes(order.status)).map(order => ({...order,orderType:'game-key'}))
     ].sort((a,b) => {
       const rank = status => status === 'pending' ? 0 : status === 'approved' ? 1 : 2;
       return rank(a.status) - rank(b.status) || Date.parse(b.createdAt || '') - Date.parse(a.createdAt || '');
@@ -2049,20 +2083,25 @@ async function handle(req, res) {
           if ((order.orderType || 'paid-banner') !== orderType) throw new Error('O tipo deste pedido não corresponde à solicitação.');
           if (action === 'approve') {
             if (order.status !== 'pending') throw new Error('Este pedido já foi analisado.');
-            const reward = getProfileBannerRewards(store).find(item => item.id === order.bannerId && item.paymentType === 'livepix');
-            if (!reward) throw new Error('O banner desta solicitação não está disponível.');
             if (orderType === 'club-vime') {
               store.clubVimeMembers = Array.isArray(store.clubVimeMembers) ? store.clubVimeMembers : [];
-              if (store.clubVimeMembers.includes(String(order.requester.id))) throw new Error('Este usuário já está no Clube Vime.');
+              if (hasClubVime(store,order.requester.id)) throw new Error('Este usuário já está no Clube Vime.');
               applyVicoinsTransaction(store,{userId:order.requester.id,amount:500,type:'club-vime',referenceId:order.id,description:'Bônus de entrada no Clube Vime'});
-              store.clubVimeMembers.push(String(order.requester.id));
+              const activatedAt = now;
+              const expiresAt = new Date(Date.parse(now) + 30 * 24 * 60 * 60 * 1000).toISOString();
+              store.clubVimeMembers = store.clubVimeMembers.filter(member => String(typeof member === 'string' ? member : member?.userId) !== String(order.requester.id));
+              store.clubVimeMembers.push({userId:String(order.requester.id),activatedAt,expiresAt});
+              order.clubVimeExpiresAt = expiresAt;
+            } else {
+              const reward = getProfileBannerRewards(store).find(item => item.id === order.bannerId && item.paymentType === 'livepix');
+              if (!reward) throw new Error('O banner desta solicitação não está disponível.');
+              store.profileBannerInventory = store.profileBannerInventory || {};
+              const inventory = store.profileBannerInventory[order.requester.id] || {owned:[],equipped:''};
+              inventory.owned = Array.isArray(inventory.owned) ? inventory.owned : [];
+              if (!inventory.owned.includes(reward.id)) inventory.owned.push(reward.id);
+              inventory.equipped = reward.id;
+              store.profileBannerInventory[order.requester.id] = inventory;
             }
-            store.profileBannerInventory = store.profileBannerInventory || {};
-            const inventory = store.profileBannerInventory[order.requester.id] || {owned:[],equipped:''};
-            inventory.owned = Array.isArray(inventory.owned) ? inventory.owned : [];
-            if (!inventory.owned.includes(reward.id)) inventory.owned.push(reward.id);
-            inventory.equipped = reward.id;
-            store.profileBannerInventory[order.requester.id] = inventory;
             order.status = 'approved'; order.approvedAt = now; order.approvedBy = profile.id;
           } else if (action === 'finish') {
             if (order.status !== 'approved') throw new Error('Aprove o pagamento antes de finalizar.');
@@ -2091,7 +2130,7 @@ async function handle(req, res) {
             order.status = 'deleted'; order.deletedAt = now; order.deletedBy = profile.id;
           }
         }
-        return {orders:[...store.orders.filter(item => item.status !== 'deleted').map(item => ({...item,orderType:'content-voucher'})),...store.bannerOrders.filter(item => item.status !== 'deleted').map(item => ({...item,orderType:item.orderType || 'paid-banner'})),...store.gameKeyOrders.filter(item => item.status !== 'deleted').map(item => ({...item,orderType:'game-key'}))].sort((a,b) => (a.status === 'pending' ? 0 : a.status === 'approved' ? 1 : 2) - (b.status === 'pending' ? 0 : b.status === 'approved' ? 1 : 2) || Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''))};
+        return {orders:[...store.orders.filter(item => !['deleted','delivered','completed'].includes(item.status)).map(item => ({...item,orderType:'content-voucher'})),...store.bannerOrders.filter(item => !['deleted','completed'].includes(item.status)).map(item => ({...item,orderType:item.orderType || 'paid-banner'})),...store.gameKeyOrders.filter(item => !['deleted','delivered','completed'].includes(item.status)).map(item => ({...item,orderType:'game-key'}))].sort((a,b) => (a.status === 'pending' ? 0 : a.status === 'approved' ? 1 : 2) - (b.status === 'pending' ? 0 : b.status === 'approved' ? 1 : 2) || Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''))};
       });
       return privateJson(res,200,result);
     } catch (error) { return privateJson(res,409,{error:error.message || 'Não foi possível atualizar o pedido.'}); }
@@ -2372,7 +2411,7 @@ async function handle(req, res) {
     const vicoinsStore = await readVicoinsStore();
     const votes = (Array.isArray(entry?.votes) ? entry.votes : []).filter(vote => Number.isFinite(vote.rating)).map(vote => {
       const member = memberById.get(String(vote.clientId)) || {};
-      return {displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',clubVime:hasClubVime(vicoinsStore,vote.clientId),rating:vote.rating};
+      return {displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',clubVime:hasClubVime(vicoinsStore,vote.clientId),clubVimeExpiresAt:getClubVimeMembership(vicoinsStore,vote.clientId)?.expiresAt || null,rating:vote.rating};
     }).sort((a,b) => b.rating - a.rating || a.displayName.localeCompare(b.displayName,'pt-BR'));
     return json(res,200,{votes});
   }

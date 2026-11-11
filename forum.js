@@ -42,7 +42,7 @@
   }
 
   function authorMarkup(author = {}) {
-    const label = window.CardapioClubVime?.name(author.displayName || author.login || 'Usuário Twitch',author.clubVime) || safe(author.displayName || author.login || 'Usuário Twitch');
+    const label = window.CardapioClubVime?.name(author.displayName || author.login || 'Usuário Twitch',author.clubVime,author.clubVimeExpiresAt) || safe(author.displayName || author.login || 'Usuário Twitch');
     const avatar = author.profileImageUrl
       ? `<img src="${safe(author.profileImageUrl)}" alt="" loading="lazy">`
       : '<span class="forum-author-fallback" aria-hidden="true">✦</span>';
@@ -108,7 +108,7 @@
     const authenticated = Boolean(user);
     topicForm.classList.toggle('hidden',!authenticated);
     loginNotice.classList.toggle('hidden',authenticated);
-    composerUser.innerHTML = authenticated ? `Publicando como ${window.CardapioClubVime?.name(user.displayName || user.login,user.isClubVime) || safe(user.displayName || user.login)}` : '';
+    composerUser.innerHTML = authenticated ? `Publicando como ${window.CardapioClubVime?.name(user.displayName || user.login,user.isClubVime,user.clubVimeExpiresAt) || safe(user.displayName || user.login)}` : '';
     renderTopics();
   }
 

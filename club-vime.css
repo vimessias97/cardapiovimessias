@@ -1,9 +1,9 @@
 .club-vime-display-name{color:#f3cf72!important;font-weight:700;text-shadow:0 0 14px #dba63855}
 .club-vime-crown{color:#ffdf74;white-space:nowrap;text-shadow:0 0 10px #e0a92888}
-.club-vime-home-card,.club-vime-shop-card{display:flex;align-items:center;gap:20px;padding:22px 26px;border:1px solid #8b63a0;border-radius:18px;background:radial-gradient(ellipse at 10% 0%,#52256a66,transparent 55%),linear-gradient(135deg,#17121d,#0e0c12);box-shadow:0 12px 34px #0005}
+.club-vime-home-card,.club-vime-shop-card{display:flex;align-items:center;gap:20px;padding:22px 26px;border:1px solid #b89949;border-radius:18px;background:radial-gradient(ellipse at 10% 0%,#79612655,transparent 55%),linear-gradient(135deg,#1c1911,#0e0c12);box-shadow:0 12px 34px #0005}
 .club-vime-home-card{margin:28px 0}
 .club-vime-home-crown{font-size:38px;filter:drop-shadow(0 0 14px #e1ad42aa)}
-.club-vime-home-card h2,.club-vime-shop-card h2{margin:3px 0 6px;color:#f2d077;letter-spacing:.12em}
+.club-vime-home-card h2,.club-vime-shop-card h2{margin:3px 0 6px;color:#f2d077;letter-spacing:.12em;text-shadow:0 0 16px #d3a83844}
 .club-vime-home-card p,.club-vime-shop-card p{margin:0;color:#ded5e7;line-height:1.55}
 .club-vime-home-card>a{margin-left:auto;white-space:nowrap;color:#e3bff4;font-weight:700}
 .club-vime-shop-card{margin:0 0 26px;align-items:flex-start}
@@ -11,11 +11,16 @@
 .club-vime-shop-copy ul{display:flex;flex-wrap:wrap;gap:8px 20px;margin:14px 0 0;padding-left:19px;color:#e8dfed}
 .club-vime-shop-checkout{display:grid;gap:10px;min-width:min(290px,34%)}
 .club-vime-shop-checkout label{font-weight:700}
-.club-vime-shop-checkout select{width:100%;padding:12px;border:1px solid #68447c;border-radius:10px;background:#100d14;color:#fff;font:inherit}
 .club-vime-shop-checkout p{font-size:.92rem;min-height:2.6em}
-.club-vime-shop-checkout button{padding:13px;border:1px solid #b47ad5;border-radius:11px;background:linear-gradient(110deg,#7732a0,#552274);color:#fff;font:inherit;font-weight:700;cursor:pointer}
+.club-vime-shop-checkout button{padding:13px;border:1px solid #d5b85f;border-radius:11px;background:linear-gradient(110deg,#9d7826,#584517);color:#fff8db;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 4px 16px #ad892a33}
 .club-vime-shop-checkout button:disabled{opacity:.58;cursor:not-allowed}
 .club-vime-shop-checkout a{color:#e0a9ff;font-weight:700}
 .admin-list-more{display:block;margin:14px auto 0;padding:9px 18px;border:1px solid #76528a;border-radius:9px;background:#1a1420;color:#ead6f4;font:inherit;font-weight:700;cursor:pointer}
 .admin-list-more.hidden,[hidden].admin-list-more{display:none}
+.admin-club-banner-grant{display:grid;grid-template-columns:1fr 1fr auto;align-items:end;gap:10px;margin-top:18px;padding:15px;border:1px solid #594927;border-radius:11px;background:#17140e}
+.admin-club-banner-grant h3{grid-column:1/-1;margin:0;color:#f1d078;font:600 18px var(--serif)}
+.admin-club-banner-grant label{display:grid;gap:5px;color:#ddd2b3;font-size:12px;font-weight:700}
+.admin-club-banner-grant select{min-height:39px;padding:8px;border:1px solid #66552d;border-radius:7px;background:#0e0c08;color:#f5ecd2;font:inherit}
+.admin-club-banner-grant button{min-height:39px;padding:0 14px;border:1px solid #d5b85f;border-radius:7px;background:linear-gradient(110deg,#9d7826,#584517);color:#fff8db;font-weight:700;cursor:pointer}
 @media(max-width:760px){.club-vime-home-card,.club-vime-shop-card{align-items:stretch;flex-direction:column;padding:18px}.club-vime-home-card>a{margin-left:0}.club-vime-shop-checkout{min-width:0}}
+@media(max-width:700px){.admin-club-banner-grant{grid-template-columns:1fr}.admin-club-banner-grant h3{grid-column:auto}}

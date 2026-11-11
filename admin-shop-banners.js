@@ -7,6 +7,9 @@
   let banners = [];
   let expanded = false;
   const moreButton = document.querySelector('#adminShopBannerMore');
+  const grantForm = document.querySelector('#adminClubBannerGrantForm');
+  const grantUserSelect = grantForm?.elements.namedItem('userId');
+  const grantBannerSelect = grantForm?.elements.namedItem('bannerId');
 
   function safe(value = '') {
     return String(value).replace(/[&<>"']/g,character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
@@ -50,9 +53,21 @@
       const data = await api('/api/admin/profile-banners');
       banners = Array.isArray(data.banners) ? data.banners : [];
       render();
+      await loadGrantOptions();
       feedback.textContent = 'Somente banners cadastrados manualmente aparecem nesta lista.';
     } catch (error) { feedback.textContent = error.message || 'Não foi possível carregar os banners.'; }
     return banners;
+  }
+
+  async function loadGrantOptions() {
+    if (!grantForm) return;
+    try {
+      const [usersData,bannerData] = await Promise.all([api('/api/admin/community-members'),api('/api/shop/profile-banners')]);
+      const users = Array.isArray(usersData.members) ? usersData.members : [];
+      const availableBanners = Array.isArray(bannerData.banners) ? bannerData.banners : [];
+      grantUserSelect.innerHTML = '<option value="">Selecione um usuário</option>' + users.map(user => `<option value="${safe(user.id)}">${safe(user.displayName || user.login)} (@${safe(user.login)})</option>`).join('');
+      grantBannerSelect.innerHTML = '<option value="">Selecione um banner</option>' + availableBanners.map(banner => `<option value="${safe(banner.id)}">${safe(banner.name)}</option>`).join('');
+    } catch (error) { feedback.textContent = error.message || 'Não foi possível carregar usuários e banners para concessão manual.'; }
   }
 
   function fileData(file) {
@@ -90,6 +105,21 @@
       feedback.textContent = 'Banner adicionado à lojinha.';
       window.CardapioVicoinsShop?.load();
     } catch (error) { feedback.textContent = error.message || 'Não foi possível adicionar o banner.'; }
+    finally { submit.disabled = false; }
+  });
+
+  grantForm?.addEventListener('submit',async event => {
+    event.preventDefault();
+    if (!window.CardapioAuth?.isAdmin()) return;
+    const submit = grantForm.querySelector('[type="submit"]');
+    submit.disabled = true;
+    feedback.textContent = 'Concedendo banner ao perfil…';
+    try {
+      const result = await api('/api/admin/profile-banner-grants',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({userId:grantUserSelect.value,bannerId:grantBannerSelect.value})});
+      feedback.textContent = `Banner “${result.bannerName}” concedido e aplicado ao perfil.`;
+      await loadGrantOptions();
+      window.CardapioVicoinsShop?.load();
+    } catch (error) { feedback.textContent = error.message || 'Não foi possível conceder o banner.'; }
     finally { submit.disabled = false; }
   });
 

@@ -10,7 +10,6 @@
   const moreBannersGrid = document.querySelector('#shopMoreBannersGrid');
   const moreBannersDialog = document.querySelector('#shopMoreBannersDialog');
   const moreBannersClose = document.querySelector('#shopMoreBannersClose');
-  const clubBannerChoice = document.querySelector('#clubVimeBannerChoice');
   const clubFeedback = document.querySelector('#clubVimeFeedback');
   const clubRequestButton = document.querySelector('#clubVimeRequest');
   const apiBases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
@@ -30,7 +29,7 @@
   let bannerInventory = {owned:[],equipped:null};
   let bannerOrders = [];
   let equippedProfileBannerId = '';
-  let clubMembership = {active:false,pending:false,order:null};
+  let clubMembership = {active:false,pending:false,expiresAt:null,order:null};
 
   function safe(value = '') {
     return String(value).replace(/[&<>"']/g,character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
@@ -199,20 +198,24 @@
   }
 
   function renderClubVime() {
-    if (!clubBannerChoice || !clubFeedback || !clubRequestButton) return;
-    const options = bannerCatalog.filter(banner => banner.paymentType === 'livepix');
-    const selected = clubBannerChoice.value;
-    clubBannerChoice.innerHTML = '<option value="">Escolha um banner</option>' + options.map(banner => `<option value="${safe(banner.id)}">${safe(banner.name)}</option>`).join('');
-    if (options.some(banner => banner.id === selected)) clubBannerChoice.value = selected;
+    if (!clubFeedback || !clubRequestButton) return;
     const authenticated = window.CardapioAuth?.isAuthenticated();
-    clubBannerChoice.disabled = !authenticated || clubMembership.active || clubMembership.pending || !options.length;
-    clubRequestButton.disabled = !authenticated || clubMembership.active || clubMembership.pending || !options.length;
+    const active = clubMembership.active && Date.parse(clubMembership.expiresAt || '') > Date.now();
+    clubRequestButton.disabled = !authenticated || active || clubMembership.pending;
     if (!authenticated) clubFeedback.textContent = 'Entre com a Twitch para solicitar o Clube Vime.';
-    else if (clubMembership.active) clubFeedback.textContent = 'Clube Vime ativo. Banner e 500 Vicoins liberados.';
-    else if (clubMembership.pending) clubFeedback.textContent = 'Pedido enviado. Aguarde a conferência do pagamento no painel administrativo.';
-    else if (!options.length) clubFeedback.textContent = 'Nenhum banner disponível para incluir no momento.';
-    else clubFeedback.textContent = 'Escolha seu banner. Após pagar R$ 10 pelo LivePix, aguarde a aprovação do administrador.';
-    clubRequestButton.textContent = clubMembership.active ? 'Clube Vime ativo' : clubMembership.pending ? 'Pedido aguardando aprovação' : 'Solicitar Clube Vime · R$ 10';
+    else if (active) clubFeedback.textContent = `Renovação disponível em ${formatClubCountdown(Date.parse(clubMembership.expiresAt))}.`;
+    else if (clubMembership.pending) clubFeedback.innerHTML = 'Pedido enviado. <a href="https://livepix.gg/vimessias" target="_blank" rel="noopener noreferrer">Pague R$ 10 no LivePix ↗</a> e aguarde a conferência no painel administrativo.';
+    else clubFeedback.textContent = 'Após pagar R$ 10 pelo LivePix, aguarde a aprovação do administrador. O banner será concedido manualmente.';
+    clubRequestButton.textContent = active ? 'Clube Vime ativo' : clubMembership.pending ? 'Pedido aguardando aprovação' : 'Solicitar ou renovar Clube Vime · R$ 10';
+  }
+
+  function formatClubCountdown(expiresAt) {
+    const ms = Math.max(0,expiresAt - Date.now());
+    const days = Math.floor(ms / 86400000);
+    const hours = Math.floor(ms % 86400000 / 3600000);
+    const minutes = Math.floor(ms % 3600000 / 60000);
+    const seconds = Math.floor(ms % 60000 / 1000);
+    return `${days}d ${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
   }
 
   async function load() {
@@ -220,7 +223,7 @@
       updateBalance(0,true,false);
       bannerInventory = {owned:[],equipped:null};
       bannerOrders = [];
-      clubMembership = {active:false,pending:false,order:null};
+      clubMembership = {active:false,pending:false,expiresAt:null,order:null};
       equippedProfileBannerId = '';
       try {
         const [catalog,offerData,gameData] = await Promise.all([api('/api/shop/profile-banners'),api('/api/shop/rewards'),api('/api/shop/game-keys')]);
@@ -346,14 +349,13 @@
 
   clubRequestButton?.addEventListener('click',async () => {
     if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para solicitar o Clube Vime.')) return;
-    if (!clubBannerChoice.value) { clubFeedback.textContent = 'Escolha o banner incluído no Clube Vime.'; return; }
-    if (clubMembership.active || clubMembership.pending) return;
-    if (!window.confirm('Solicitar o Clube Vime por R$ 10? Depois do pagamento pelo LivePix, o administrador aprovará o pedido e liberará o banner escolhido e 500 Vicoins.')) return;
+    if ((clubMembership.active && Date.parse(clubMembership.expiresAt || '') > Date.now()) || clubMembership.pending) return;
+    if (!window.confirm('Solicitar ou renovar o Clube Vime por R$ 10? Depois do pagamento pelo LivePix, o administrador aprovará o pedido e ativará 30 dias de nome dourado com coroa e 500 Vicoins. O banner será concedido manualmente.')) return;
     clubRequestButton.disabled = true;
     clubFeedback.textContent = 'Registrando o pedido do Clube Vime…';
     try {
-      const data = await api('/api/shop/club-vime-orders',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({bannerId:clubBannerChoice.value})});
-      clubMembership = {active:false,pending:true,order:data.order};
+      const data = await api('/api/shop/club-vime-orders',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
+      clubMembership = {active:false,pending:true,expiresAt:null,order:data.order};
       renderClubVime();
       clubFeedback.innerHTML = 'Pedido registrado. <a href="https://livepix.gg/vimessias" target="_blank" rel="noopener noreferrer">Pague R$ 10 no LivePix ↗</a> e aguarde a aprovação.';
       window.dispatchEvent(new CustomEvent('cardapio:vicoins-orders-updated'));
@@ -383,7 +385,7 @@
   window.addEventListener('cardapio:vicoins-orders-updated',load);
   window.CardapioAuth?.ready.then(load);
   if (dailyTimerInterval) clearInterval(dailyTimerInterval);
-  dailyTimerInterval = setInterval(renderDailyStatus,1000);
+  dailyTimerInterval = setInterval(() => { renderDailyStatus(); if (clubMembership.active) renderClubVime(); },1000);
   renderDailyStatus();
   renderRewards();
   renderBanners();

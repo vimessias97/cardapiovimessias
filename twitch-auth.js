@@ -13,6 +13,7 @@ const twitchLoginDialogMessage = document.querySelector('#twitchLoginDialogMessa
 const twitchLoginDialogAction = document.querySelector('#twitchLoginDialogAction');
 const twitchLoginDialogClose = document.querySelector('#twitchLoginDialogClose');
 let currentTwitchUser = null;
+let clubVimeExpiryTimer = null;
 let resolveAuthReady;
 const authReady = new Promise(resolve => { resolveAuthReady = resolve; });
 
@@ -76,7 +77,7 @@ function updateTwitchUi(profile) {
     : 'Entre com a Twitch para jogar os desafios.';
   if (authenticated) {
     const name = profile.displayName || profile.login;
-    sidebarUserName.innerHTML = window.CardapioClubVime?.name(name,profile.isClubVime) || name;
+    sidebarUserName.innerHTML = window.CardapioClubVime?.name(name,profile.isClubVime,profile.clubVimeExpiresAt) || name;
     sidebarUserRole.textContent = profile.role === 'admin' ? 'ADMINISTRADOR' : 'USUÁRIO TWITCH';
     sidebarUserRole.classList.toggle('is-admin', profile.role === 'admin');
     if (profile.profileImageUrl) {
@@ -84,6 +85,11 @@ function updateTwitchUi(profile) {
       sidebarUserAvatar.alt = `Foto de perfil de ${name}`;
       sidebarUserAvatar.classList.remove('hidden');
     } else sidebarUserAvatar.classList.add('hidden');
+  }
+  if (clubVimeExpiryTimer) clearTimeout(clubVimeExpiryTimer);
+  if (profile?.isClubVime && profile.clubVimeExpiresAt) {
+    const expiresIn = Date.parse(profile.clubVimeExpiresAt) - Date.now();
+    if (expiresIn > 0) clubVimeExpiryTimer = window.setTimeout(loadTwitchAccount,expiresIn + 1000);
   }
   window.dispatchEvent(new CustomEvent('cardapio:auth-updated',{detail:{user:currentTwitchUser}}));
 }
