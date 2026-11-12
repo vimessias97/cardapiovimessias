@@ -212,6 +212,7 @@ function bindRedemptionForm(target,item) {
   const timeInput = form.querySelector('[name="time"]');
   const feedbackText = form.querySelector('.redemption-request-feedback');
   const submitButton = form.querySelector('[type="submit"]');
+  timeInput.addEventListener('input',() => formatScheduleTimeInput(timeInput));
   const now = new Date();
   dateInput.min = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
   form.addEventListener('submit',async event => {
@@ -253,6 +254,18 @@ function bindRedemptionForm(target,item) {
       submitButton.disabled = false;
     }
   });
+}
+
+function formatScheduleTimeInput(input) {
+  const cursor = input.selectionStart ?? input.value.length;
+  const digitsBeforeCursor = input.value.slice(0,cursor).replace(/\D/g,'').length;
+  const digits = input.value.replace(/\D/g,'').slice(0,4);
+  let formatted = digits.slice(0,2);
+  if (digits.length >= 2) formatted += ':';
+  if (digits.length > 2) formatted += digits.slice(2);
+  input.value = formatted;
+  const adjustedCursor = digitsBeforeCursor >= 2 ? digitsBeforeCursor + 1 : digitsBeforeCursor;
+  input.setSelectionRange(Math.min(adjustedCursor,formatted.length),Math.min(adjustedCursor,formatted.length));
 }
 
 function trailerMarkup(item) {
@@ -506,6 +519,7 @@ function updateManualEstimate() {
 
 const manualToday = new Date();
 manualEstimateDate.min = `${manualToday.getFullYear()}-${String(manualToday.getMonth()+1).padStart(2,'0')}-${String(manualToday.getDate()).padStart(2,'0')}`;
+manualEstimateTime.addEventListener('input',() => formatScheduleTimeInput(manualEstimateTime));
 manualRedemptionForm.addEventListener('submit',async event => {
   event.preventDefault();
   if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para solicitar um resgate.')) return;

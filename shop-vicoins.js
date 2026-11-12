@@ -219,6 +219,7 @@
   }
 
   async function load() {
+    feedback.textContent = '';
     if (!window.CardapioAuth?.isAuthenticated()) {
       updateBalance(0,true,false);
       bannerInventory = {owned:[],equipped:null};
@@ -237,7 +238,6 @@
       if (!feedback.textContent.includes('carregar os banners')) feedback.textContent = '';
       return;
     }
-    feedback.textContent = 'Carregando seu saldo e seus pedidos…';
     try {
       const [wallet,inventory,ordersData,catalog,offerData,gameData] = await Promise.all([api('/api/account/vicoins'),api('/api/account/profile-banner'),api('/api/account/profile-banner-orders'),api('/api/shop/profile-banners'),api('/api/shop/rewards'),api('/api/shop/game-keys')]);
       updateBalance(wallet.balance,true,wallet.infinite);
