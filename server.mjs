@@ -135,6 +135,26 @@ function safeTwitchReturnTo(value) {
   } catch { return '/'; }
 }
 
+function parseOverlayVideoSource(value) {
+  let url;
+  try { url = new URL(String(value || '').trim()); } catch { return null; }
+  if (url.protocol !== 'https:') return null;
+  if (url.hostname === 'drive.google.com') {
+    const pathMatch = /^\/file\/d\/([A-Za-z0-9_-]{10,200})(?:\/(?:view|preview))?\/?$/.exec(url.pathname);
+    const queryId = ['open','uc'].includes(url.pathname.replace(/^\//,'')) ? url.searchParams.get('id') : '';
+    const fileId = pathMatch?.[1] || queryId;
+    if (!fileId || !/^[A-Za-z0-9_-]{10,200}$/.test(fileId)) return null;
+    const download = new URL('https://drive.google.com/uc');
+    download.searchParams.set('export','download');
+    download.searchParams.set('id',fileId);
+    const resourceKey = url.searchParams.get('resourcekey');
+    if (resourceKey && /^[A-Za-z0-9_-]{1,200}$/.test(resourceKey)) download.searchParams.set('resourcekey',resourceKey);
+    return {sourceType:'google-drive',videoUrl:download.href};
+  }
+  if (/\.(mp4|webm)$/i.test(url.pathname)) return {sourceType:'direct-video',videoUrl:url.href};
+  return null;
+}
+
 function twitchReturnRedirect(returnTo, status) {
   const target = new URL(safeTwitchReturnTo(returnTo), 'http://vimessias.local');
   target.searchParams.set('twitch', status);
@@ -1172,12 +1192,11 @@ async function handle(req, res) {
     let body;
     try { body = await readRequestJson(req); } catch (error) { return privateJson(res,400,{error:error.message}); }
     const title = String(body.title || '').trim().slice(0,90);
-    let videoUrl;
-    try { videoUrl = new URL(String(body.videoUrl || '').trim()); } catch { return privateJson(res,400,{error:'Informe uma URL válida para o vídeo.'}); }
+    const source = parseOverlayVideoSource(body.videoUrl);
     if (!title) return privateJson(res,400,{error:'Informe um título para a sessão.'});
-    if (videoUrl.protocol !== 'https:' || !/\.(mp4|webm)$/i.test(videoUrl.pathname)) return privateJson(res,400,{error:'A fonte inicial precisa ser um link HTTPS direto para um arquivo MP4 ou WebM.'});
+    if (!source) return privateJson(res,400,{error:'Use um link HTTPS direto para MP4/WebM ou um link compartilhável de vídeo do Google Drive.'});
     if (body.authorizedToStream !== true) return privateJson(res,400,{error:'Confirme que você possui autorização para exibir este vídeo.'});
-    const config = {platform:'twitch',sourceType:'direct-video',title,videoUrl:videoUrl.href,authorizedToStream:true,authorizedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+    const config = {platform:'twitch',sourceType:source.sourceType,title,videoUrl:source.videoUrl,authorizedToStream:true,authorizedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
     await updateJsonState('overlayCodes',{users:{}},store => {
       store.users = store.users && typeof store.users === 'object' ? store.users : {};
       const account = store.users[profile.id] || {codes:[]};

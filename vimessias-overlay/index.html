@@ -52,8 +52,8 @@
             <div class="platform-row"><span class="platform-active"><b>●</b> Twitch conectada</span><span class="platform-disabled" title="Integração não implementada">Kick · em breve</span></div>
             <form id="sourceForm">
               <label for="sourceTitle">Título da sessão</label><input id="sourceTitle" name="title" maxlength="90" required placeholder="Ex.: Sessão de cinema da comunidade">
-              <label for="sourceUrl">Link HTTPS direto do arquivo</label><input id="sourceUrl" name="videoUrl" type="url" maxlength="400" required placeholder="https://midia.seudominio.com/video.mp4">
-              <p class="field-hint">Nesta fase: arquivos MP4 e WebM hospedados em domínio HTTPS. HLS, WebRTC e salas externas serão avaliados nas próximas fases.</p>
+              <label for="sourceUrl">Link do vídeo</label><input id="sourceUrl" name="videoUrl" type="url" maxlength="400" required placeholder="MP4/WebM direto ou link compartilhável do Drive">
+              <p class="field-hint">Aceita MP4/WebM direto em HTTPS ou link compartilhável do Google Drive. No Drive, defina “Qualquer pessoa com o link · Leitor”; o link será convertido para download direto. Arquivos com confirmação de download, bloqueio ou limite do Drive podem não tocar. O player da extensão ainda precisa ser configurado separadamente na Twitch.</p>
               <label class="consent"><input id="authorizedToStream" type="checkbox" required><span>Confirmo que tenho autorização para exibir esta mídia aos espectadores.</span></label>
               <button class="secondary-button" id="saveSource" type="submit">Salvar fonte autorizada</button>
               <p class="form-feedback" id="sourceFeedback" role="status"></p>
@@ -70,7 +70,7 @@
           </section>
         </div>
         <div class="system-state">
-          <article><span class="state-icon">◎</span><div><strong id="overlayStatus">Ferramenta de espectador</strong><small>A sobreposição será ativada na Fase 2.</small></div><span class="badge-planned">EM DESENVOLVIMENTO</span></article>
+      <article><span class="state-icon">◎</span><div><strong id="overlayStatus">Ferramenta de espectador</strong><small>A fonte salva é convertida para URL direta; o player da extensão Twitch é configurado separadamente no console.</small></div><span class="badge-planned">EM DESENVOLVIMENTO</span></article>
           <article><span class="state-icon">◷</span><div><strong>Espectadores conectados</strong><small>Contagem começa quando o bookmarklet/extensão estiver integrado.</small></div><b class="count-placeholder">—</b></article>
         </div>
       </div>

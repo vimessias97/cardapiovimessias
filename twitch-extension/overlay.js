@@ -8,14 +8,33 @@
   const soundButton = document.getElementById('sound');
   let loadedSource = '';
 
+  function resolveVideoUrl(value) {
+    let source;
+    try { source = new URL(String(value || '').trim()); } catch { return ''; }
+    if (source.protocol !== 'https:') return '';
+    if (source.hostname === 'drive.google.com') {
+      const match = /^\/file\/d\/([A-Za-z0-9_-]{10,200})(?:\/(?:view|preview))?\/?$/.exec(source.pathname);
+      const queryId = ['open','uc'].includes(source.pathname.replace(/^\//,'')) ? source.searchParams.get('id') : '';
+      const fileId = match?.[1] || queryId;
+      if (!fileId || !/^[A-Za-z0-9_-]{10,200}$/.test(fileId)) return '';
+      const download = new URL('https://drive.google.com/uc');
+      download.searchParams.set('export','download');
+      download.searchParams.set('id',fileId);
+      const resourceKey = source.searchParams.get('resourcekey');
+      if (resourceKey && /^[A-Za-z0-9_-]{1,200}$/.test(resourceKey)) download.searchParams.set('resourcekey',resourceKey);
+      return download.href;
+    }
+    return /\.(mp4|webm)$/i.test(source.pathname) ? source.href : '';
+  }
+
   function safeConfig(raw) {
     try {
       const data = JSON.parse(raw || '{}');
-      const source = new URL(String(data.source || ''));
-      if (source.protocol !== 'https:' || !/\.(mp4|webm)$/i.test(source.pathname)) return null;
+      const source = resolveVideoUrl(data.source);
+      if (!source) return null;
       const bounded = (value,min,max,fallback) => Number.isFinite(Number(value)) ? Math.max(min,Math.min(max,Number(value))) : fallback;
       return {
-        source:source.href,
+        source,
         title:String(data.title || 'Conteúdo da live').slice(0,90),
         left:bounded(data.left,0,100,0),top:bounded(data.top,0,100,12),
         width:bounded(data.width,10,100,77),height:bounded(data.height,10,100,77)

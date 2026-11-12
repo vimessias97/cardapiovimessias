@@ -14,8 +14,8 @@
     <h1>Overlay de conteúdo</h1>
     <p class="lead">Configure um vídeo próprio ou autorizado para aparecer sobre a área de captura da live. Sua câmera continua visível.</p>
     <label>Título exibido <input id="title" type="text" maxlength="90" placeholder="Ex.: Vídeo da comunidade"></label>
-    <label>Link HTTPS direto do vídeo <input id="source" type="url" maxlength="400" placeholder="https://seu-dominio.com/video.mp4"></label>
-    <p class="hint">Formato direto MP4 ou WebM. O domínio precisa estar na lista de mídia permitida da extensão na Twitch. O vídeo só começa quando cada espectador clicar em reproduzir.</p>
+    <label>Link do vídeo <input id="source" type="url" maxlength="400" placeholder="MP4/WebM direto ou link compartilhável do Google Drive"></label>
+    <p class="hint">Aceita MP4/WebM direto ou link compartilhável do Drive. Deixe o arquivo como “Qualquer pessoa com o link · Leitor” e autorize drive.google.com em Capabilities → Media Domain Allowlist no console da Twitch. A reprodução depende de o Drive entregar o arquivo de vídeo ao player; links com bloqueio, confirmação de download ou limite de tráfego não funcionam.</p>
     <fieldset>
       <legend>Posição sobre o player · porcentagem</legend>
       <div class="position-grid">
