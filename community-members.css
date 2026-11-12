@@ -40,14 +40,17 @@
 .community-member-carousel-controls button{display:grid;width:29px;height:29px;place-items:center;border:1px solid #553c63;border-radius:7px;background:#1b1420;color:#e6cff2;font-size:23px;line-height:1;cursor:pointer}
 .community-member-carousel-controls button:hover:not(:disabled){border-color:#a05ac1;background:#2a1832}
 .community-member-carousel-controls button:disabled{border-color:#302a34;background:#141116;color:#625b67;cursor:default}
-.community-member-titles{display:grid;grid-auto-flow:column;grid-auto-columns:clamp(118px,19vw,148px);grid-template-rows:1fr;gap:10px;overflow-x:auto;overflow-y:hidden;padding-bottom:5px;scroll-snap-type:x mandatory;scrollbar-color:#5d4268 #17131a;scrollbar-width:thin}
+.community-member-titles{display:grid;grid-auto-flow:column;grid-auto-columns:clamp(104px,15vw,118px);grid-template-rows:1fr;gap:9px;overflow-x:auto;overflow-y:hidden;padding-bottom:5px;scroll-snap-type:x mandatory;scrollbar-color:#5d4268 #17131a;scrollbar-width:thin}
 .community-member-title-card{min-width:0;overflow:hidden;border:1px solid #302738;border-radius:8px;background:#100e14}
 .community-member-title-card{scroll-snap-align:start}
 .community-member-title-card img,.community-member-title-poster{display:grid;width:100%;aspect-ratio:2/3;place-items:center;object-fit:cover;background:linear-gradient(145deg,#2d1a39,#111016);color:#d3a1ed;font-size:25px}
 .community-member-title-copy{display:grid;gap:4px;padding:8px}
 .community-member-title-copy strong{overflow:hidden;color:#eee8f2;font-size:11px;line-height:1.35;text-overflow:ellipsis}
 .community-member-title-copy small{color:#a99eae;font-size:9px;line-height:1.4}
-@media(max-width:520px){.community-member-dialog{padding:15px}.community-member-identity>img{width:56px;height:56px}.community-member-identity h2{font-size:20px}.community-achievement-list{grid-template-columns:1fr}.community-achievement{padding:6px 8px}.community-member-titles{grid-auto-columns:clamp(112px,37vw,138px);gap:8px}}
+.community-member-more{display:block;margin:9px auto 0;padding:7px 12px;border:1px solid #553c63;border-radius:7px;background:#1b1420;color:#e6cff2;font-size:11px;font-weight:700;cursor:pointer}
+.community-member-more:hover:not(:disabled){border-color:#a05ac1;background:#2a1832}
+.community-member-more:disabled{opacity:.65;cursor:wait}
+@media(max-width:520px){.community-member-dialog{padding:15px}.community-member-identity>img{width:56px;height:56px}.community-member-identity h2{font-size:20px}.community-achievement-list{grid-template-columns:1fr}.community-achievement{padding:6px 8px}.community-member-titles{grid-auto-columns:clamp(94px,29vw,108px);gap:7px}}
 .community-rating-stars{display:flex;align-items:center;gap:1px;margin-top:2px;white-space:nowrap}
 .community-rating-star{font-size:13px;line-height:1}
 .community-rating-star.is-full{color:#e6bd67}

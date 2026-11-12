@@ -22,6 +22,10 @@
   const dialogHead = document.querySelector('.community-member-dialog-head');
   const profileBannerImages = {'vimessias':'/assets/profile-banners/vimessias-1600x240.png?v=1'};
   const bases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
+  let activeProfilePath = '';
+  let profileTitles = {redemptions:[],favorites:[],ratings:[]};
+  let profileTotals = {redemptions:0,favorites:0,ratings:0};
+  const profileContainers = {redemptions,favorites,ratings:ratedTitles};
 
   function safe(value = '') {
     return String(value).replace(/[&<>"']/g,character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
@@ -118,6 +122,18 @@
     });
   }
 
+  function updateMoreButtons() {
+    for (const key of Object.keys(profileContainers)) {
+      const button = dialog.querySelector(`[data-profile-more="${key}"]`);
+      if (!button) continue;
+      const remaining = Math.max(0,profileTotals[key] - profileTitles[key].length);
+      button.classList.toggle('hidden',remaining === 0);
+      button.disabled = false;
+      button.textContent = `Ver mais (${Math.min(5,remaining)})`;
+      button.setAttribute('aria-label',`Ver mais títulos nesta categoria. ${remaining} restantes.`);
+    }
+  }
+
   function moveCarousel(container,direction) {
     container.scrollBy({left:direction * Math.max(130,container.clientWidth * 0.82),behavior:'smooth'});
   }
@@ -132,6 +148,10 @@
     setVicoins(0,true);
     feedback.textContent = '';
     renderAchievements();
+    activeProfilePath = '';
+    profileTitles = {redemptions:[],favorites:[],ratings:[]};
+    profileTotals = {redemptions:0,favorites:0,ratings:0};
+    dialog.querySelectorAll('[data-profile-more]').forEach(button => button.classList.add('hidden'));
     redemptions.replaceChildren();
     favorites.replaceChildren();
     ratedTitles.replaceChildren();
@@ -140,7 +160,8 @@
     updateCarouselControls(ratedTitles);
     try {
       const ownProfile = String(window.CardapioAuth?.getUser()?.id || '') === String(memberId);
-      const data = await api(ownProfile ? '/api/account/profile' : `/api/community/members/${encodeURIComponent(memberId)}`);
+      activeProfilePath = ownProfile ? '/api/account/profile' : `/api/community/members/${encodeURIComponent(memberId)}`;
+      const data = await api(activeProfilePath);
       const profile = data.profile || {};
       name.innerHTML = window.CardapioClubVime?.name(profile.displayName || profile.login || 'Perfil Twitch',profile.isClubVime,profile.clubVimeExpiresAt) || safe(profile.displayName || profile.login || 'Perfil Twitch');
       setVicoins(profile.vicoins,true,profile.vicoinsInfinite);
@@ -150,9 +171,12 @@
         avatar.src = profile.profileImageUrl;
         avatar.alt = `Foto de perfil de ${profile.displayName || profile.login || 'usuário'}`;
       }
-      renderTitles(redemptions,Array.isArray(data.redemptions) ? data.redemptions : [],'Ainda não há resgates aprovados.',true);
-      renderTitles(favorites,Array.isArray(data.favorites) ? data.favorites : [],'Ainda não há filmes ou séries favoritos.');
-    renderRatedTitles(Array.isArray(data.ratings) ? data.ratings : []);
+      profileTitles = {redemptions:Array.isArray(data.redemptions) ? data.redemptions : [],favorites:Array.isArray(data.favorites) ? data.favorites : [],ratings:Array.isArray(data.ratings) ? data.ratings : []};
+      profileTotals = {...profileTotals,...(data.totals || {})};
+      renderTitles(redemptions,profileTitles.redemptions,'Ainda não há resgates aprovados.',true);
+      renderTitles(favorites,profileTitles.favorites,'Ainda não há filmes ou séries favoritos.');
+      renderRatedTitles(profileTitles.ratings);
+      updateMoreButtons();
     } catch (error) {
       feedback.textContent = error.message || 'Não foi possível carregar este perfil.';
     }
@@ -181,7 +205,7 @@
       const avatarMarkup = member.profileImageUrl ? `<img src="${safe(member.profileImageUrl)}" alt="" loading="lazy">` : '<span class="community-ranking-avatar-fallback" aria-hidden="true">✦</span>';
       const activityCount = type === 'favorites' ? member.favoriteCount : member.ratingCount;
       const value = type === 'vicoins'
-        ? `<span class="community-ranking-value is-vicoins"><img src="assets/vicoins-coin.png?v=2" alt=""><strong>${Number(member.balance || 0).toLocaleString('pt-BR')}</strong></span>`
+        ? `<span class="community-ranking-value is-vicoins"><img src="assets/vicoins-coin-optimized.png" alt=""><strong>${Number(member.balance || 0).toLocaleString('pt-BR')}</strong></span>`
         : type === 'redemptions'
           ? `<span class="community-ranking-value"><strong>${Number(member.totalValue || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong><small>${Number(member.redemptionCount || 0)} ${Number(member.redemptionCount) === 1 ? 'resgate' : 'resgates'}</small></span>`
           : `<span class="community-ranking-value"><strong>${Number(activityCount || 0).toLocaleString('pt-BR')}</strong><small>${type === 'favorites' ? 'favoritos' : 'avaliações'}</small></span>`;
@@ -227,6 +251,27 @@
   close.addEventListener('click',() => dialog.close());
   dialog.addEventListener('click',event => { if (event.target === dialog) dialog.close(); });
   dialog.addEventListener('click',event => {
+    const moreButton = event.target.closest('[data-profile-more]');
+    if (moreButton) {
+      const key = moreButton.dataset.profileMore;
+      const offset = profileTitles[key]?.length || 0;
+      if (!activeProfilePath || offset >= (profileTotals[key] || 0)) return;
+      moreButton.disabled = true;
+      moreButton.textContent = 'Carregando…';
+      const query = new URLSearchParams({[`${key}Offset`]:String(offset)});
+      api(`${activeProfilePath}?${query}`).then(data => {
+        const incoming = Array.isArray(data[key]) ? data[key] : [];
+        profileTitles[key] = [...profileTitles[key],...incoming];
+        profileTotals[key] = Number(data.totals?.[key] ?? profileTotals[key]) || 0;
+        if (key === 'ratings') renderRatedTitles(profileTitles.ratings);
+        else renderTitles(profileContainers[key],profileTitles[key],key === 'redemptions' ? 'Ainda não há resgates aprovados.' : 'Ainda não há filmes ou séries favoritos.',key === 'redemptions');
+        updateMoreButtons();
+      }).catch(error => {
+        moreButton.disabled = false;
+        moreButton.textContent = error.message || 'Tentar novamente';
+      });
+      return;
+    }
     const button = event.target.closest('[data-carousel-target]');
     if (!button) return;
     const container = document.getElementById(button.dataset.carouselTarget);

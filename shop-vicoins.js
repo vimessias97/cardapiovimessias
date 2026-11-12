@@ -116,7 +116,7 @@
   function renderRewards() {
     const authenticated = window.CardapioAuth?.isAuthenticated();
     const isAdmin = Boolean(window.CardapioAuth?.isAdmin());
-    rewardsRoot.innerHTML = rewards.map(reward => `<article class="shop-reward-card"><span class="shop-reward-kicker">VALE DE CONTEÚDO</span><h2>Resgate até <strong>${safe(reward.contentLimit.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}))}</strong></h2><p>Use Vicoins para solicitar um resgate de conteúdo neste valor ou menos.</p><div class="shop-reward-cost"><img src="assets/vicoins-coin.png?v=2" alt=""><strong>${reward.coinCost.toLocaleString('pt-BR')}</strong><span>Vicoins</span></div>${isAdmin ? `<label class="shop-reward-admin-cost">Alterar custo <input type="number" min="1" max="1000000" step="1" value="${reward.coinCost}" data-reward-cost="${safe(reward.id)}"><span>Vicoins</span><button type="button" data-save-reward="${safe(reward.id)}">Salvar</button></label>` : ''}<button type="button" data-reward-id="${safe(reward.id)}" ${authenticated && balance < reward.coinCost ? 'disabled' : ''}>${!authenticated ? 'Entrar para resgatar' : balance < reward.coinCost ? 'Saldo insuficiente' : 'Resgatar'}</button></article>`).join('');
+    rewardsRoot.innerHTML = rewards.map(reward => `<article class="shop-reward-card"><span class="shop-reward-kicker">VALE DE CONTEÚDO</span><h2>Resgate até <strong>${safe(reward.contentLimit.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}))}</strong></h2><p>Use Vicoins para solicitar um resgate de conteúdo neste valor ou menos.</p><div class="shop-reward-cost"><img src="assets/vicoins-coin-optimized.png" alt=""><strong>${reward.coinCost.toLocaleString('pt-BR')}</strong><span>Vicoins</span></div>${isAdmin ? `<label class="shop-reward-admin-cost">Alterar custo <input type="number" min="1" max="1000000" step="1" value="${reward.coinCost}" data-reward-cost="${safe(reward.id)}"><span>Vicoins</span><button type="button" data-save-reward="${safe(reward.id)}">Salvar</button></label>` : ''}<button type="button" data-reward-id="${safe(reward.id)}" ${authenticated && balance < reward.coinCost ? 'disabled' : ''}>${!authenticated ? 'Entrar para resgatar' : balance < reward.coinCost ? 'Saldo insuficiente' : 'Resgatar'}</button></article>`).join('');
     rewardsRoot.querySelectorAll('[data-reward-id]').forEach(button => button.addEventListener('click',() => submitOrder(button)));
     rewardsRoot.querySelectorAll('[data-save-reward]').forEach(button => button.addEventListener('click',async () => {
       if (!window.CardapioAuth?.isAdmin()) return;
@@ -139,12 +139,8 @@
     gameKeysRoot.innerHTML = gameKeys.map(game => {
       const cost = Number(game.coinCost) || 0;
       const insufficient = authenticated && !infiniteBalance && balance < cost;
-      const image = safe(game.imageUrl || '');
       const stock = Number(game.stock ?? 1);
-      const art = image
-        ? `<div class="shop-game-key-art-wrap"><img class="shop-game-key-art" src="${image}" alt="Capa de ${safe(game.title)}" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><div class="shop-game-key-art-fallback" aria-hidden="true" hidden>🎮</div></div>`
-        : '<div class="shop-game-key-art-wrap"><div class="shop-game-key-art-fallback" aria-hidden="true">🎮</div></div>';
-      return `<article class="shop-game-key-card">${art}<span class="shop-game-key-kicker">KEY DE JOGO</span><h3>${safe(game.title)}</h3><p class="shop-game-key-stock">Restam ${stock} ${stock === 1 ? 'unidade' : 'unidades'} no estoque</p><a href="${safe(game.steamUrl)}" target="_blank" rel="noopener noreferrer">Ver na Steam ↗</a><div class="shop-reward-cost"><img src="assets/vicoins-coin.png?v=2" alt=""><strong>${cost.toLocaleString('pt-BR')}</strong><span>Vicoins</span></div><button type="button" data-game-key-redeem="${safe(game.id)}" ${insufficient ? 'disabled' : ''}>${!authenticated ? 'Entrar para resgatar' : insufficient ? 'Saldo insuficiente' : 'Resgatar key'}</button></article>`;
+      return `<article class="shop-game-key-card"><span class="shop-game-key-kicker">KEY DE JOGO</span><h3>${safe(game.title)}</h3><p class="shop-game-key-stock">Restam ${stock} ${stock === 1 ? 'unidade' : 'unidades'} no estoque</p><a href="${safe(game.steamUrl)}" target="_blank" rel="noopener noreferrer">Ver na Steam ↗</a><div class="shop-reward-cost"><img src="assets/vicoins-coin-optimized.png" alt=""><strong>${cost.toLocaleString('pt-BR')}</strong><span>Vicoins</span></div><button type="button" data-game-key-redeem="${safe(game.id)}" ${insufficient ? 'disabled' : ''}>${!authenticated ? 'Entrar para resgatar' : insufficient ? 'Saldo insuficiente' : 'Resgatar key'}</button></article>`;
     }).join('');
   }
 
@@ -178,7 +174,7 @@
     const disabled = !authenticated || equipped || Boolean(pendingOrder) || (!hasBanner && !livepix && balance < Number(banner.coinCost));
     const cost = livepix
       ? `<div class="shop-banner-price"><strong>${Number(banner.amount).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong><span>via LivePix</span></div>`
-      : `<div class="shop-reward-cost"><img src="assets/vicoins-coin.png?v=2" alt=""><strong>${Number(banner.coinCost).toLocaleString('pt-BR')}</strong><span>Vicoins</span></div>`;
+      : `<div class="shop-reward-cost"><img src="assets/vicoins-coin-optimized.png" alt=""><strong>${Number(banner.coinCost).toLocaleString('pt-BR')}</strong><span>Vicoins</span></div>`;
     let status = '';
     if (livepix && pendingOrder) status = `<p class="shop-banner-order-feedback">Pedido pendente. <a href="${safe(pendingOrder.paymentUrl || 'https://livepix.gg/vimessias')}" target="_blank" rel="noopener noreferrer">Abrir LivePix ↗</a></p>`;
     else if (livepix && hasBanner) status = '<p class="shop-banner-order-feedback">Banner liberado no perfil.</p>';

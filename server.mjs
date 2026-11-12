@@ -580,15 +580,6 @@ function publicTopRatings(entries) {
     .slice(0,5);
 }
 
-function steamGameHeader(steamUrl) {
-  try {
-    const url = new URL(steamUrl);
-    if (url.hostname !== 'store.steampowered.com') return '';
-    const appId = /^\/app\/(\d+)(?:\/|$)/.exec(url.pathname)?.[1];
-    return appId ? `https://shared.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg` : '';
-  } catch { return ''; }
-}
-
 function parseSteamImageUrl(value) {
   const raw = String(value || '').trim();
   if (!raw) return '';
@@ -639,6 +630,11 @@ function userRatings(entries,userId) {
     const vote = Array.isArray(entry.votes) ? entry.votes.find(item => item.clientId === userId && Number.isFinite(item.rating)) : null;
     return vote ? [{id:entry.id,mediaType:entry.mediaType,title:entry.title,posterUrl:entry.posterUrl || '',rating:vote.rating}] : [];
   }).sort((a,b) => a.title.localeCompare(b.title,'pt-BR'));
+}
+
+function profileTitlePage(items,offset = 0,limit = 5) {
+  const safeOffset = Number.isSafeInteger(offset) && offset >= 0 ? offset : 0;
+  return {items:items.slice(safeOffset,safeOffset + limit),total:items.length};
 }
 
 async function removePatreonLinkedFavorites() {
@@ -1516,25 +1512,30 @@ async function handle(req, res) {
     const member = (await readCommunityMembers()).find(item => item.id === memberId);
     if (!member) return json(res,404,{error:'Este perfil não está disponível.'});
     await reconcileApprovedRedemptionVicoins(memberId);
-    const favorites = userFavorites(await removePatreonLinkedFavorites(),memberId);
-    const redemptions = (await readRedemptions())
+    const allFavorites = userFavorites(await readFavorites(),memberId);
+    const allRedemptions = (await readRedemptions())
       .filter(entry => entry.requester?.id === memberId && ['approved','completed'].includes(entry.status))
       .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
       .map(({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}) => ({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}));
-    const ratings = userRatings(await readRatings(),memberId);
-    const achievements = {favorites:favorites.length,ratings:ratings.length,redemptions:redemptions.length};
+    const allRatings = userRatings(await readRatings(),memberId);
+    const pages = Object.fromEntries(['redemptions','favorites','ratings'].map(key => [key,profileTitlePage(({redemptions:allRedemptions,favorites:allFavorites,ratings:allRatings})[key],Math.max(0,Number.parseInt(url.searchParams.get(`${key}Offset`) || '0',10) || 0))]));
+    const {items:redemptions} = pages.redemptions;
+    const {items:favorites} = pages.favorites;
+    const {items:ratings} = pages.ratings;
+    const totals = Object.fromEntries(Object.entries(pages).map(([key,page]) => [key,page.total]));
+    const achievements = {favorites:allFavorites.length,ratings:allRatings.length,redemptions:allRedemptions.length};
     const vicoinsStore = await readVicoinsStore();
     const bannerInventory = getProfileBannerInventory(vicoinsStore,memberId);
     const isAdmin = getTwitchRole(member) === 'admin';
     const profile = {id:member.id,login:member.login,displayName:member.displayName,profileImageUrl:member.profileImageUrl,joinedAt:member.joinedAt,isClubVime:hasClubVime(vicoinsStore,memberId),clubVimeExpiresAt:getClubVimeMembership(vicoinsStore,memberId)?.expiresAt || null,vicoins:await getVicoinsBalance(memberId,isAdmin),vicoinsInfinite:isAdmin,banner:bannerInventory.equipped};
-    return json(res,200,{profile,favorites,redemptions,ratings,achievements,badges:await getCommunityBadgesForMember(memberId)});
+    return json(res,200,{profile,favorites,redemptions,ratings,totals,achievements,badges:await getCommunityBadgesForMember(memberId)});
   }
   if (req.method === 'GET' && url.pathname === '/api/shop/rewards') {
     return json(res,200,{rewards:await readVicoinsRewards()});
   }
   if (req.method === 'GET' && url.pathname === '/api/shop/game-keys') {
     const store = await readVicoinsStore();
-    const games = store.gameKeys.filter(item => item?.active !== false && !item?.reservedOrderId && Number(item.stock ?? 1) > 0).sort((a,b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || '')).map(item => ({id:item.id,title:item.title,steamUrl:item.steamUrl,coinCost:item.coinCost,stock:Number(item.stock ?? 1),imageUrl:item.imageUrl || steamGameHeader(item.steamUrl)}));
+    const games = store.gameKeys.filter(item => item?.active !== false && !item?.reservedOrderId && Number(item.stock ?? 1) > 0).sort((a,b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || '')).map(item => ({id:item.id,title:item.title,steamUrl:item.steamUrl,coinCost:item.coinCost,stock:Number(item.stock ?? 1)}));
     return json(res,200,{games});
   }
   if (req.method === 'POST' && url.pathname === '/api/admin/vicoins-rewards') {
@@ -1578,6 +1579,7 @@ async function handle(req, res) {
     const id = String(body.id || '').trim();
     const title = String(body.title || '').trim();
     const steamUrl = String(body.steamUrl || '').trim();
+    const imageUrlSupplied = Object.hasOwn(body,'imageUrl');
     const imageUrl = String(body.imageUrl || '').trim();
     const coinCost = Number(body.coinCost);
     const stock = Number(body.stock);
@@ -1595,7 +1597,7 @@ async function handle(req, res) {
           if (!item) throw new Error('Jogo não encontrado para edição.');
           item.title = title;
           item.steamUrl = parsedSteamUrl.href;
-          item.imageUrl = directImageUrl;
+          if (imageUrlSupplied) item.imageUrl = directImageUrl;
           item.coinCost = coinCost;
           item.stock = stock;
           item.updatedAt = new Date().toISOString();
@@ -1725,16 +1727,21 @@ async function handle(req, res) {
     const profile = await getAuthenticatedProfile(req,res);
     if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para abrir seu perfil.'});
     await reconcileApprovedRedemptionVicoins(profile.id);
-    const favorites = userFavorites(await removePatreonLinkedFavorites(),profile.id);
-    const redemptions = (await readRedemptions())
+    const allFavorites = userFavorites(await readFavorites(),profile.id);
+    const allRedemptions = (await readRedemptions())
       .filter(entry => entry.requester?.id === profile.id && ['approved','completed'].includes(entry.status))
       .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
       .map(({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}) => ({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}));
-    const ratings = userRatings(await readRatings(),profile.id);
-    const achievements = {favorites:favorites.length,ratings:ratings.length,redemptions:redemptions.length};
+    const allRatings = userRatings(await readRatings(),profile.id);
+    const pages = Object.fromEntries(['redemptions','favorites','ratings'].map(key => [key,profileTitlePage(({redemptions:allRedemptions,favorites:allFavorites,ratings:allRatings})[key],Math.max(0,Number.parseInt(url.searchParams.get(`${key}Offset`) || '0',10) || 0))]));
+    const {items:redemptions} = pages.redemptions;
+    const {items:favorites} = pages.favorites;
+    const {items:ratings} = pages.ratings;
+    const totals = Object.fromEntries(Object.entries(pages).map(([key,page]) => [key,page.total]));
+    const achievements = {favorites:allFavorites.length,ratings:allRatings.length,redemptions:allRedemptions.length};
     const vicoinsStore = await readVicoinsStore();
     const bannerInventory = getProfileBannerInventory(vicoinsStore,profile.id);
-    return privateJson(res,200,{profile:{...profile,isClubVime:hasClubVime(vicoinsStore,profile.id),clubVimeExpiresAt:getClubVimeMembership(vicoinsStore,profile.id)?.expiresAt || null,vicoins:await getVicoinsBalance(profile.id,profile.role === 'admin'),vicoinsInfinite:profile.role === 'admin',banner:bannerInventory.equipped},favorites,redemptions,ratings,achievements,badges:await getCommunityBadgesForMember(profile.id)});
+    return privateJson(res,200,{profile:{...profile,isClubVime:hasClubVime(vicoinsStore,profile.id),clubVimeExpiresAt:getClubVimeMembership(vicoinsStore,profile.id)?.expiresAt || null,vicoins:await getVicoinsBalance(profile.id,profile.role === 'admin'),vicoinsInfinite:profile.role === 'admin',banner:bannerInventory.equipped},favorites,redemptions,ratings,totals,achievements,badges:await getCommunityBadgesForMember(profile.id)});
   }
   if (req.method === 'GET' && url.pathname === '/api/account/profile-banner') {
     const profile = await getAuthenticatedProfile(req,res);
