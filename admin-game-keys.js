@@ -62,9 +62,10 @@
     submit.disabled = true;
     feedback.textContent = 'Cadastrando jogo…';
     try {
-      await api('/api/admin/shop-game-keys',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(form)))});
+      const data = await api('/api/admin/shop-game-keys',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(form)))});
       form.reset();
-      await load();
+      games = Array.isArray(data.games) ? data.games : games;
+      render();
       feedback.textContent = 'Jogo cadastrado na lojinha.';
       window.CardapioVicoinsShop?.load();
     } catch (error) { feedback.textContent = error.message || 'Não foi possível cadastrar o jogo.'; }

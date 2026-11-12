@@ -3,7 +3,7 @@ import {constants as fsConstants} from 'node:fs';
 import {readFile,stat,writeFile,rename,mkdir,copyFile,unlink} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {createHash,randomBytes,randomUUID,timingSafeEqual} from 'node:crypto';
+import {randomBytes,randomUUID} from 'node:crypto';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 try { for (const line of (await readFile(path.join(root, '.env'), 'utf8')).split(/\r?\n/)) { const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/); if (match && !process.env[match[1]]) process.env[match[1]] = match[2].replace(/^(['"])(.*)\1$/, '$2'); } } catch {}
@@ -26,7 +26,6 @@ const promotionsFile = path.join(dataRoot, 'promotions.json');
 const vicoinsFile = path.join(dataRoot, 'vicoins.json');
 const vicoinsRewardsFile = path.join(dataRoot, 'vicoins-rewards.json');
 const gameProgressFile = path.join(dataRoot, 'game-progress.json');
-const overlayCodesFile = path.join(dataRoot, 'overlay-codes.json');
 const forumFile = path.join(dataRoot, 'forum.json');
 const forumUploadsDir = path.join(dataRoot, 'forum-uploads');
 const profileBannersDir = path.join(dataRoot, 'profile-banners');
@@ -51,7 +50,6 @@ let youtubeVideosCache = {expiresAt:0,videos:[]};
 let youtubeChannelId = '';
 const twitchOAuthStates = new Map();
 const twitchSessions = new Map();
-const overlayCodeAttempts = new Map();
 const infiniteVicoinsUserIds = new Set();
 let patreonPostsCache = {expiresAt:0,posts:[]};
 const manualPatreonLinksFile = path.join(root, 'patreon-links.json');
@@ -133,26 +131,6 @@ function safeTwitchReturnTo(value) {
     if (target.origin !== 'http://vimessias.local' || target.pathname.startsWith('/auth/')) return '/';
     return `${target.pathname}${target.search}${target.hash}`;
   } catch { return '/'; }
-}
-
-function parseOverlayVideoSource(value) {
-  let url;
-  try { url = new URL(String(value || '').trim()); } catch { return null; }
-  if (url.protocol !== 'https:') return null;
-  if (url.hostname === 'drive.google.com') {
-    const pathMatch = /^\/file\/d\/([A-Za-z0-9_-]{10,200})(?:\/(?:view|preview))?\/?$/.exec(url.pathname);
-    const queryId = ['open','uc'].includes(url.pathname.replace(/^\//,'')) ? url.searchParams.get('id') : '';
-    const fileId = pathMatch?.[1] || queryId;
-    if (!fileId || !/^[A-Za-z0-9_-]{10,200}$/.test(fileId)) return null;
-    const download = new URL('https://drive.google.com/uc');
-    download.searchParams.set('export','download');
-    download.searchParams.set('id',fileId);
-    const resourceKey = url.searchParams.get('resourcekey');
-    if (resourceKey && /^[A-Za-z0-9_-]{1,200}$/.test(resourceKey)) download.searchParams.set('resourcekey',resourceKey);
-    return {sourceType:'google-drive',videoUrl:download.href};
-  }
-  if (/\.(mp4|webm)$/i.test(url.pathname)) return {sourceType:'direct-video',videoUrl:url.href};
-  return null;
 }
 
 function twitchReturnRedirect(returnTo, status) {
@@ -250,7 +228,6 @@ const localStateFiles = {
   vicoins:vicoinsFile,
   vicoinsRewards:vicoinsRewardsFile,
   gameProgress:gameProgressFile,
-  overlayCodes:overlayCodesFile,
   forum:forumFile,
   youtubeVideos:youtubeVideosFile,
   patreonMappings:patreonMappingsFile
@@ -1175,99 +1152,6 @@ async function handle(req, res) {
     if (origin && new URL(origin).host !== req.headers.host) return privateJson(res, 403, {error:'Origem da solicitação inválida.'});
     clearTwitchSession(req, res);
     return privateJson(res, 200, {authenticated:false});
-  }
-  if (req.method === 'GET' && url.pathname === '/api/overlay/dashboard') {
-    const profile = await getAuthenticatedProfile(req,res);
-    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para acessar o painel do Vimessias Overlay.'});
-    const store = await readJsonState('overlayCodes',{users:{}});
-    const account = store?.users?.[profile.id] || {config:null,codes:[]};
-    const codes = (Array.isArray(account.codes) ? account.codes : []).slice().sort((a,b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || '')).map(item => ({id:item.id,lastFour:item.lastFour,createdAt:item.createdAt,revokedAt:item.revokedAt || null,active:!item.revokedAt}));
-    return privateJson(res,200,{profile:{id:profile.id,login:profile.login,displayName:profile.displayName,profileImageUrl:profile.profileImageUrl || ''},config:account.config || null,codes});
-  }
-  if (req.method === 'POST' && url.pathname === '/api/overlay/config') {
-    const profile = await getAuthenticatedProfile(req,res);
-    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para configurar a fonte.'});
-    const origin = req.headers.origin;
-    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
-    let body;
-    try { body = await readRequestJson(req); } catch (error) { return privateJson(res,400,{error:error.message}); }
-    const title = String(body.title || '').trim().slice(0,90);
-    const source = parseOverlayVideoSource(body.videoUrl);
-    if (!title) return privateJson(res,400,{error:'Informe um título para a sessão.'});
-    if (!source) return privateJson(res,400,{error:'Use um link HTTPS direto para MP4/WebM ou um link compartilhável de vídeo do Google Drive.'});
-    if (body.authorizedToStream !== true) return privateJson(res,400,{error:'Confirme que você possui autorização para exibir este vídeo.'});
-    const config = {platform:'twitch',sourceType:source.sourceType,title,videoUrl:source.videoUrl,authorizedToStream:true,authorizedAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
-    await updateJsonState('overlayCodes',{users:{}},store => {
-      store.users = store.users && typeof store.users === 'object' ? store.users : {};
-      const account = store.users[profile.id] || {codes:[]};
-      account.config = config;
-      account.codes = Array.isArray(account.codes) ? account.codes : [];
-      store.users[profile.id] = account;
-    });
-    return privateJson(res,200,{config});
-  }
-  if (req.method === 'POST' && url.pathname === '/api/overlay/codes') {
-    const profile = await getAuthenticatedProfile(req,res);
-    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para gerar um código.'});
-    const origin = req.headers.origin;
-    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
-    const store = await readJsonState('overlayCodes',{users:{}});
-    if (!store.users?.[profile.id]?.config?.authorizedToStream) return privateJson(res,409,{error:'Salve primeiro uma fonte autorizada para a sessão.'});
-    const hex = randomBytes(16).toString('hex').toUpperCase();
-    const code = `VIME-${hex.match(/.{1,4}/g).join('-')}`;
-    const id = randomUUID();
-    const createdAt = new Date().toISOString();
-    await updateJsonState('overlayCodes',{users:{}},state => {
-      state.users = state.users && typeof state.users === 'object' ? state.users : {};
-      const account = state.users[profile.id] || {config:null,codes:[]};
-      account.codes = Array.isArray(account.codes) ? account.codes : [];
-      for (const item of account.codes) if (!item.revokedAt) item.revokedAt = createdAt;
-      account.codes.unshift({id,hash:createHash('sha256').update(code).digest('hex'),lastFour:hex.slice(-4),createdAt,revokedAt:null});
-      state.users[profile.id] = account;
-    });
-    return privateJson(res,201,{code,id,createdAt,message:'Guarde este código agora; ele não será exibido novamente.'});
-  }
-  const overlayRevokeMatch = req.method === 'POST' && /^\/api\/overlay\/codes\/([a-f0-9-]{36})\/revoke$/i.exec(url.pathname);
-  if (overlayRevokeMatch) {
-    const profile = await getAuthenticatedProfile(req,res);
-    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para revogar o código.'});
-    const origin = req.headers.origin;
-    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
-    const revokedAt = new Date().toISOString();
-    try {
-      const updated = await updateJsonState('overlayCodes',{users:{}},state => {
-        const account = state.users?.[profile.id];
-        const item = account?.codes?.find(code => code.id === overlayRevokeMatch[1]);
-        if (!item) throw new Error('Código não encontrado neste perfil.');
-        if (!item.revokedAt) item.revokedAt = revokedAt;
-        return {id:item.id,revokedAt:item.revokedAt};
-      });
-      return privateJson(res,200,updated);
-    } catch (error) { return privateJson(res,404,{error:error.message || 'Não foi possível revogar o código.'}); }
-  }
-  if (req.method === 'POST' && url.pathname === '/api/overlay/resolve') {
-    const address = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
-    const now = Date.now();
-    const attempts = overlayCodeAttempts.get(address) || {count:0,resetAt:now + 60_000};
-    if (attempts.resetAt <= now) { attempts.count = 0; attempts.resetAt = now + 60_000; }
-    attempts.count++;
-    overlayCodeAttempts.set(address,attempts);
-    if (attempts.count > 40) return json(res,429,{error:'Muitas tentativas. Aguarde um minuto e tente de novo.'});
-    let body;
-    try { body = await readRequestJson(req); } catch (error) { return json(res,400,{error:error.message}); }
-    const code = String(body.code || '').trim().toUpperCase();
-    if (!/^VIME-(?:[A-F0-9]{4}-){7}[A-F0-9]{4}$/.test(code)) return json(res,400,{error:'Código inválido.'});
-    const digest = Buffer.from(createHash('sha256').update(code).digest('hex'),'hex');
-    const state = await readJsonState('overlayCodes',{users:{}});
-    for (const account of Object.values(state.users || {})) {
-      const item = (account.codes || []).find(saved => {
-        if (saved.revokedAt) return false;
-        const savedDigest = Buffer.from(String(saved.hash || ''),'hex');
-        return savedDigest.length === digest.length && timingSafeEqual(savedDigest,digest);
-      });
-      if (item && account.config?.authorizedToStream) return json(res,200,{valid:true,platform:account.config.platform,title:account.config.title,sourceType:account.config.sourceType,videoUrl:account.config.videoUrl});
-    }
-    return json(res,404,{valid:false,error:'Código inválido ou revogado.'});
   }
   if (req.method === 'OPTIONS' && url.pathname.startsWith('/api/')) {
     res.writeHead(204, {'access-control-allow-origin':'*','access-control-allow-methods':'GET, POST, OPTIONS','access-control-allow-headers':'content-type'});
@@ -2671,7 +2555,6 @@ async function handle(req, res) {
     }
   }
   if (req.method !== 'GET') return json(res, 405, {error:'Método não permitido.'});
-  if (url.pathname === '/overlay') return redirect(res,`/vimessias-overlay/index.html${url.search}`);
   const requested = path.resolve(root, `.${decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname)}`);
   const relative = path.relative(root, requested);
   const publicExtensions = new Set(['.html','.css','.js','.svg','.png','.jpg','.jpeg','.webp','.ico']);
