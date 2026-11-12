@@ -31,7 +31,6 @@
   }
   async function load() {
     if (!window.CardapioAuth?.isAdmin()) { list.replaceChildren(); feedback.textContent = 'Área exclusiva do administrador.'; return; }
-    feedback.textContent = 'Carregando insígnias e usuários…';
     try {
       const data = await api('/api/admin/community-badges');
       badges = Array.isArray(data.badges) ? data.badges : [];

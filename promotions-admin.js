@@ -78,12 +78,11 @@
 
   async function loadPromotions() {
     if (!window.CardapioAuth?.isAdmin()) return;
-    feedback.textContent = 'Carregando promoções…';
     try {
       const data = await api('/api/promotions');
       promotions = Array.isArray(data.promotions) ? data.promotions : [];
       renderList();
-      feedback.textContent = 'Altere as coleções existentes ou crie uma nova.';
+      feedback.textContent = '';
     } catch (error) {
       feedback.textContent = error.message || 'Não foi possível carregar as promoções.';
     }
@@ -130,8 +129,8 @@
     form.elements.namedItem('name').value = offer.name;
     form.elements.namedItem('discountPercent').value = String(offer.discountPercent);
     form.elements.namedItem('description').value = offer.description || '';
-    feedback.textContent = 'Carregando os títulos desta coleção…';
-    setFormStatus('Carregando os títulos desta coleção…','info');
+    feedback.textContent = '';
+    setFormStatus('');
     try {
       selectedTitles = await Promise.all((offer.titles || []).map(async title => {
         const data = await api(`/api/catalog/title?type=${encodeURIComponent(title.mediaType)}&id=${encodeURIComponent(title.id)}`);

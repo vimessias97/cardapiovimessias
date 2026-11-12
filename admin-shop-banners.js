@@ -48,13 +48,12 @@
       feedback.textContent = 'Área exclusiva do administrador.';
       return [];
     }
-    feedback.textContent = 'Carregando banners manuais…';
     try {
       const data = await api('/api/admin/profile-banners');
       banners = Array.isArray(data.banners) ? data.banners : [];
       render();
       await loadGrantOptions();
-      feedback.textContent = 'Somente banners cadastrados manualmente aparecem nesta lista.';
+      feedback.textContent = '';
     } catch (error) { feedback.textContent = error.message || 'Não foi possível carregar os banners.'; }
     return banners;
   }

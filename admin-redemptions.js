@@ -102,12 +102,12 @@
       feedback.textContent = 'Área exclusiva do administrador.';
       return redemptions;
     }
-    feedback.textContent = 'Carregando solicitações…';
     try {
       const data = await api('/api/admin/redemptions');
       redemptions = Array.isArray(data.redemptions) ? data.redemptions : [];
       expanded = false;
       render();
+      feedback.textContent = '';
     } catch (error) {
       redemptions = [];
       list.replaceChildren();

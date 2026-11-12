@@ -234,7 +234,7 @@
       renderBanners();
       renderGameKeys();
       loadDailyStatus();
-      if (!feedback.textContent.includes('carregar os banners')) feedback.textContent = 'Entre com a Twitch para consultar seu saldo e resgatar uma oferta.';
+      if (!feedback.textContent.includes('carregar os banners')) feedback.textContent = '';
       return;
     }
     feedback.textContent = 'Carregando seu saldo e seus pedidos…';
@@ -252,7 +252,7 @@
       renderBanners();
       renderGameKeys();
       await loadDailyStatus();
-      feedback.textContent = 'Escolha um vale compatível com o conteúdo que deseja resgatar.';
+      feedback.textContent = '';
     } catch (error) {
       feedback.textContent = error.message || 'Não foi possível carregar sua carteira.';
     }

@@ -30,7 +30,7 @@
   }
   async function fetchPage(query,sequence,append = false) {
     if (!append) { resultItems = []; nextCursor = null; results.innerHTML = '<p>Buscando títulos…</p>'; }
-    else { const button = results.querySelector('[data-more-results]'); if (button) { button.disabled = true; button.textContent = 'Carregando…'; } }
+    else { const button = results.querySelector('[data-more-results]'); if (button) button.disabled = true; }
     try {
       const cursor = append && nextCursor ? `&page=${nextCursor.page}&offset=${nextCursor.offset}` : '';
       const data = await api(`/api/catalog/search-tmdb?q=${encodeURIComponent(query)}${cursor}`);

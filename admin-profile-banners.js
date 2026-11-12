@@ -51,12 +51,11 @@
       feedback.textContent = 'Área exclusiva do administrador.';
       return [];
     }
-    feedback.textContent = 'Carregando pedidos de banner…';
     try {
       const data = await api('/api/admin/profile-banner-orders');
       orders = Array.isArray(data.orders) ? data.orders : [];
       render();
-      feedback.textContent = orders.some(order => order.status === 'pending') ? 'Confira o recebimento de R$ 5,00 no LivePix antes de aprovar.' : 'Novas solicitações de banner aparecerão aqui.';
+      feedback.textContent = '';
     } catch (error) { feedback.textContent = error.message || 'Não foi possível carregar os pedidos de banner.'; }
     return orders;
   }

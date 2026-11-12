@@ -75,13 +75,11 @@
       feedback.textContent = 'Área exclusiva do administrador.';
       return [];
     }
-    feedback.textContent = 'Carregando todos os pedidos da lojinha…';
     try {
       const data = await api('/api/admin/shop-orders');
       orders = Array.isArray(data.orders) ? data.orders : [];
       render();
-      const awaiting = orders.filter(order => order.status === 'pending' || order.status === 'approved').length;
-      feedback.textContent = awaiting ? `${awaiting} pedido(s) aguardando análise, entrega ou finalização.` : 'Os novos pedidos de vales, banners e jogos aparecerão aqui.';
+      feedback.textContent = '';
     } catch (error) {
       feedback.textContent = error.message || 'Não foi possível carregar os pedidos da lojinha.';
     }

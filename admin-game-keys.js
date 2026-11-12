@@ -45,7 +45,7 @@
       feedback.textContent = 'Área exclusiva do administrador.';
       return [];
     }
-    feedback.textContent = 'Carregando jogos cadastrados…';
+    feedback.textContent = '';
     try {
       const data = await api('/api/admin/shop-game-keys');
       games = Array.isArray(data.games) ? data.games : [];
