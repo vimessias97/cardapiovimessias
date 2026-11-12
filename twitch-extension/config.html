@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Configurar overlay · ViMessias Play</title>
+  <link rel="stylesheet" href="extension.css">
+  <script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>
+  <script src="config.js" defer></script>
+</head>
+<body class="config-page">
+  <main class="config-card">
+    <span class="eyebrow">VIMESSIAS PLAY · EXTENSÃO</span>
+    <h1>Overlay de conteúdo</h1>
+    <p class="lead">Configure um vídeo próprio ou autorizado para aparecer sobre a área de captura da live. Sua câmera continua visível.</p>
+    <label>Título exibido <input id="title" type="text" maxlength="90" placeholder="Ex.: Vídeo da comunidade"></label>
+    <label>Link HTTPS direto do vídeo <input id="source" type="url" maxlength="400" placeholder="https://seu-dominio.com/video.mp4"></label>
+    <p class="hint">Formato direto MP4 ou WebM. O domínio precisa estar na lista de mídia permitida da extensão na Twitch. O vídeo só começa quando cada espectador clicar em reproduzir.</p>
+    <fieldset>
+      <legend>Posição sobre o player · porcentagem</legend>
+      <div class="position-grid">
+        <label>Esquerda <input id="left" type="number" min="0" max="100" step="1"></label>
+        <label>Topo <input id="top" type="number" min="0" max="100" step="1"></label>
+        <label>Largura <input id="width" type="number" min="10" max="100" step="1"></label>
+        <label>Altura <input id="height" type="number" min="10" max="100" step="1"></label>
+      </div>
+      <p class="hint">Ponto inicial aproximado para a imagem enviada: esquerda 0%, topo 12%, largura 77%, altura 77%. Ajuste para o tamanho real do player.</p>
+    </fieldset>
+    <button id="save" type="button">Salvar configuração</button>
+    <p id="status" role="status" aria-live="polite">Aguardando a configuração da Twitch…</p>
+    <p class="notice">Use somente vídeos que você possui ou tem autorização para exibir. A extensão cobre a imagem apenas para espectadores com ela ativada; não altera o sinal enviado pelo OBS nem o VOD da transmissão.</p>
+  </main>
+</body>
+</html>
