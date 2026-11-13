@@ -116,7 +116,7 @@
 .shop-more-banners-head h2{margin:4px 0;color:#f5eff8;font:600 25px var(--serif)}
 .shop-more-banners-head button{display:grid;width:36px;height:36px;place-items:center;border:1px solid #493653;border-radius:8px;background:#17121c;color:#e6d9ed;font-size:25px;cursor:pointer}
 .shop-more-banners-dialog>p{margin:5px 0 12px;color:#b5adbb;font-size:12px}
-.shop-more-banners-dialog .shop-banner-grid{margin-top:0;grid-auto-columns:minmax(260px,calc((100% - 12px)/2))}
+.shop-more-banners-dialog .shop-banner-grid{grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:none;grid-auto-columns:initial;overflow-x:hidden;overflow-y:auto;max-height:68vh;margin-top:0}
 .shop-more-banners-empty{grid-column:1/-1;align-self:center;padding:26px 10px;text-align:center}
 .shop-banner-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,minmax(0,1fr));grid-auto-columns:minmax(270px,calc((100% - 12px)/2));gap:10px;margin-top:13px;padding:2px 2px 8px;overflow-x:auto;overflow-y:hidden;scrollbar-color:#5d4268 #17131a;scrollbar-width:thin;scroll-snap-type:x mandatory}
 .shop-banner-card{overflow:hidden;min-width:0;border:1px solid #513c5d;border-radius:10px;background:linear-gradient(145deg,#1b1520,#100e14 75%);box-shadow:0 8px 22px #0004}
@@ -143,6 +143,7 @@
 @media(max-width:760px){.shop-banner-featured-grid{gap:10px}.shop-banner-grid{grid-auto-columns:minmax(250px,calc((100% - 10px)/2))}}
 @media(max-width:480px){.shop-banner-grid{grid-auto-columns:minmax(230px,82vw)}}
 @media(max-width:520px){.shop-banner-featured-grid{grid-template-columns:1fr;max-width:100%}.shop-more-banners-dialog{padding:15px}.shop-more-banners-dialog .shop-banner-grid{grid-auto-columns:minmax(230px,82vw)}}
+@media(max-width:620px){.shop-more-banners-dialog .shop-banner-grid{grid-template-columns:1fr}}
 .admin-shop-banners{margin:25px 0 32px;padding:18px;border:1px solid #493554;border-radius:12px;background:linear-gradient(145deg,#17121c,#0e0c12 75%)}
 .admin-shop-banners>div:first-child h2{margin:5px 0;color:#f5eff8;font:600 24px var(--serif)}
 .admin-shop-banners>div:first-child p{margin:0;color:#b5adbb;font-size:12px;line-height:1.5}

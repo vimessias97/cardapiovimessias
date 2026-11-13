@@ -25,7 +25,7 @@
   const sidebarVicoinsLink = document.querySelector('#sidebarVicoinsLink');
   const profileVicoinsLink = document.querySelector('#communityMemberVicoinsLink');
   const sidebarProfileButton = document.querySelector('#sidebarUserOpenProfile');
-  const profileBannerImages = {'vimessias':'/assets/profile-banners/vimessias-1600x240.png?v=1'};
+  const profileBannerImages = {};
   const bases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
   let activeProfilePath = '';
   let currentProfileId = '';
@@ -287,7 +287,7 @@
   profileBannerSettings?.addEventListener('click',event => {
     event.preventDefault();
     window.CardapioNavigation?.showPage('lojinha');
-    window.setTimeout(() => document.querySelector('#shopBannersHeading')?.scrollIntoView({block:'center',behavior:'smooth'}),180);
+    window.setTimeout(() => document.querySelector('#shopBannerGrid [data-open-banners]')?.click(),180);
   });
 
   async function loadMembers() {

@@ -82,7 +82,6 @@ async function readVicoinsRewards() {
   });
 }
 const profileBannerRewards = [
-  {id:'vimessias',name:'ViMessias',imageUrl:'/assets/profile-banners/vimessias-1600x240.png',paymentType:'livepix',amount:5}
 ];
 function twitchConfig() {
   const clientId = process.env.TWITCH_CLIENT_ID || '';
