@@ -1,6 +1,9 @@
 .club-vime-display-name{color:#f3cf72!important;font-weight:700;text-shadow:0 0 14px #dba63855}
 .club-vime-crown{color:#ffdf74;white-space:nowrap;text-shadow:0 0 10px #e0a92888}
 .club-vime-home-card,.club-vime-shop-card{display:flex;align-items:center;gap:20px;padding:22px 26px;border:1px solid #b89949;border-radius:18px;background:radial-gradient(ellipse at 10% 0%,#79612655,transparent 55%),linear-gradient(135deg,#1c1911,#0e0c12);box-shadow:0 12px 34px #0005}
+.club-vime-home-card,.club-vime-shop-card{position:relative;isolation:isolate;overflow:hidden}
+.club-vime-home-card::before,.club-vime-shop-card::before{content:"";position:absolute;z-index:-1;inset:0;background:url('assets/clube-vime-background.png') center/cover no-repeat;opacity:.28;pointer-events:none}
+.club-vime-home-card>* ,.club-vime-shop-card>*{position:relative;z-index:1}
 .club-vime-home-card{margin:28px 0}
 .club-vime-home-crown{font-size:38px;filter:drop-shadow(0 0 14px #e1ad42aa)}
 .club-vime-home-card h2,.club-vime-shop-card h2{margin:3px 0 6px;color:#f2d077;letter-spacing:.12em;text-shadow:0 0 16px #d3a83844}
