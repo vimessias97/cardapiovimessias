@@ -4,6 +4,8 @@
   const redeemersRankingList = document.querySelector('#communityRedeemersRankList');
   const favoritesRankingList = document.querySelector('#communityFavoritesRankList');
   const ratingsRankingList = document.querySelector('#communityRatingsRankList');
+  const rankingMoreButtons = document.querySelectorAll('[data-ranking-more]');
+  const membersMoreButton = document.querySelector('#communityMembersMore');
   const dialog = document.querySelector('#communityMemberDialog');
   const close = document.querySelector('#communityMemberClose');
   const avatar = document.querySelector('#communityMemberAvatar');
@@ -23,6 +25,8 @@
   const profileBannerImages = {'vimessias':'/assets/profile-banners/vimessias-1600x240.png?v=1'};
   const bases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
   let activeProfilePath = '';
+  let membersExpanded = false;
+  const expandedRankings = new Set();
   let profileTitles = {redemptions:[],favorites:[],ratings:[]};
   let profileTotals = {redemptions:0,favorites:0,ratings:0};
   const profileContainers = {redemptions,favorites,ratings:ratedTitles};
@@ -190,7 +194,10 @@
         list.innerHTML = '<p class="community-members-empty">Os novos membros aparecerão aqui após entrarem com a Twitch.</p>';
         return;
       }
-      list.innerHTML = members.map(member => `<button class="community-member-link" type="button" data-member-id="${safe(member.id)}" aria-label="Ver perfil de ${safe(member.displayName || member.login)}">${member.profileImageUrl ? `<img src="${safe(member.profileImageUrl)}" alt="" loading="lazy">` : '<span class="community-member-avatar-fallback" aria-hidden="true">✦</span>'}<span>${window.CardapioClubVime?.name(member.displayName || member.login,member.clubVime,member.clubVimeExpiresAt) || safe(member.displayName || member.login)}</span></button>`).join('');
+      membersExpanded = false;
+      list.innerHTML = members.map((member,index) => `<button class="community-member-link${index >= 3 ? ' community-member-extra hidden' : ''}" type="button" data-member-id="${safe(member.id)}" aria-label="Ver perfil de ${safe(member.displayName || member.login)}">${member.profileImageUrl ? `<img src="${safe(member.profileImageUrl)}" alt="" loading="lazy">` : '<span class="community-member-avatar-fallback" aria-hidden="true">✦</span>'}<span>${window.CardapioClubVime?.name(member.displayName || member.login,member.clubVime,member.clubVimeExpiresAt) || safe(member.displayName || member.login)}</span></button>`).join('');
+      membersMoreButton?.classList.toggle('hidden',members.length <= 3);
+      if (membersMoreButton) membersMoreButton.textContent = 'Ver mais';
     } catch (error) {
       list.innerHTML = `<p class="community-members-empty">${safe(error.message || 'Não foi possível carregar os membros.')}</p>`;
     }
@@ -199,8 +206,11 @@
   function renderRanking(target,items,type) {
     if (!Array.isArray(items) || !items.length) {
       target.innerHTML = '<li class="community-ranking-empty">Ainda não há dados para este ranking.</li>';
+      expandedRankings.delete(target.id);
+      document.querySelector(`[data-ranking-more="${target.id}"]`)?.classList.add('hidden');
       return;
     }
+    const expanded = expandedRankings.has(target.id);
     target.innerHTML = items.map((member,index) => {
       const avatarMarkup = member.profileImageUrl ? `<img src="${safe(member.profileImageUrl)}" alt="" loading="lazy">` : '<span class="community-ranking-avatar-fallback" aria-hidden="true">✦</span>';
       const activityCount = type === 'favorites' ? member.favoriteCount : member.ratingCount;
@@ -209,8 +219,14 @@
         : type === 'redemptions'
           ? `<span class="community-ranking-value"><strong>${Number(member.totalValue || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong><small>${Number(member.redemptionCount || 0)} ${Number(member.redemptionCount) === 1 ? 'resgate' : 'resgates'}</small></span>`
           : `<span class="community-ranking-value"><strong>${Number(activityCount || 0).toLocaleString('pt-BR')}</strong><small>${type === 'favorites' ? 'favoritos' : 'avaliações'}</small></span>`;
-      return `<li class="community-ranking-row"><span class="community-ranking-position">${index + 1}</span><button type="button" class="community-ranking-profile" data-profile-id="${safe(member.id)}">${avatarMarkup}<span>${window.CardapioClubVime?.name(member.displayName || 'Usuário Twitch',member.clubVime,member.clubVimeExpiresAt) || safe(member.displayName || 'Usuário Twitch')}</span></button>${value}</li>`;
+      return `<li class="community-ranking-row${index >= 3 && !expanded ? ' hidden' : ''}"${index >= 3 ? ' data-ranking-extra="true"' : ''}><span class="community-ranking-position">${index + 1}</span><button type="button" class="community-ranking-profile" data-profile-id="${safe(member.id)}">${avatarMarkup}<span>${window.CardapioClubVime?.name(member.displayName || 'Usuário Twitch',member.clubVime,member.clubVimeExpiresAt) || safe(member.displayName || 'Usuário Twitch')}</span></button>${value}</li>`;
     }).join('');
+    const moreButton = document.querySelector(`[data-ranking-more="${target.id}"]`);
+    if (moreButton) {
+      moreButton.classList.toggle('hidden',items.length <= 3);
+      moreButton.textContent = expanded ? 'Ver menos' : 'Ver mais';
+      moreButton.setAttribute('aria-expanded',String(expanded));
+    }
   }
 
   async function loadRankings() {
@@ -247,6 +263,22 @@
   for (const ranking of [vicoinsRankingList,redeemersRankingList,favoritesRankingList,ratingsRankingList]) ranking.addEventListener('click',event => {
     const button = event.target.closest('[data-profile-id]');
     if (button) openProfile(button.dataset.profileId);
+  });
+  membersMoreButton?.addEventListener('click',() => {
+    membersExpanded = !membersExpanded;
+    list.querySelectorAll('.community-member-extra').forEach(item => item.classList.toggle('hidden',!membersExpanded));
+    membersMoreButton.textContent = membersExpanded ? 'Ver menos' : 'Ver mais';
+    membersMoreButton.setAttribute('aria-expanded',String(membersExpanded));
+  });
+  for (const button of rankingMoreButtons) button.addEventListener('click',() => {
+    const targetId = button.dataset.rankingMore;
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    const expanded = !expandedRankings.has(targetId);
+    if (expanded) expandedRankings.add(targetId); else expandedRankings.delete(targetId);
+    target.querySelectorAll('[data-ranking-extra]').forEach(item => item.classList.toggle('hidden',!expanded));
+    button.textContent = expanded ? 'Ver menos' : 'Ver mais';
+    button.setAttribute('aria-expanded',String(expanded));
   });
   close.addEventListener('click',() => dialog.close());
   dialog.addEventListener('click',event => { if (event.target === dialog) dialog.close(); });

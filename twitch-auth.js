@@ -14,6 +14,8 @@ const twitchLoginDialogAction = document.querySelector('#twitchLoginDialogAction
 const twitchLoginDialogClose = document.querySelector('#twitchLoginDialogClose');
 let currentTwitchUser = null;
 let clubVimeExpiryTimer = null;
+let authRetryTimer = null;
+let authLoadPromise = null;
 let resolveAuthReady;
 const authReady = new Promise(resolve => { resolveAuthReady = resolve; });
 
@@ -95,21 +97,40 @@ function updateTwitchUi(profile) {
 }
 
 async function loadTwitchAccount() {
-  try {
-    const response = await fetch('/api/auth/me', {credentials:'same-origin',cache:'no-store'});
-    const data = await response.json();
-    updateTwitchUi(data.authenticated ? data.profile : null);
-    if (!data.authenticated && data.expired) showTwitchFeedback('Sua sessão da Twitch expirou. Entre novamente.');
-  } catch {
-    showTwitchFeedback('Não foi possível verificar a conta agora.');
-    updateTwitchUi(null);
-  } finally {
+  if (authLoadPromise) return authLoadPromise;
+  authLoadPromise = (async () => {
+    let lastError;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await fetch('/api/auth/me', {credentials:'same-origin',cache:'no-store'});
+        if (!response.ok) throw new Error('O servidor não conseguiu verificar sua conta agora.');
+        const data = await response.json();
+        updateTwitchUi(data.authenticated ? data.profile : null);
+        if (!data.authenticated && data.expired) showTwitchFeedback('Sua sessão da Twitch expirou. Entre novamente.');
+        if (authRetryTimer) clearTimeout(authRetryTimer);
+        authRetryTimer = null;
+        return currentTwitchUser;
+      } catch (error) {
+        lastError = error;
+        if (attempt < 2) await new Promise(resolve => setTimeout(resolve,attempt === 0 ? 350 : 900));
+      }
+    }
+    showTwitchFeedback('A conexão está instável. Vou tentar verificar sua conta novamente em alguns segundos.');
+    if (!authRetryTimer) authRetryTimer = window.setTimeout(() => { authRetryTimer = null; loadTwitchAccount(); },8000);
+    if (lastError) console.warn('Não foi possível verificar a conta Twitch:',lastError.message);
+    return currentTwitchUser;
+  })();
+  try { return await authLoadPromise; }
+  finally {
     resolveAuthReady(currentTwitchUser);
+    authLoadPromise = null;
   }
 }
 
 async function logoutTwitch() {
   sidebarUserLogout.disabled = true;
+  if (authRetryTimer) clearTimeout(authRetryTimer);
+  authRetryTimer = null;
   try {
     await fetch('/api/auth/logout', {method:'POST',credentials:'same-origin'});
     updateTwitchUi(null);
@@ -165,3 +186,4 @@ updateTwitchLoginHref();
 restorePageStateAfterLogin();
 loadTwitchAccount();
 window.setInterval(loadTwitchAccount, 55 * 60 * 1000);
+window.addEventListener('online',() => { if (!currentTwitchUser) loadTwitchAccount(); });

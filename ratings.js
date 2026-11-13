@@ -1,7 +1,9 @@
 (() => {
   const topRatedList = document.querySelector('#topRatedList');
   const topRatedFeedback = document.querySelector('#topRatedFeedback');
+  const topRatedMore = document.querySelector('#topRatedMore');
   const apiBases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
+  let topRatedExpanded = false;
 
   function safe(value = '') {
     return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -28,11 +30,17 @@
     if (!topRatedList || !topRatedFeedback) return;
     if (!items.length) {
       topRatedList.innerHTML = '';
+      topRatedMore?.classList.add('hidden');
       topRatedFeedback.textContent = 'Ainda não há avaliações de títulos com react no Patreon.';
       return;
     }
     topRatedFeedback.textContent = '';
-    topRatedList.innerHTML = items.map((item,index) => `<li class="top-rated-item"><span class="top-rated-rank">${String(index + 1).padStart(2,'0')}</span><button type="button" class="top-rated-open" data-open-top-rated="${index}" aria-label="Abrir e avaliar ${safe(item.title)}">${item.posterUrl ? `<img class="top-rated-poster" src="${safe(item.posterUrl)}" alt="" loading="lazy">` : '<span class="top-rated-poster top-rated-no-poster" aria-hidden="true">✦</span>'}<span class="top-rated-copy"><strong>${safe(item.title)}</strong><span class="top-rated-score"><span aria-hidden="true">★</span> ${Number(item.averageRating).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} <small>(${item.ratingCount})</small></span></span></button></li>`).join('');
+    topRatedList.innerHTML = items.map((item,index) => `<li class="top-rated-item${index >= 3 && !topRatedExpanded ? ' hidden' : ''}"${index >= 3 ? ' data-top-rated-extra="true"' : ''}><span class="top-rated-rank">${String(index + 1).padStart(2,'0')}</span><button type="button" class="top-rated-open" data-open-top-rated="${index}" aria-label="Abrir e avaliar ${safe(item.title)}">${item.posterUrl ? `<img class="top-rated-poster" src="${safe(item.posterUrl)}" alt="" loading="lazy">` : '<span class="top-rated-poster top-rated-no-poster" aria-hidden="true">✦</span>'}<span class="top-rated-copy"><strong>${safe(item.title)}</strong><span class="top-rated-score"><span aria-hidden="true">★</span> ${Number(item.averageRating).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} <small>(${item.ratingCount})</small></span></span></button></li>`).join('');
+    topRatedMore?.classList.toggle('hidden',items.length <= 3);
+    if (topRatedMore) {
+      topRatedMore.textContent = topRatedExpanded ? 'Ver menos' : 'Ver mais';
+      topRatedMore.setAttribute('aria-expanded',String(topRatedExpanded));
+    }
     topRatedList.querySelectorAll('[data-open-top-rated]').forEach(button => button.addEventListener('click',async () => {
       const item = items[Number(button.dataset.openTopRated)];
       if (!item || !window.CardapioFavorites?.getTitle || !window.openCatalogTitle) return;
@@ -53,6 +61,13 @@
       return [];
     }
   }
+
+  topRatedMore?.addEventListener('click',() => {
+    topRatedExpanded = !topRatedExpanded;
+    topRatedList.querySelectorAll('[data-top-rated-extra]').forEach(item => item.classList.toggle('hidden',!topRatedExpanded));
+    topRatedMore.textContent = topRatedExpanded ? 'Ver menos' : 'Ver mais';
+    topRatedMore.setAttribute('aria-expanded',String(topRatedExpanded));
+  });
 
   async function get(item) {
     return api(`/api/catalog/rating?type=${encodeURIComponent(item.mediaType)}&id=${encodeURIComponent(item.id)}`);

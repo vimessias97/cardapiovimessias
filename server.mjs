@@ -165,27 +165,44 @@ async function refreshTwitchToken(session) {
     signal:AbortSignal.timeout(12000)
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data.access_token) throw new Error('A sessão da Twitch expirou. Entre novamente.');
+  if (!response.ok || !data.access_token) {
+    const error = new Error(response.status === 400 || response.status === 401 ? 'A sessão da Twitch expirou. Entre novamente.' : 'A Twitch está temporariamente indisponível.');
+    error.code = response.status === 400 || response.status === 401 ? 'TWITCH_SESSION_EXPIRED' : 'TWITCH_TEMPORARY_FAILURE';
+    throw error;
+  }
   session.accessToken = data.access_token;
   session.refreshToken = data.refresh_token || session.refreshToken;
   session.accessExpiresAt = Date.now() + Number(data.expires_in || 0) * 1000;
 }
 
 async function verifyTwitchSession(session) {
-  const {clientId} = twitchConfig();
-  if (session.accessExpiresAt && session.accessExpiresAt < Date.now() + 5 * 60 * 1000) await refreshTwitchToken(session);
-  if (session.validatedAt && Date.now() - session.validatedAt < 60 * 60 * 1000) return true;
-  const response = await fetch('https://id.twitch.tv/oauth2/validate', {headers:{Authorization:`OAuth ${session.accessToken}`},signal:AbortSignal.timeout(12000)});
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || data.client_id !== clientId || data.user_id !== session.profile.id) return false;
-  session.validatedAt = Date.now();
-  session.accessExpiresAt = Date.now() + Number(data.expires_in || 0) * 1000;
-  const userResponse = await fetch('https://api.twitch.tv/helix/users', {headers:{Authorization:`Bearer ${session.accessToken}`,'Client-Id':clientId},signal:AbortSignal.timeout(12000)});
-  const userData = await userResponse.json().catch(() => ({}));
-  const user = userData.data?.[0];
-  if (!userResponse.ok || !user || user.id !== session.profile.id) return false;
-  session.profile = {id:user.id,login:user.login,displayName:user.display_name,profileImageUrl:user.profile_image_url || ''};
-  return true;
+  if (session.verificationPromise) return session.verificationPromise;
+  const verification = (async () => {
+    const {clientId} = twitchConfig();
+    if (session.accessExpiresAt && session.accessExpiresAt < Date.now() + 5 * 60 * 1000) {
+      try { await refreshTwitchToken(session); }
+      catch (error) { if (error.code === 'TWITCH_SESSION_EXPIRED') return false; throw error; }
+    }
+    if (session.validatedAt && Date.now() - session.validatedAt < 60 * 60 * 1000) return true;
+    const response = await fetch('https://id.twitch.tv/oauth2/validate', {headers:{Authorization:`OAuth ${session.accessToken}`},signal:AbortSignal.timeout(12000)});
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 400 || response.status === 401) return false;
+    if (!response.ok) throw new Error('A Twitch está temporariamente indisponível.');
+    if (data.client_id !== clientId || data.user_id !== session.profile.id) return false;
+    const userResponse = await fetch('https://api.twitch.tv/helix/users', {headers:{Authorization:`Bearer ${session.accessToken}`,'Client-Id':clientId},signal:AbortSignal.timeout(12000)});
+    const userData = await userResponse.json().catch(() => ({}));
+    if (userResponse.status === 400 || userResponse.status === 401) return false;
+    if (!userResponse.ok) throw new Error('A Twitch está temporariamente indisponível.');
+    const user = userData.data?.[0];
+    if (!user || user.id !== session.profile.id) return false;
+    session.profile = {id:user.id,login:user.login,displayName:user.display_name,profileImageUrl:user.profile_image_url || ''};
+    session.validatedAt = Date.now();
+    session.accessExpiresAt = Date.now() + Number(data.expires_in || 0) * 1000;
+    return true;
+  })();
+  session.verificationPromise = verification;
+  try { return await verification; }
+  finally { if (session.verificationPromise === verification) delete session.verificationPromise; }
 }
 
 async function getAuthenticatedProfile(req, res) {
@@ -195,22 +212,24 @@ async function getAuthenticatedProfile(req, res) {
     if (sessionId) twitchSessions.delete(sessionId);
     return null;
   }
-  try {
-    if (!await verifyTwitchSession(session)) throw new Error('Sessão inválida.');
-    if (!session.communityMemberSavedAt || Date.now() - session.communityMemberSavedAt > 60 * 60 * 1000) {
-      try {
-        await saveCommunityMember(session.profile);
-        session.communityMemberSavedAt = Date.now();
-      } catch (error) { console.warn('Não foi possível atualizar o perfil da comunidade:',error.message); }
-    }
-    const role = getTwitchRole(session.profile);
-    if (role === 'admin') infiniteVicoinsUserIds.add(session.profile.id);
-    return {...session.profile,role};
-  } catch {
+  let valid;
+  try { valid = await verifyTwitchSession(session); }
+  catch (error) {
+    console.warn('Não foi possível verificar a sessão Twitch agora:',error.message);
+    throw error;
+  }
+  if (!valid) {
     twitchSessions.delete(sessionId);
     res.setHeader('set-cookie', `cardapio_twitch_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${cookieOptions(req)}`);
     return null;
   }
+  if (!session.communityMemberSavedAt || Date.now() - session.communityMemberSavedAt > 60 * 60 * 1000) {
+    session.communityMemberSavedAt = Date.now();
+    saveCommunityMember(session.profile).catch(error => console.warn('Não foi possível atualizar o perfil da comunidade:',error.message));
+  }
+  const role = getTwitchRole(session.profile);
+  if (role === 'admin') infiniteVicoinsUserIds.add(session.profile.id);
+  return {...session.profile,role};
 }
 
 function json(res, status, data) {
@@ -424,11 +443,11 @@ async function deleteForumAttachment(attachment) {
 }
 
 async function readVicoinsStore() {
-  const defaults = {balances:{},transactions:[],orders:[],bannerOrders:[],gameKeys:[],gameKeyOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{},clubVimeMembers:[]};
+  const defaults = {balances:{},transactions:[],orders:[],bannerOrders:[],gameKeys:[],gameKeyOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},dailyStreaks:{},profileBannerInventory:{},clubVimeMembers:[]};
   const value = await readJsonState('vicoins',defaults);
   if (!value || typeof value !== 'object' || Array.isArray(value)) return defaults;
   if (value.balances && typeof value.balances === 'object' && !Array.isArray(value.balances)) {
-    return {balances:value.balances,transactions:Array.isArray(value.transactions) ? value.transactions : [],orders:Array.isArray(value.orders) ? value.orders : [],bannerOrders:Array.isArray(value.bannerOrders) ? value.bannerOrders : [],gameKeys:Array.isArray(value.gameKeys) ? value.gameKeys : [],gameKeyOrders:Array.isArray(value.gameKeyOrders) ? value.gameKeyOrders : [],customProfileBanners:Array.isArray(value.customProfileBanners) ? value.customProfileBanners : [],removedProfileBanners:Array.isArray(value.removedProfileBanners) ? value.removedProfileBanners : [],dailyClaims:value.dailyClaims && typeof value.dailyClaims === 'object' && !Array.isArray(value.dailyClaims) ? value.dailyClaims : {},profileBannerInventory:value.profileBannerInventory && typeof value.profileBannerInventory === 'object' && !Array.isArray(value.profileBannerInventory) ? value.profileBannerInventory : {},clubVimeMembers:Array.isArray(value.clubVimeMembers) ? value.clubVimeMembers : []};
+    return {balances:value.balances,transactions:Array.isArray(value.transactions) ? value.transactions : [],orders:Array.isArray(value.orders) ? value.orders : [],bannerOrders:Array.isArray(value.bannerOrders) ? value.bannerOrders : [],gameKeys:Array.isArray(value.gameKeys) ? value.gameKeys : [],gameKeyOrders:Array.isArray(value.gameKeyOrders) ? value.gameKeyOrders : [],customProfileBanners:Array.isArray(value.customProfileBanners) ? value.customProfileBanners : [],removedProfileBanners:Array.isArray(value.removedProfileBanners) ? value.removedProfileBanners : [],dailyClaims:value.dailyClaims && typeof value.dailyClaims === 'object' && !Array.isArray(value.dailyClaims) ? value.dailyClaims : {},dailyStreaks:value.dailyStreaks && typeof value.dailyStreaks === 'object' && !Array.isArray(value.dailyStreaks) ? value.dailyStreaks : {},profileBannerInventory:value.profileBannerInventory && typeof value.profileBannerInventory === 'object' && !Array.isArray(value.profileBannerInventory) ? value.profileBannerInventory : {},clubVimeMembers:Array.isArray(value.clubVimeMembers) ? value.clubVimeMembers : []};
   }
   return {...defaults,balances:value};
 }
@@ -448,6 +467,27 @@ function getProfileBannerInventory(store,userId) {
   return {owned,equipped:rewards.find(item => item.id === equippedId) || null};
 }
 
+function saoPauloDayIndex(value) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-US',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);
+  const part = key => Number(parts.find(item => item.type === key)?.value);
+  const year = part('year'),month = part('month'),day = part('day');
+  return Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day) ? Math.floor(Date.UTC(year,month - 1,day) / 86400000) : null;
+}
+
+function dailyLoginReward(streak) {
+  return Math.min(50,20 + Math.max(0,Math.floor(Number(streak) || 0) - 1) * 10);
+}
+
+function currentDailyLoginStreak(store,userId,now = Date.now()) {
+  const lastClaim = Date.parse(store.dailyClaims?.[userId] || '');
+  if (!Number.isFinite(lastClaim)) return 0;
+  const elapsedDays = saoPauloDayIndex(now) - saoPauloDayIndex(lastClaim);
+  if (elapsedDays < 0 || elapsedDays > 1) return 0;
+  return Math.max(1,Math.floor(Number(store.dailyStreaks?.[userId]) || 1));
+}
+
 function hasClubVime(store,userId) {
   return Boolean(getClubVimeMembership(store,userId)?.expiresAt && Date.parse(getClubVimeMembership(store,userId).expiresAt) > Date.now());
 }
@@ -459,7 +499,7 @@ function getClubVimeMembership(store,userId) {
 
 async function updateVicoinsStore(update) {
   const operation = vicoinsWriteQueue.then(async () => {
-    return updateJsonState('vicoins',{balances:{},transactions:[],orders:[],bannerOrders:[],gameKeys:[],gameKeyOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},profileBannerInventory:{}},update);
+    return updateJsonState('vicoins',{balances:{},transactions:[],orders:[],bannerOrders:[],gameKeys:[],gameKeyOrders:[],customProfileBanners:[],removedProfileBanners:[],dailyClaims:{},dailyStreaks:{},profileBannerInventory:{}},update);
   });
   vicoinsWriteQueue = operation.catch(() => {});
   return operation;
@@ -1119,15 +1159,15 @@ async function handle(req, res) {
       const userData = await userResponse.json().catch(() => ({}));
       const user = userData.data?.[0];
       if (!userResponse.ok || !user || user.id !== validation.user_id) throw new Error('Não consegui carregar o perfil da Twitch.');
-      try { await saveCommunityMember({id:user.id,login:user.login,displayName:user.display_name,profileImageUrl:user.profile_image_url || ''}); }
-      catch (error) { console.warn('Não foi possível registrar o novo perfil da comunidade:',error.message); }
       const sessionId = randomBytes(32).toString('base64url');
-      twitchSessions.set(sessionId, {
+      const session = {
         profile:{id:user.id,login:user.login,displayName:user.display_name,profileImageUrl:user.profile_image_url || ''},
         accessToken:token.access_token,refreshToken:token.refresh_token,
         accessExpiresAt:Date.now() + Number(token.expires_in || validation.expires_in || 0) * 1000,
-        validatedAt:Date.now(),expiresAt:Date.now() + 7 * 24 * 60 * 60 * 1000
-      });
+        validatedAt:Date.now(),expiresAt:Date.now() + 7 * 24 * 60 * 60 * 1000,communityMemberSavedAt:Date.now()
+      };
+      twitchSessions.set(sessionId,session);
+      saveCommunityMember(session.profile).catch(error => console.warn('Não foi possível registrar o novo perfil da comunidade:',error.message));
       res.setHeader('set-cookie', [clearStateCookie, `cardapio_twitch_session=${encodeURIComponent(sessionId)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800${cookieOptions(req)}`]);
       return redirect(res, twitchReturnRedirect(pending.returnTo,'connected'));
     } catch {
@@ -1953,7 +1993,9 @@ async function handle(req, res) {
     const store = await readVicoinsStore();
     const lastClaim = Date.parse(store.dailyClaims[profile.id] || '');
     const availableAt = Number.isFinite(lastClaim) ? new Date(lastClaim + 24 * 60 * 60 * 1000).toISOString() : null;
-    return privateJson(res,200,{claimAmount:20,eligible:!availableAt || Date.now() >= Date.parse(availableAt),availableAt,balance:await getVicoinsBalance(profile.id,profile.role === 'admin'),infinite:profile.role === 'admin'});
+    const streak = currentDailyLoginStreak(store,profile.id);
+    const claimAmount = streak ? dailyLoginReward(Math.min(4,streak + 1)) : 20;
+    return privateJson(res,200,{claimAmount,streak,eligible:!availableAt || Date.now() >= Date.parse(availableAt),availableAt,balance:await getVicoinsBalance(profile.id,profile.role === 'admin'),infinite:profile.role === 'admin'});
   }
   if (req.method === 'POST' && url.pathname === '/api/account/vicoins/daily') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -1971,9 +2013,15 @@ async function handle(req, res) {
         }
         const claimedAt = new Date(now).toISOString();
         const availableAt = new Date(now + 24 * 60 * 60 * 1000).toISOString();
-        const balance = applyVicoinsTransaction(store,{userId:profile.id,amount:20,type:'daily-login',referenceId:claimedAt,description:'Bônus diário de login'});
+        store.dailyStreaks = store.dailyStreaks && typeof store.dailyStreaks === 'object' && !Array.isArray(store.dailyStreaks) ? store.dailyStreaks : {};
+        const elapsedDays = Number.isFinite(lastClaim) ? saoPauloDayIndex(now) - saoPauloDayIndex(lastClaim) : null;
+        const previousStreak = Math.max(1,Math.floor(Number(store.dailyStreaks[profile.id]) || 1));
+        const streak = elapsedDays === 1 ? Math.min(4,previousStreak + 1) : 1;
+        const claimAmount = dailyLoginReward(streak);
+        const balance = applyVicoinsTransaction(store,{userId:profile.id,amount:claimAmount,type:'daily-login',referenceId:claimedAt,description:`Bônus diário de login · sequência ${streak}`});
         store.dailyClaims[profile.id] = claimedAt;
-        return {claimAmount:20,balance,eligible:false,availableAt};
+        store.dailyStreaks[profile.id] = streak;
+        return {claimAmount,streak,balance,eligible:false,availableAt};
       });
       return privateJson(res,200,result);
     } catch (error) {

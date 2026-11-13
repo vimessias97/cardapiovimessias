@@ -4,6 +4,7 @@
   const requestedTitleInput = document.querySelector('#shopRequestedTitle');
   const dailyClaimButton = document.querySelector('#claimDailyVicoins');
   const dailyTimer = document.querySelector('#dailyVicoinsTimer');
+  const dailyClaimAmountLabel = document.querySelector('#dailyClaimAmount');
   const bannerGrid = document.querySelector('#shopBannerGrid');
   const gameKeysRoot = document.querySelector('#shopGameKeysList');
   const gameKeysFeedback = document.querySelector('#shopGameKeysFeedback');
@@ -23,6 +24,7 @@
   let infiniteBalance = false;
   let dailyAvailableAt = null;
   let dailyEligible = false;
+  let dailyClaimAmount = 20;
   let dailyTimerInterval = null;
   let bannerCatalog = [];
   let gameKeys = [];
@@ -62,6 +64,7 @@
   }
 
   function renderDailyStatus() {
+    if (dailyClaimAmountLabel) dailyClaimAmountLabel.textContent = `+${dailyClaimAmount} Vicoins`;
     if (!window.CardapioAuth?.isAuthenticated()) {
       dailyTimer.textContent = 'Entre com a Twitch para liberar';
       dailyClaimButton.textContent = 'Entrar';
@@ -98,6 +101,7 @@
     if (!window.CardapioAuth?.isAuthenticated()) {
       dailyAvailableAt = null;
       dailyEligible = false;
+      dailyClaimAmount = 20;
       renderDailyStatus();
       return;
     }
@@ -105,6 +109,7 @@
       const data = await api('/api/account/vicoins/daily');
       dailyAvailableAt = data.availableAt || null;
       dailyEligible = Boolean(data.eligible);
+      dailyClaimAmount = Number.isSafeInteger(Number(data.claimAmount)) ? Number(data.claimAmount) : 20;
       if (Number.isSafeInteger(Number(data.balance))) updateBalance(data.balance);
       renderDailyStatus();
     } catch (error) {
@@ -293,7 +298,7 @@
   }
 
   dailyClaimButton.addEventListener('click',async () => {
-    if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para resgatar seus 20 Vicoins diários.')) return;
+    if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para resgatar seu bônus diário de Vicoins.')) return;
     if (!dailyEligible) return;
     dailyClaimButton.disabled = true;
     dailyTimer.textContent = 'Registrando seu bônus…';
@@ -301,8 +306,10 @@
       const data = await api('/api/account/vicoins/daily',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
       dailyAvailableAt = data.availableAt;
       dailyEligible = false;
+      const received = Number(data.claimAmount) || dailyClaimAmount;
+      dailyClaimAmount = Math.min(50,20 + (Number(data.streak) || 1) * 10);
       updateBalance(data.balance);
-      feedback.textContent = 'Você recebeu 20 Vicoins. O próximo bônus poderá ser resgatado em 24 horas.';
+      feedback.textContent = `Você recebeu ${received} Vicoins. O próximo bônus poderá ser resgatado em 24 horas.`;
       renderDailyStatus();
     } catch (error) {
       feedback.textContent = error.message || 'Não foi possível resgatar o bônus diário.';
