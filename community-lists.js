@@ -108,7 +108,7 @@
   }
   async function openList(id) {
     if (!id) return;
-    if (currentList?.id === String(id)) { renderDetail(currentList); return; }
+    if (currentList?.id === String(id)) return;
     if (listDetailsCache.has(String(id))) { listOpenRequest++; pendingListId = ''; renderDetail(listDetailsCache.get(String(id))); return; }
     if (pendingListId === String(id)) return;
     const requestId = ++listOpenRequest;
@@ -258,7 +258,15 @@
   window.addEventListener('cardapio:auth-updated',event => {
     const user = event.detail?.user;
     if (createHint) createHint.textContent = user ? 'Crie uma lista e organize seus filmes e séries favoritos.' : 'Entre com a Twitch para montar e editar suas listas.';
-    if (page && !page.classList.contains('hidden')) currentList ? renderDetail(currentList) : currentListId ? openList(currentListId) : loadLists();
+    if (!page || page.classList.contains('hidden')) return;
+    if (currentList) {
+      const ownerSignedIn = String(user?.id || '') === String(currentList.owner?.id || '');
+      const editFormExists = Boolean(grid.querySelector('#communityListEditForm'));
+      if (ownerSignedIn && !editFormExists && !grid.contains(document.activeElement)) renderDetail(currentList);
+      return;
+    }
+    if (currentListId) openList(currentListId);
+    else loadLists();
   });
   loadHomeLists();
 })();

@@ -61,7 +61,10 @@
   function renderProfileMembership(profile = {}) {
     if (memberSince) {
       const joinedAt = Date.parse(profile.joinedAt || '');
-      memberSince.textContent = Number.isFinite(joinedAt) ? `Membro desde ${new Date(joinedAt).getFullYear()}` : 'Membro da comunidade';
+      const joinedDate = Number.isFinite(joinedAt)
+        ? new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',timeZone:'America/Sao_Paulo'}).format(new Date(joinedAt))
+        : '';
+      memberSince.textContent = joinedDate ? `MEMBRO DESDE ${joinedDate}` : 'MEMBRO DA COMUNIDADE';
     }
   }
 
