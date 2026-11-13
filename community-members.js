@@ -8,6 +8,7 @@
   const membersMoreButton = document.querySelector('#communityMembersMore');
   const profilePage = document.querySelector('#perfil');
   const profileHero = document.querySelector('#communityProfileHero');
+  const profileBannerSettings = document.querySelector('#communityProfileBannerSettings');
   const avatar = document.querySelector('#communityMemberAvatar');
   const name = document.querySelector('#communityMemberName');
   const memberSince = document.querySelector('#communityMemberSince');
@@ -55,9 +56,9 @@
       profileBannerPaletteRequest += 1;
       profileHero.classList.remove('has-profile-banner');
       profileHero.style.removeProperty('--community-profile-banner');
-      profileHero.style.removeProperty('--profile-accent');
-      profileHero.style.removeProperty('--profile-accent-soft');
-      profileHero.style.removeProperty('--profile-accent-glow');
+      profilePage.style.removeProperty('--profile-accent');
+      profilePage.style.removeProperty('--profile-accent-soft');
+      profilePage.style.removeProperty('--profile-accent-glow');
       return;
     }
     profileHero.style.setProperty('--community-profile-banner',`url("${imageUrl}")`);
@@ -99,9 +100,9 @@
         if (delta) hue = max === red ? 60 * (((green - blue) / delta) % 6) : max === green ? 60 * ((blue - red) / delta + 2) : 60 * ((red - green) / delta + 4);
         hue = (hue + 360) % 360;
         const saturation = Math.round(Math.min(78,Math.max(48,dominant.saturation / dominant.count * 100)));
-        profileHero.style.setProperty('--profile-accent',`hsl(${Math.round(hue)} ${saturation}% 62%)`);
-        profileHero.style.setProperty('--profile-accent-soft',`hsl(${Math.round(hue)} 34% 18%)`);
-        profileHero.style.setProperty('--profile-accent-glow',`hsl(${Math.round(hue)} ${saturation}% 58% / .42)`);
+        profilePage.style.setProperty('--profile-accent',`hsl(${Math.round(hue)} ${saturation}% 62%)`);
+        profilePage.style.setProperty('--profile-accent-soft',`hsl(${Math.round(hue)} 34% 18%)`);
+        profilePage.style.setProperty('--profile-accent-glow',`hsl(${Math.round(hue)} ${saturation}% 58% / .42)`);
       } catch {
         // Mantém o roxo padrão se o navegador não permitir ler a imagem.
       }
@@ -225,6 +226,7 @@
     name.textContent = 'Carregando perfil…';
     if (memberSince) memberSince.textContent = 'Carregando…';
     setProfileBanner(null);
+    profileBannerSettings?.classList.add('hidden');
     setVicoins(0,true);
     feedback.textContent = '';
     renderProfileActivity([]);
@@ -249,6 +251,7 @@
       name.innerHTML = window.CardapioClubVime?.name(profile.displayName || profile.login || 'Perfil Twitch',profile.isClubVime,profile.clubVimeExpiresAt) || safe(profile.displayName || profile.login || 'Perfil Twitch');
       setVicoins(profile.vicoins,true,profile.vicoinsInfinite);
       setProfileBanner(profile.banner);
+      profileBannerSettings?.classList.toggle('hidden',!ownProfile);
       renderProfileActivity(data.activities || []);
       window.CardapioLists?.renderProfileLists(memberId,data.lists || []);
       renderAchievements(data.achievements || {});
@@ -267,6 +270,12 @@
       feedback.textContent = error.message || 'Não foi possível carregar este perfil.';
     }
   }
+
+  profileBannerSettings?.addEventListener('click',event => {
+    event.preventDefault();
+    window.CardapioNavigation?.showPage('lojinha');
+    window.setTimeout(() => document.querySelector('#shopBannersHeading')?.scrollIntoView({block:'center',behavior:'smooth'}),180);
+  });
 
   async function loadMembers() {
     try {

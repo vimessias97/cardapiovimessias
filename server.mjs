@@ -691,7 +691,8 @@ function buildProfileActivities(memberId,{favorites = [],ratings = [],redemption
     for (const comment of Array.isArray(list.comments) ? list.comments : []) if (String(comment.author?.id) === String(memberId)) activities.push({type:'comment',title:list.title,createdAt:comment.createdAt});
     for (const [userId,createdAt] of Object.entries(list.likeActivity || {})) if (String(userId) === String(memberId)) activities.push({type:'list-like',title:list.title,createdAt});
   }
-  return activities.filter(item => Number.isFinite(Date.parse(item.createdAt))).sort((a,b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0,20);
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  return activities.filter(item => Number.isFinite(Date.parse(item.createdAt)) && Date.parse(item.createdAt) >= sevenDaysAgo && Date.parse(item.createdAt) <= Date.now()).sort((a,b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0,20);
 }
 
 function profileTitlePage(items,offset = 0,limit = 5) {
