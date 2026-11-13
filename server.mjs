@@ -31,6 +31,7 @@ const forumUploadsDir = path.join(dataRoot, 'forum-uploads');
 const profileBannersDir = path.join(dataRoot, 'profile-banners');
 const youtubeVideosFile = path.join(dataRoot, 'youtube-videos.json');
 const patreonMappingsFile = path.join(dataRoot, 'patreon-mappings.json');
+const userTitleListsFile = path.join(dataRoot, 'user-title-lists.json');
 await mkdir(forumUploadsDir,{recursive:true});
 await mkdir(profileBannersDir,{recursive:true});
 if (persistenceMode === 'local' && dataRoot !== root) {
@@ -60,6 +61,7 @@ let communityMembersWriteQueue = Promise.resolve();
 let promotionsWriteQueue = Promise.resolve();
 let vicoinsWriteQueue = Promise.resolve();
 let forumWriteQueue = Promise.resolve();
+let userListsWriteQueue = Promise.resolve();
 const defaultPromotionCollections = [
   {id:'lotr',name:'Trilogia O Senhor dos Anéis',discountPercent:30,titles:[{id:120,mediaType:'movie'},{id:121,mediaType:'movie'},{id:122,mediaType:'movie'}]},
   {id:'hobbit',name:'Trilogia O Hobbit',discountPercent:30,titles:[{id:49051,mediaType:'movie'},{id:57158,mediaType:'movie'},{id:122917,mediaType:'movie'}]},
@@ -249,7 +251,8 @@ const localStateFiles = {
   gameProgress:gameProgressFile,
   forum:forumFile,
   youtubeVideos:youtubeVideosFile,
-  patreonMappings:patreonMappingsFile
+  patreonMappings:patreonMappingsFile,
+  userTitleLists:userTitleListsFile
 };
 
 async function supabaseRest(resource,options = {}) {
@@ -328,6 +331,12 @@ async function updateJsonState(key,fallback,update) {
     if (Array.isArray(updated) && updated.length) return result;
   }
   throw new Error(`O estado "${key}" mudou várias vezes; tente novamente.`);
+}
+
+async function updateUserTitleLists(update) {
+  const operation = userListsWriteQueue.then(() => updateJsonState('userTitleLists',[],update));
+  userListsWriteQueue = operation.catch(() => {});
+  return operation;
 }
 
 function storageObjectPath(value) {
@@ -1500,6 +1509,87 @@ async function handle(req, res) {
       .map(({id,login,displayName,profileImageUrl,joinedAt}) => ({id,login,displayName,profileImageUrl,joinedAt,clubVime:hasClubVime(clubVimeStore,id),clubVimeExpiresAt:getClubVimeMembership(clubVimeStore,id)?.expiresAt || null}));
     return json(res,200,{members});
   }
+  if (req.method === 'GET' && url.pathname === '/api/lists') {
+    const ownerId = String(url.searchParams.get('owner') || '').slice(0,32);
+    const lists = await readJsonState('userTitleLists',[]);
+    const visible = (Array.isArray(lists) ? lists : [])
+      .filter(item => item && item.public !== false && (!ownerId || String(item.owner?.id) === ownerId))
+      .sort((a,b) => Date.parse(b.updatedAt || b.createdAt || '') - Date.parse(a.updatedAt || a.createdAt || ''))
+      .slice(0,100)
+      .map(({id,owner,title,description,items,updatedAt,createdAt}) => ({id,owner,title,description,itemCount:Array.isArray(items) ? items.length : 0,updatedAt,createdAt}));
+    return json(res,200,{lists:visible});
+  }
+  if (req.method === 'GET' && url.pathname.startsWith('/api/lists/')) {
+    const listId = url.pathname.slice('/api/lists/'.length);
+    if (!/^[a-f0-9-]{36}$/i.test(listId)) return json(res,400,{error:'Lista inválida.'});
+    const lists = await readJsonState('userTitleLists',[]);
+    const item = (Array.isArray(lists) ? lists : []).find(list => list?.id === listId && list.public !== false);
+    return item ? json(res,200,{list:item}) : json(res,404,{error:'Esta lista não está disponível.'});
+  }
+  if (req.method === 'POST' && url.pathname === '/api/lists') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para criar listas.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req,30000); } catch (error) { return privateJson(res,400,{error:error.message}); }
+    const title = String(body.title || '').trim().slice(0,80);
+    const description = String(body.description || '').trim().slice(0,240);
+    if (title.length < 2) return privateJson(res,400,{error:'O nome da lista precisa ter pelo menos 2 caracteres.'});
+    try {
+      const created = await updateUserTitleLists(state => {
+        if (!Array.isArray(state)) throw new Error('Não foi possível abrir o armazenamento das listas.');
+        const mine = state.filter(item => String(item?.owner?.id) === String(profile.id));
+        if (mine.length >= 50) throw new Error('Você chegou ao limite de 50 listas.');
+        const now = new Date().toISOString();
+        const item = {id:randomUUID(),owner:{id:String(profile.id),login:String(profile.login || '').slice(0,25),displayName:String(profile.displayName || profile.login || 'Usuário').slice(0,50),profileImageUrl:String(profile.profileImageUrl || '').slice(0,500)},title,description,items:[],public:true,createdAt:now,updatedAt:now};
+        state.unshift(item); return item;
+      });
+      return privateJson(res,201,{list:created});
+    } catch (error) { return privateJson(res,400,{error:error.message || 'Não foi possível criar a lista.'}); }
+  }
+  if (req.method === 'PATCH' && url.pathname.startsWith('/api/lists/')) {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para editar listas.'});
+    const origin = req.headers.origin;
+    if (origin && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    const listId = url.pathname.slice('/api/lists/'.length);
+    if (!/^[a-f0-9-]{36}$/i.test(listId)) return privateJson(res,400,{error:'Lista inválida.'});
+    let body;
+    try { body = await readRequestJson(req,30000); } catch (error) { return privateJson(res,400,{error:error.message}); }
+    try {
+      const updated = await updateUserTitleLists(state => {
+        if (!Array.isArray(state)) throw new Error('Lista não encontrada.');
+        const list = state.find(item => item?.id === listId);
+        if (!list) throw new Error('Lista não encontrada.');
+        if (String(list.owner?.id) !== String(profile.id)) throw new Error('Você só pode alterar as suas próprias listas.');
+        const action = String(body.action || 'update');
+        if (action === 'delete-list') { state.splice(state.indexOf(list),1); return {deleted:true,id:listId}; }
+        if (action === 'update') {
+          const title = String(body.title ?? list.title).trim().slice(0,80);
+          if (title.length < 2) throw new Error('O nome da lista precisa ter pelo menos 2 caracteres.');
+          list.title = title; list.description = String(body.description ?? list.description).trim().slice(0,240);
+        } else if (action === 'add-title') {
+          if (!Array.isArray(list.items)) list.items = [];
+          if (list.items.length >= 100) throw new Error('Cada lista pode ter até 100 títulos.');
+          const incoming = body.item || {};
+          const id = Number(incoming.id);
+          const mediaType = String(incoming.mediaType || '');
+          const itemTitle = String(incoming.title || '').trim().slice(0,160);
+          if (!Number.isSafeInteger(id) || id < 1 || !['movie','tv'].includes(mediaType) || itemTitle.length < 1) throw new Error('Título inválido. Selecione um resultado do catálogo.');
+          if (list.items.some(item => Number(item.id) === id && item.mediaType === mediaType)) throw new Error('Este título já está na lista.');
+          const posterUrl = String(incoming.posterUrl || '');
+          list.items.push({id,mediaType,title:itemTitle,year:String(incoming.year || '').slice(0,4),posterUrl:/^https:\/\/image\.tmdb\.org\//i.test(posterUrl) ? posterUrl.slice(0,500) : '',kind:String(incoming.kind || (mediaType === 'tv' ? 'Série' : 'Filme')).slice(0,40)});
+        } else if (action === 'remove-title') {
+          const index = list.items.findIndex(item => Number(item.id) === Number(body.titleId) && item.mediaType === String(body.mediaType || ''));
+          if (index < 0) throw new Error('Título não encontrado nesta lista.');
+          list.items.splice(index,1);
+        } else throw new Error('Ação inválida para esta lista.');
+        list.updatedAt = new Date().toISOString(); return list;
+      });
+      return privateJson(res,200,{list:updated});
+    } catch (error) { return privateJson(res,400,{error:error.message || 'Não foi possível atualizar a lista.'}); }
+  }
   if (req.method === 'GET' && url.pathname === '/api/community/rankings') {
     const members = await readCommunityMembers();
     const memberById = new Map(members.map(member => [member.id,member]));
@@ -1568,7 +1658,9 @@ async function handle(req, res) {
     const bannerInventory = getProfileBannerInventory(vicoinsStore,memberId);
     const isAdmin = getTwitchRole(member) === 'admin';
     const profile = {id:member.id,login:member.login,displayName:member.displayName,profileImageUrl:member.profileImageUrl,joinedAt:member.joinedAt,isClubVime:hasClubVime(vicoinsStore,memberId),clubVimeExpiresAt:getClubVimeMembership(vicoinsStore,memberId)?.expiresAt || null,vicoins:await getVicoinsBalance(memberId,isAdmin),vicoinsInfinite:isAdmin,banner:bannerInventory.equipped};
-    return json(res,200,{profile,favorites,redemptions,ratings,totals,achievements,badges:await getCommunityBadgesForMember(memberId)});
+    const savedLists = await readJsonState('userTitleLists',[]);
+    const lists = (Array.isArray(savedLists) ? savedLists : []).filter(item => String(item?.owner?.id) === memberId && item.public !== false).map(({id,title,items,updatedAt}) => ({id,title,itemCount:Array.isArray(items) ? items.length : 0,updatedAt}));
+    return json(res,200,{profile,favorites,redemptions,ratings,totals,achievements,lists,badges:await getCommunityBadgesForMember(memberId)});
   }
   if (req.method === 'GET' && url.pathname === '/api/shop/rewards') {
     return json(res,200,{rewards:await readVicoinsRewards()});
@@ -1782,7 +1874,9 @@ async function handle(req, res) {
     const vicoinsStore = await readVicoinsStore();
     const communityMember = (await readCommunityMembers()).find(member => String(member.id) === String(profile.id));
     const bannerInventory = getProfileBannerInventory(vicoinsStore,profile.id);
-    return privateJson(res,200,{profile:{...profile,joinedAt:communityMember?.joinedAt || null,isClubVime:hasClubVime(vicoinsStore,profile.id),clubVimeExpiresAt:getClubVimeMembership(vicoinsStore,profile.id)?.expiresAt || null,vicoins:await getVicoinsBalance(profile.id,profile.role === 'admin'),vicoinsInfinite:profile.role === 'admin',banner:bannerInventory.equipped},favorites,redemptions,ratings,totals,achievements,badges:await getCommunityBadgesForMember(profile.id)});
+    const savedLists = await readJsonState('userTitleLists',[]);
+    const lists = (Array.isArray(savedLists) ? savedLists : []).filter(item => String(item?.owner?.id) === String(profile.id) && item.public !== false).map(({id,title,items,updatedAt}) => ({id,title,itemCount:Array.isArray(items) ? items.length : 0,updatedAt}));
+    return privateJson(res,200,{profile:{...profile,joinedAt:communityMember?.joinedAt || null,isClubVime:hasClubVime(vicoinsStore,profile.id),clubVimeExpiresAt:getClubVimeMembership(vicoinsStore,profile.id)?.expiresAt || null,vicoins:await getVicoinsBalance(profile.id,profile.role === 'admin'),vicoinsInfinite:profile.role === 'admin',banner:bannerInventory.equipped},favorites,redemptions,ratings,totals,achievements,lists,badges:await getCommunityBadgesForMember(profile.id)});
   }
   if (req.method === 'GET' && url.pathname === '/api/account/profile-banner') {
     const profile = await getAuthenticatedProfile(req,res);

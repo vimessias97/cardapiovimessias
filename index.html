@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="recent-redemptions.css">
   <link rel="stylesheet" href="react-week.css">
   <link rel="stylesheet" href="community-members.css">
+  <link rel="stylesheet" href="community-lists.css">
   <link rel="stylesheet" href="readability.css">
   <link rel="stylesheet" href="twitch-auth.css">
   <link rel="stylesheet" href="user-profile.css">
@@ -43,6 +44,7 @@
         <a href="#sorteador" data-page="sorteador"><span>⚄</span>Sorteador</a>
         <a href="#sugestoes" data-page="sugestoes"><span>♡</span>Favoritos</a>
         <a href="#calendario" data-page="calendario"><span>▦</span>Calendário</a>
+        <a href="#listas" data-page="listas"><span>☷</span>Listas</a>
       </nav>
       <div class="sidebar-account-slot">
         <div class="sidebar-login-area" id="sidebarLoginArea"><a class="twitch-login" id="twitchLogin" href="/auth/twitch/start"><span class="twitch-mark" aria-hidden="true">◉</span><span>Entrar com Twitch</span></a><span class="twitch-auth-feedback" id="twitchAuthFeedback" aria-live="polite"></span></div>
@@ -262,13 +264,17 @@
         <section class="admin-shop-banners" aria-labelledby="adminShopBannersHeading"><div><span class="eyebrow muted">PERSONALIZE A LOJINHA</span><h2 id="adminShopBannersHeading">Gerenciar banners de perfil</h2><p>Adicione banners de 1600 × 240 px. Todos ficam disponíveis por R$ 5 via LivePix, com liberação após aprovação.</p></div><form id="adminShopBannerForm" class="admin-shop-banner-form"><label>Nome interno do banner<input name="name" type="text" maxlength="60" placeholder="Ex.: Especial de Natal" required></label><label>Imagem PNG ou JPG (1600 × 240 px, até 4 MB)<input name="image" type="file" accept="image/png,image/jpeg" required></label><button type="submit">Adicionar banner</button></form><p class="admin-shop-banner-feedback" id="adminShopBannerFeedback" aria-live="polite"></p><div class="admin-shop-banner-list" id="adminShopBannerList"></div><button type="button" id="adminShopBannerMore" class="admin-list-more hidden">Ver mais</button><form class="admin-club-banner-grant" id="adminClubBannerGrantForm"><h3>Conceder banner manualmente</h3><label>Usuário Twitch<select name="userId" required><option value="">Selecione um usuário</option></select></label><label>Banner<select name="bannerId" required><option value="">Selecione um banner</option></select></label><button type="submit">Conceder banner</button></form></section>
         <section class="admin-game-keys" aria-labelledby="adminGameKeysHeading"><div><span class="eyebrow muted">JOGOS · STEAM</span><h2 id="adminGameKeysHeading">Gerenciar keys de jogos</h2><p>Cadastre o link da Steam, o preço e o estoque. As capas não são exibidas na lojinha.</p></div><form id="adminGameKeyForm" class="admin-game-key-form"><label>Título do jogo<input name="title" type="text" maxlength="120" placeholder="Ex.: Hades" required></label><label>Link da Steam<input name="steamUrl" type="url" maxlength="500" placeholder="https://store.steampowered.com/app/..." required></label><label>Preço em Vicoins<input name="coinCost" type="number" min="1" max="1000000" step="1" placeholder="500" required></label><label>Estoque<input name="stock" type="number" min="0" max="1000000" step="1" value="1" required></label><button type="submit">Cadastrar jogo</button></form><p class="admin-game-keys-feedback hidden" id="adminGameKeysFeedback" aria-live="polite"></p><div class="admin-game-keys-list" id="adminGameKeysAdminList"></div><button type="button" id="adminGameKeysMore" class="admin-list-more hidden">Ver mais</button></section>
       </main>
+      <main class="community-lists-page hidden" id="listas" aria-labelledby="communityListsHeading">
+        <header class="community-lists-heading"><span class="eyebrow muted">SUA ESTANTE</span><h1 id="communityListsHeading">Listas</h1><p>Organize filmes e séries do seu jeito e compartilhe sua seleção no perfil.</p></header>
+        <section class="community-list-create-panel" id="communityListCreatePanel"><h2>Criar uma lista</h2><p>Entre com a Twitch para montar e editar suas listas.</p><form id="communityListCreateForm"><label>Nome da lista<input name="title" maxlength="80" placeholder="Ex.: Ficção científica para maratonar" required></label><label>Descrição <span>(opcional)</span><textarea name="description" maxlength="240" rows="2" placeholder="Conte um pouco sobre esta seleção…"></textarea></label><button type="submit">Criar lista</button></form><p class="community-list-feedback" id="communityListFeedback" aria-live="polite"></p></section>
+        <section class="community-list-browser"><div class="community-list-section-heading"><h2 id="communityListSectionHeading">Listas da comunidade</h2><button type="button" id="communityListsBack" class="hidden">← Todas as listas</button></div><div class="community-list-grid" id="communityListsGrid" aria-live="polite"></div></section>
+      </main>
       <main class="community-profile-page hidden" id="perfil" aria-labelledby="communityMemberName">
         <header class="community-profile-hero" id="communityProfileHero">
           <div class="community-profile-identity"><img id="communityMemberAvatar" alt=""><div><span class="eyebrow muted">PERFIL DA COMUNIDADE</span><h1 id="communityMemberName">Carregando perfil…</h1><p>✦ <span id="communityMemberSince">Membro da comunidade</span></p></div></div>
         </header>
         <p class="community-member-feedback" id="communityMemberFeedback" aria-live="polite"></p>
         <div class="community-profile-stats" aria-label="Resumo do perfil">
-          <a class="community-profile-stat is-coins" id="communityMemberVicoinsLink" href="#lojinha" data-page="lojinha" aria-label="Saldo de Vicoins. Abrir lojinha"><img src="assets/vicoins-coin-optimized.png" alt=""><span><small>VICOINS</small><strong id="communityMemberVicoinsCount">0</strong></span><b aria-hidden="true">↗</b></a>
           <article class="community-profile-stat"><span class="community-profile-stat-icon" aria-hidden="true">♥</span><span><small>FAVORITOS</small><strong id="communityMemberFavoritesCount">0</strong></span></article>
           <article class="community-profile-stat"><span class="community-profile-stat-icon is-star" aria-hidden="true">★</span><span><small>AVALIAÇÕES</small><strong id="communityMemberRatingsCount">0</strong></span></article>
           <article class="community-profile-stat"><span class="community-profile-stat-icon" aria-hidden="true">▣</span><span><small>RESGATES</small><strong id="communityMemberRedemptionsCount">0</strong></span></article>
@@ -281,8 +287,9 @@
             <section class="community-member-section community-profile-panel"><div class="community-member-section-heading"><h2>Títulos que avaliei</h2><div class="community-member-carousel-controls"><button type="button" data-carousel-target="communityMemberRatings" data-carousel-direction="-1" aria-label="Ver avaliações anteriores" disabled>‹</button><button type="button" data-carousel-target="communityMemberRatings" data-carousel-direction="1" aria-label="Ver mais avaliações" disabled>›</button></div></div><div class="community-member-titles" id="communityMemberRatings"></div><button type="button" class="community-member-more hidden" data-profile-more="ratings">Ver mais</button></section>
           </div>
           <aside class="community-profile-side-column">
-            <section class="community-profile-panel community-profile-banner-card"><div class="community-profile-panel-heading"><h2>Banner do perfil</h2></div><div class="community-profile-banner-preview" id="communityProfileBannerPreview" role="img" aria-label="Banner do perfil"></div><p id="communityProfileBannerLabel">Nenhum banner de perfil equipado.</p><a href="#lojinha" data-page="lojinha">Ver banners na lojinha <span aria-hidden="true">→</span></a></section>
-            <section class="community-profile-panel community-profile-rewards"><div class="community-profile-panel-heading"><h2>Minhas recompensas</h2></div><p>Veja os itens que você pode resgatar com seus Vicoins.</p><a href="#lojinha" data-page="lojinha">Abrir lojinha <span aria-hidden="true">→</span></a></section>
+            <section class="community-profile-panel community-profile-rewards"><div class="community-profile-panel-heading"><h2>Minhas recompensas</h2></div><a class="community-profile-wallet" id="communityMemberVicoinsLink" href="#lojinha" data-page="lojinha" aria-label="Saldo de Vicoins. Abrir lojinha"><img src="assets/vicoins-coin-optimized.png" alt=""><span><small>SEU SALDO</small><strong id="communityMemberVicoinsCount">0</strong><b>Vicoins</b></span><i aria-hidden="true">↗</i></a><p>Veja os itens que você pode resgatar com seus Vicoins.</p><a href="#lojinha" data-page="lojinha">Abrir lojinha <span aria-hidden="true">→</span></a></section>
+            <section class="community-profile-panel community-profile-banner-card"><div class="community-profile-panel-heading"><h2>Banner do perfil</h2></div><p id="communityProfileBannerLabel">Nenhum banner de perfil equipado.</p><a href="#lojinha" data-page="lojinha">Ver banners na lojinha <span aria-hidden="true">→</span></a></section>
+            <section class="community-profile-panel community-profile-lists"><div class="community-profile-panel-heading"><h2>Listas</h2></div><div id="communityProfileLists"><p>Este perfil ainda não tem listas públicas.</p></div></section>
           </aside>
         </div>
       </main>
@@ -324,6 +331,7 @@
   <script src="recent-redemptions.js" defer></script>
   <script src="react-week.js" defer></script>
   <script src="community-members.js" defer></script>
+  <script src="community-lists.js" defer></script>
   <script src="forum.js" defer></script>
   <script src="calculator.js" defer></script>
   <script src="suggestions.js" defer></script>

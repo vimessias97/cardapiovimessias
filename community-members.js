@@ -22,7 +22,6 @@
   const sidebarVicoinsLink = document.querySelector('#sidebarVicoinsLink');
   const profileVicoinsLink = document.querySelector('#communityMemberVicoinsLink');
   const sidebarProfileButton = document.querySelector('#sidebarUserOpenProfile');
-  const profileBannerPreview = document.querySelector('#communityProfileBannerPreview');
   const profileBannerLabel = document.querySelector('#communityProfileBannerLabel');
   const favoritesCount = document.querySelector('#communityMemberFavoritesCount');
   const ratingsCount = document.querySelector('#communityMemberRatingsCount');
@@ -57,15 +56,11 @@
     if (!imageUrl) {
       profileHero.classList.remove('has-profile-banner');
       profileHero.style.removeProperty('--community-profile-banner');
-      profileBannerPreview.style.removeProperty('background-image');
-      profileBannerPreview.classList.remove('has-banner');
       profileBannerLabel.textContent = 'Nenhum banner de perfil equipado.';
       return;
     }
     profileHero.style.setProperty('--community-profile-banner',`url("${imageUrl}")`);
     profileHero.classList.add('has-profile-banner');
-    profileBannerPreview.style.backgroundImage = `url("${imageUrl}")`;
-    profileBannerPreview.classList.add('has-banner');
     profileBannerLabel.textContent = 'Banner equipado no perfil.';
   }
 
@@ -196,6 +191,7 @@
       name.innerHTML = window.CardapioClubVime?.name(profile.displayName || profile.login || 'Perfil Twitch',profile.isClubVime,profile.clubVimeExpiresAt) || safe(profile.displayName || profile.login || 'Perfil Twitch');
       setVicoins(profile.vicoins,true,profile.vicoinsInfinite);
       setProfileBanner(profile.banner);
+      window.CardapioLists?.renderProfileLists(memberId);
       renderAchievements(data.achievements || {});
       if (profile.profileImageUrl) {
         avatar.src = profile.profileImageUrl;

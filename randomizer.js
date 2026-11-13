@@ -13,6 +13,7 @@ const profileFavoritesPage = document.querySelector('#favoritos');
 const profileRedemptionsPage = document.querySelector('#resgatados');
 const adminPage = document.querySelector('#admin');
 const communityProfilePage = document.querySelector('#perfil');
+const communityListsPage = document.querySelector('#listas');
 const randomTypeButtons = [...document.querySelectorAll('.random-type')];
 const genreOptions = document.querySelector('#genreOptions');
 const pageButtons = [...document.querySelectorAll('[data-page]')];
@@ -42,8 +43,8 @@ async function fetchRandomApi(path) {
   throw lastError || new Error('Não foi possível conectar ao servidor local.');
 }
 
-function showPage(view, link = null, updateHistory = true, profileId = '') {
-  if (!['home','sorteador','sugestoes','jogos','forum','promocoes','lojinha','calendario','favoritos','resgatados','admin','perfil'].includes(view)) return;
+function showPage(view, link = null, updateHistory = true, profileId = '', listId = '') {
+  if (!['home','sorteador','sugestoes','jogos','forum','promocoes','lojinha','calendario','listas','favoritos','resgatados','admin','perfil'].includes(view)) return;
   homePage.classList.toggle('hidden', view !== 'home');
   randomPage.classList.toggle('hidden', view !== 'sorteador');
   suggestionsPage.classList.toggle('hidden', view !== 'sugestoes');
@@ -56,9 +57,10 @@ function showPage(view, link = null, updateHistory = true, profileId = '') {
   profileRedemptionsPage.classList.toggle('hidden', view !== 'resgatados');
   adminPage.classList.toggle('hidden', view !== 'admin');
   communityProfilePage.classList.toggle('hidden', view !== 'perfil');
+  communityListsPage.classList.toggle('hidden', view !== 'listas');
   pageButtons.forEach(item => item.classList.toggle('selected', item === link || (!link && item.dataset.page === view)));
   if (updateHistory) {
-    const target = view === 'home' ? 'inicio' : view === 'perfil' ? `perfil/${encodeURIComponent(profileId || window.CardapioCommunityProfiles?.getCurrentId?.() || '')}` : view;
+    const target = view === 'home' ? 'inicio' : view === 'perfil' ? `perfil/${encodeURIComponent(profileId || window.CardapioCommunityProfiles?.getCurrentId?.() || '')}` : view === 'listas' && listId ? `listas/${encodeURIComponent(listId)}` : view;
     history.replaceState(null, '', `#${target}`);
   }
   if (view === 'sugestoes') window.CardapioFavorites?.refresh();
@@ -70,13 +72,14 @@ function showPage(view, link = null, updateHistory = true, profileId = '') {
   if (view === 'admin') window.CardapioAdminShopBanners?.load();
   if (view === 'lojinha') window.CardapioVicoinsShop?.load();
   if (view === 'forum') window.CardapioForum?.load();
+  if (view === 'listas') listId ? window.CardapioLists?.open(listId) : window.CardapioLists?.load();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 window.CardapioNavigation = {showPage};
 
 pageButtons.forEach(link => link.addEventListener('click', event => {
   const view = link.dataset.page;
-  if (!['home','sorteador','sugestoes','jogos','forum','promocoes','lojinha','calendario','favoritos','resgatados','admin','perfil'].includes(view)) return;
+  if (!['home','sorteador','sugestoes','jogos','forum','promocoes','lojinha','calendario','listas','favoritos','resgatados','admin','perfil'].includes(view)) return;
   event.preventDefault();
   if (['favoritos','resgatados'].includes(view) && !window.CardapioAuth?.requireLogin()) return;
   if (view === 'admin' && !window.CardapioAuth?.isAdmin()) {
@@ -178,6 +181,12 @@ if (location.hash === '#sorteador') {
   showPage('lojinha',null,false);
 } else if (location.hash === '#calendario') {
   showPage('calendario',null,false);
+} else if (location.hash === '#listas') {
+  showPage('listas',null,false);
+} else if (location.hash.startsWith('#listas/')) {
+  let listId = '';
+  try { listId = decodeURIComponent(location.hash.slice('#listas/'.length)); } catch {}
+  if (listId) showPage('listas',null,false,'',listId);
 } else if (location.hash === '#favoritos') {
   showPage('favoritos',null,false);
 } else if (location.hash === '#resgatados') {
