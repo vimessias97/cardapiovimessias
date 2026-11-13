@@ -3,6 +3,9 @@
   const createForm = document.querySelector('#communityListCreateForm');
   const createPanel = document.querySelector('#communityListCreatePanel');
   const createHint = createPanel.querySelector(':scope > p');
+  const createSearch = document.querySelector('#communityListCreateSearch');
+  const createSearchResults = document.querySelector('#communityListCreateSearchResults');
+  const createSelected = document.querySelector('#communityListCreateSelected');
   const feedback = document.querySelector('#communityListFeedback');
   const grid = document.querySelector('#communityListsGrid');
   const sectionHeading = document.querySelector('#communityListSectionHeading');
@@ -14,6 +17,8 @@
   let currentListId = '';
   let currentList = null;
   let searchTimer = 0;
+  let createSearchTimer = 0;
+  let creatingItems = [];
   let listOpenRequest = 0;
   let publicListsCache = null;
   let publicListsPromise = null;
@@ -63,7 +68,7 @@
     const userId = String(window.CardapioAuth?.getUser()?.id || '');
     grid.innerHTML = lists.map(list => {
       const isOwner = userId && String(list.owner?.id) === userId;
-      return `<article class="community-list-card"><h3>${esc(list.title)}</h3><p>${esc(list.description || 'Sem descrição.')}</p><div class="community-list-card-meta">${ownerMarkup(list.owner)}<span>${Number(list.itemCount ?? list.items?.length) || 0} títulos</span></div><a class="community-list-primary community-list-open" href="#listas/${encodeURIComponent(list.id)}" data-open-list="${esc(list.id)}">${isOwner ? 'Abrir e editar' : 'Ver lista'} <span aria-hidden="true">→</span></a></article>`;
+      return `<article class="community-list-card"><h3>${esc(list.title)}</h3><p>${esc(list.description || 'Sem descrição.')}</p><div class="community-list-card-meta">${ownerMarkup(list.owner)}<span>${Number(list.itemCount ?? list.items?.length) || 0} títulos</span></div><div class="community-list-card-social">♥ ${Number(list.likeCount) || 0} · Comentários ${Number(list.commentCount) || 0}</div><a class="community-list-primary community-list-open" href="#listas/${encodeURIComponent(list.id)}" data-open-list="${esc(list.id)}">${isOwner ? 'Ver lista' : 'Ver lista'} <span aria-hidden="true">→</span></a></article>`;
     }).join('');
   }
   async function fetchPublicLists() {
@@ -91,8 +96,10 @@
     createPanel.classList.add('hidden');
     sectionHeading.textContent = list.title;
     backButton.classList.remove('hidden');
-    const editing = isOwner ? `<form class="community-list-edit-form" id="communityListEditForm"><label>Nome<input name="title" maxlength="80" required value="${esc(list.title)}"></label><label>Descrição<textarea name="description" maxlength="240" rows="2">${esc(list.description || '')}</textarea></label><button class="community-list-primary" type="submit">Salvar</button></form><form class="community-list-search" id="communityListSearchForm"><input name="q" type="search" minlength="2" placeholder="Adicionar filme ou série…" autocomplete="off" required><button class="community-list-secondary" type="submit">Buscar</button></form><div class="community-list-search-results" id="communityListSearchResults"></div>` : '';
-    grid.innerHTML = `<div class="community-list-detail"><div class="community-list-detail-head"><div><h3>${esc(list.title)}</h3><p>${esc(list.description || 'Sem descrição.')}</p><div class="community-list-card-meta">${ownerMarkup(list.owner)}<span>${(list.items || []).length} títulos</span></div></div>${isOwner ? '<button type="button" class="community-list-secondary" data-delete-list>Excluir lista</button>' : ''}</div><p class="community-list-feedback" id="communityListActionFeedback" aria-live="polite"></p>${editing}<div class="community-list-items-wrap">${renderItems(list)}</div></div>`;
+    const editing = isOwner ? `<div class="community-list-owner-controls"><button type="button" class="community-list-secondary" data-toggle-list-editor>Editar lista</button><button type="button" class="community-list-secondary" data-delete-list>Excluir lista</button></div><div class="community-list-editor hidden"><form class="community-list-edit-form" id="communityListEditForm"><label>Nome<input name="title" maxlength="80" required value="${esc(list.title)}"></label><label>Descrição<textarea name="description" maxlength="240" rows="2">${esc(list.description || '')}</textarea></label><button class="community-list-primary" type="submit">Salvar</button></form><form class="community-list-search" id="communityListSearchForm"><input name="q" type="search" minlength="2" placeholder="Adicionar filme ou série…" autocomplete="off" required><button class="community-list-secondary" type="submit">Buscar</button></form><div class="community-list-search-results" id="communityListSearchResults"></div></div>` : '';
+    const comments = Array.isArray(list.comments) ? list.comments : [];
+    const liked = Boolean(list.likedByMe);
+    grid.innerHTML = `<div class="community-list-detail"><div class="community-list-detail-head"><div><h3>${esc(list.title)}</h3><p>${esc(list.description || '')}</p><div class="community-list-card-meta">${ownerMarkup(list.owner)}<span>${(list.items || []).length} títulos</span></div></div></div><div class="community-list-social"><button type="button" class="community-list-social-button${liked ? ' is-liked' : ''}" data-list-like aria-pressed="${liked}">♥ <span>${Number(list.likeCount) || 0}</span> Curtir</button><button type="button" class="community-list-social-button" data-share-list>↗ Compartilhar</button></div><p class="community-list-feedback" id="communityListActionFeedback" aria-live="polite"></p>${editing}<div class="community-list-items-wrap">${renderItems(list)}</div><section class="community-list-comments"><h4>Comentários <span>${comments.length}</span></h4><div class="community-list-comment-list">${comments.map(comment => `<article class="community-list-comment">${ownerMarkup(comment.author)}<p>${esc(comment.text)}</p><time>${new Date(comment.createdAt).toLocaleString('pt-BR')}</time></article>`).join('') || '<p class="community-list-empty">Ainda não há comentários.</p>'}</div><form class="community-list-comment-form" id="communityListCommentForm"><textarea name="comment" maxlength="1000" rows="2" placeholder="Comente nesta lista…" required></textarea><button class="community-list-primary" type="submit">Comentar</button></form>${window.CardapioAuth?.getUser() ? '' : '<p class="community-list-login-hint">Entre com a Twitch para curtir ou comentar.</p>'}</section></div>`;
   }
   async function loadLists(ownerId = '') {
     if (!ownerId) {
@@ -145,14 +152,14 @@
       homeTeaserGrid.innerHTML = '<p class="home-list-teaser-empty">As listas da comunidade serão exibidas aqui.</p>';
     }
   }
-  async function searchTitles(query) {
-    const results = document.querySelector('#communityListSearchResults');
+  async function searchTitles(query,resultsId = '#communityListSearchResults',createMode = false) {
+    const results = document.querySelector(resultsId);
     if (!results) return;
     results.innerHTML = '<p class="community-list-empty">Buscando no catálogo…</p>';
     try {
       const data = await api(`/api/catalog/search-tmdb?q=${encodeURIComponent(query)}`);
       const items = (data.results || []).filter(item => ['movie','tv'].includes(item.mediaType));
-      results.innerHTML = items.length ? items.map(item => `<article class="community-list-search-result">${item.posterUrl ? `<img src="${esc(item.posterUrl)}" alt="" loading="lazy">` : '<span></span>'}<span><strong>${esc(item.title)}</strong><small>${esc(item.kind)}${item.year ? ` · ${esc(item.year)}` : ''}</small></span><button type="button" data-add-title="${Number(item.id)}" data-media-type="${esc(item.mediaType)}" data-title="${esc(item.title)}" data-kind="${esc(item.kind)}" data-year="${esc(item.year || '')}" data-poster="${esc(item.posterUrl || '')}">Adicionar</button></article>`).join('') : '<p class="community-list-empty">Não encontrei filmes ou séries para esse termo.</p>';
+      results.innerHTML = items.length ? items.map(item => `<article class="community-list-search-result">${item.posterUrl ? `<img src="${esc(item.posterUrl)}" alt="" loading="lazy">` : '<span></span>'}<span><strong>${esc(item.title)}</strong><small>${esc(item.kind)}${item.year ? ` · ${esc(item.year)}` : ''}</small></span><button type="button" ${createMode ? 'data-create-add-title' : 'data-add-title'}="${Number(item.id)}" data-media-type="${esc(item.mediaType)}" data-title="${esc(item.title)}" data-kind="${esc(item.kind)}" data-year="${esc(item.year || '')}" data-poster="${esc(item.posterUrl || '')}">Adicionar</button></article>`).join('') : '<p class="community-list-empty">Não encontrei filmes ou séries para esse termo.</p>';
     } catch (error) { results.innerHTML = `<p class="community-list-empty">${esc(error.message)}</p>`; }
   }
   async function showAllLists(updateHistory = true) {
@@ -161,6 +168,27 @@
     await loadLists();
   }
 
+  function renderCreatingItems() {
+    createSelected.innerHTML = creatingItems.length ? `<p>${creatingItems.length} título(s) selecionado(s)</p><div class="community-list-items">${creatingItems.map(item => `<article class="community-list-item">${item.posterUrl ? `<img src="${esc(item.posterUrl)}" alt="Pôster de ${esc(item.title)}" loading="lazy">` : '<span class="community-list-item-placeholder">✦</span>'}<strong>${esc(item.title)}</strong><small>${esc(item.kind)}</small><button type="button" class="community-list-item-remove" data-remove-create-title="${Number(item.id)}" data-media-type="${esc(item.mediaType)}">×</button></article>`).join('')}</div>` : '';
+  }
+  createSearch?.addEventListener('input',() => {
+    clearTimeout(createSearchTimer);
+    const query = createSearch.value.trim();
+    if (query.length >= 2) createSearchTimer = window.setTimeout(() => searchTitles(query,'#communityListCreateSearchResults',true),350);
+    else createSearchResults.innerHTML = '';
+  });
+  createPanel.addEventListener('click',event => {
+    const add = event.target.closest('[data-create-add-title]');
+    if (add) {
+      const item = {id:Number(add.dataset.createAddTitle),mediaType:add.dataset.mediaType,title:add.dataset.title,kind:add.dataset.kind,year:add.dataset.year,posterUrl:add.dataset.poster};
+      if (!creatingItems.some(existing => existing.id === item.id && existing.mediaType === item.mediaType)) creatingItems.push(item);
+      renderCreatingItems();
+      return;
+    }
+    const remove = event.target.closest('[data-remove-create-title]');
+    if (remove) { creatingItems = creatingItems.filter(item => item.id !== Number(remove.dataset.removeCreateTitle) || item.mediaType !== remove.dataset.mediaType); renderCreatingItems(); }
+  });
+
   createForm.addEventListener('submit',async event => {
     event.preventDefault();
     if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para criar uma lista.')) return;
@@ -168,14 +196,27 @@
     button.disabled = true; setFeedback('Criando sua lista…');
     try {
       const fields = new FormData(createForm);
-      const data = await api('/api/lists',{method:'POST',body:JSON.stringify({title:fields.get('title'),description:fields.get('description')})});
-      createForm.reset(); setFeedback('Lista criada. Agora você pode adicionar títulos.');
+      const data = await api('/api/lists',{method:'POST',body:JSON.stringify({title:fields.get('title'),description:fields.get('description'),items:creatingItems})});
+      createForm.reset(); creatingItems = []; renderCreatingItems(); createSearchResults.innerHTML = ''; setFeedback('Lista criada.');
       rememberList(data.list,{refreshIndex:true});
       await openList(data.list.id);
     } catch (error) { setFeedback(error.message,true); }
     finally { button.disabled = false; }
   });
   grid.addEventListener('submit',async event => {
+    if (event.target.matches('#communityListCommentForm')) {
+      event.preventDefault();
+      if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para comentar nesta lista.')) return;
+      const form = event.target, button = form.querySelector('button');
+      button.disabled = true;
+      try {
+        const text = new FormData(form).get('comment');
+        const data = await api(`/api/lists/${encodeURIComponent(currentListId)}`,{method:'PATCH',body:JSON.stringify({action:'add-comment',text})});
+        rememberList(data.list,{refreshIndex:true}); renderDetail(data.list);
+      } catch (error) { setFeedback(error.message,true); }
+      finally { button.disabled = false; }
+      return;
+    }
     if (event.target.matches('#communityListEditForm')) {
       event.preventDefault();
       if (!window.CardapioAuth?.requireLogin()) return;
@@ -189,6 +230,20 @@
     }
   });
   grid.addEventListener('click',async event => {
+    if (event.target.closest('[data-toggle-list-editor]')) { grid.querySelector('.community-list-editor')?.classList.toggle('hidden'); return; }
+    if (event.target.closest('[data-share-list]')) {
+      const url = `${location.origin}${location.pathname}${location.search}#listas/${encodeURIComponent(currentListId)}`;
+      try { await navigator.clipboard.writeText(url); setFeedback('Link da lista copiado.'); }
+      catch { window.prompt('Copie o link da lista:',url); }
+      return;
+    }
+    if (event.target.closest('[data-list-like]')) {
+      if (!window.CardapioAuth?.requireLogin('Entre com a Twitch para curtir esta lista.')) return;
+      const button = event.target.closest('[data-list-like]'); button.disabled = true;
+      try { const data = await api(`/api/lists/${encodeURIComponent(currentListId)}`,{method:'PATCH',body:JSON.stringify({action:'toggle-like'})}); rememberList(data.list,{refreshIndex:true}); renderDetail(data.list); }
+      catch (error) { setFeedback(error.message,true); button.disabled = false; }
+      return;
+    }
     const retry = event.target.closest('[data-retry-list]');
     if (retry) { openList(retry.dataset.retryList); return; }
     const add = event.target.closest('[data-add-title]');

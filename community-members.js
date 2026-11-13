@@ -11,6 +11,7 @@
   const avatar = document.querySelector('#communityMemberAvatar');
   const name = document.querySelector('#communityMemberName');
   const memberSince = document.querySelector('#communityMemberSince');
+  const activityList = document.querySelector('#communityMemberActivity');
   const feedback = document.querySelector('#communityMemberFeedback');
   const redemptions = document.querySelector('#communityMemberRedemptions');
   const favorites = document.querySelector('#communityMemberFavorites');
@@ -26,6 +27,7 @@
   const bases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
   let activeProfilePath = '';
   let currentProfileId = '';
+  let profileBannerPaletteRequest = 0;
   let membersExpanded = false;
   const expandedRankings = new Set();
   let profileTitles = {redemptions:[],favorites:[],ratings:[]};
@@ -50,12 +52,61 @@
     const suppliedUrl = String(banner?.imageUrl || '');
     const imageUrl = profileBannerImages[banner?.id] || (/^\/api\/profile-banners\/[a-f0-9-]{36}\.(?:png|jpg)$/i.test(suppliedUrl) ? suppliedUrl : '');
     if (!imageUrl) {
+      profileBannerPaletteRequest += 1;
       profileHero.classList.remove('has-profile-banner');
       profileHero.style.removeProperty('--community-profile-banner');
+      profileHero.style.removeProperty('--profile-accent');
+      profileHero.style.removeProperty('--profile-accent-soft');
+      profileHero.style.removeProperty('--profile-accent-glow');
       return;
     }
     profileHero.style.setProperty('--community-profile-banner',`url("${imageUrl}")`);
     profileHero.classList.add('has-profile-banner');
+    loadProfileBannerPalette(imageUrl);
+  }
+
+  function loadProfileBannerPalette(imageUrl) {
+    const requestId = ++profileBannerPaletteRequest;
+    const image = new Image();
+    image.onload = () => {
+      if (requestId !== profileBannerPaletteRequest || !profileHero.isConnected) return;
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 32;
+        canvas.height = 32;
+        const context = canvas.getContext('2d',{willReadFrequently:true});
+        if (!context) return;
+        context.drawImage(image,0,0,32,32);
+        const pixels = context.getImageData(0,0,32,32).data;
+        const colors = new Map();
+        for (let index = 0; index < pixels.length; index += 16) {
+          const red = pixels[index], green = pixels[index + 1], blue = pixels[index + 2];
+          const high = Math.max(red,green,blue), low = Math.min(red,green,blue);
+          if (pixels[index + 3] < 180 || high < 48 || high - low < 28) continue;
+          const key = `${red >> 4},${green >> 4},${blue >> 4}`;
+          const bucket = colors.get(key) || {red:0,green:0,blue:0,count:0,saturation:0};
+          bucket.red += red; bucket.green += green; bucket.blue += blue; bucket.count += 1;
+          bucket.saturation += (high - low) / high;
+          colors.set(key,bucket);
+        }
+        const dominant = [...colors.values()].sort((a,b) => (b.count * (1 + b.saturation / b.count)) - (a.count * (1 + a.saturation / a.count)))[0];
+        if (!dominant) return;
+        const red = dominant.red / dominant.count / 255;
+        const green = dominant.green / dominant.count / 255;
+        const blue = dominant.blue / dominant.count / 255;
+        const max = Math.max(red,green,blue), min = Math.min(red,green,blue), delta = max - min;
+        let hue = 0;
+        if (delta) hue = max === red ? 60 * (((green - blue) / delta) % 6) : max === green ? 60 * ((blue - red) / delta + 2) : 60 * ((red - green) / delta + 4);
+        hue = (hue + 360) % 360;
+        const saturation = Math.round(Math.min(78,Math.max(48,dominant.saturation / dominant.count * 100)));
+        profileHero.style.setProperty('--profile-accent',`hsl(${Math.round(hue)} ${saturation}% 62%)`);
+        profileHero.style.setProperty('--profile-accent-soft',`hsl(${Math.round(hue)} 34% 18%)`);
+        profileHero.style.setProperty('--profile-accent-glow',`hsl(${Math.round(hue)} ${saturation}% 58% / .42)`);
+      } catch {
+        // Mantém o roxo padrão se o navegador não permitir ler a imagem.
+      }
+    };
+    image.src = imageUrl;
   }
 
   function renderProfileMembership(profile = {}) {
@@ -66,6 +117,18 @@
         : '';
       memberSince.textContent = joinedDate ? `MEMBRO DESDE ${joinedDate}` : 'MEMBRO DA COMUNIDADE';
     }
+  }
+
+  function renderProfileActivity(items = []) {
+    if (!activityList) return;
+    const icons = {favorite:'♥',rating:'★',redemption:'🎬',list:'▤',comment:'💬','list-like':'♥'};
+    const verbs = {favorite:'Favoritou',rating:'Avaliou',redemption:'Resgatou',list:'Criou a lista',comment:'Comentou na lista','list-like':'Curtiu a lista'};
+    const activities = Array.isArray(items) ? items.slice(0,12) : [];
+    activityList.innerHTML = activities.length ? activities.map(item => {
+      const date = Date.parse(item.createdAt || '');
+      const when = Number.isFinite(date) ? new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'}).format(new Date(date)) : '';
+      return `<li class="community-profile-activity-item"><span class="community-profile-activity-icon" aria-hidden="true">${icons[item.type] || '•'}</span><span class="community-profile-activity-copy"><strong>${safe(verbs[item.type] || 'Interagiu')}</strong><span>${safe(item.title || 'Conteúdo')}${item.detail ? ` · ${safe(item.detail)}` : ''}</span><time>${safe(when)}</time></span></li>`;
+    }).join('') : '<li class="community-profile-activity-empty">Ainda não há atividades recentes.</li>';
   }
 
   function renderAchievements(achievements = {}) {
@@ -164,6 +227,7 @@
     setProfileBanner(null);
     setVicoins(0,true);
     feedback.textContent = '';
+    renderProfileActivity([]);
     renderAchievements();
     activeProfilePath = '';
     profileTitles = {redemptions:[],favorites:[],ratings:[]};
@@ -185,6 +249,7 @@
       name.innerHTML = window.CardapioClubVime?.name(profile.displayName || profile.login || 'Perfil Twitch',profile.isClubVime,profile.clubVimeExpiresAt) || safe(profile.displayName || profile.login || 'Perfil Twitch');
       setVicoins(profile.vicoins,true,profile.vicoinsInfinite);
       setProfileBanner(profile.banner);
+      renderProfileActivity(data.activities || []);
       window.CardapioLists?.renderProfileLists(memberId,data.lists || []);
       renderAchievements(data.achievements || {});
       if (profile.profileImageUrl) {

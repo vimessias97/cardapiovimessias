@@ -664,7 +664,7 @@ function publicFavorites(entries, clientId) {
 
 function userFavorites(entries, userId) {
   return entries.filter(entry => Array.isArray(entry.voters) && entry.voters.includes(userId))
-    .map(entry => ({id:entry.id,mediaType:entry.mediaType,title:entry.title,posterUrl:entry.posterUrl,year:entry.year || '',voteCount:entry.voters.length,liked:true}))
+    .map(entry => ({id:entry.id,mediaType:entry.mediaType,title:entry.title,posterUrl:entry.posterUrl,year:entry.year || '',voteCount:entry.voters.length,liked:true,activityAt:entry.voterActivity?.[userId] || null}))
     .sort((a,b) => a.title.localeCompare(b.title,'pt-BR'));
 }
 
@@ -677,8 +677,21 @@ function userRatings(entries,userId) {
   if (!userId) return [];
   return entries.flatMap(entry => {
     const vote = Array.isArray(entry.votes) ? entry.votes.find(item => item.clientId === userId && Number.isFinite(item.rating)) : null;
-    return vote ? [{id:entry.id,mediaType:entry.mediaType,title:entry.title,posterUrl:entry.posterUrl || '',rating:vote.rating}] : [];
+    return vote ? [{id:entry.id,mediaType:entry.mediaType,title:entry.title,posterUrl:entry.posterUrl || '',rating:vote.rating,activityAt:vote.updatedAt || vote.createdAt || null}] : [];
   }).sort((a,b) => a.title.localeCompare(b.title,'pt-BR'));
+}
+
+function buildProfileActivities(memberId,{favorites = [],ratings = [],redemptions = [],lists = []} = {}) {
+  const activities = [];
+  for (const item of favorites) if (item.activityAt) activities.push({type:'favorite',title:item.title,createdAt:item.activityAt});
+  for (const item of ratings) if (item.activityAt) activities.push({type:'rating',title:item.title,detail:`${Number(item.rating).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} estrelas`,createdAt:item.activityAt});
+  for (const item of redemptions) activities.push({type:'redemption',title:item.title,createdAt:item.approvedAt || item.createdAt});
+  for (const list of lists) {
+    if (String(list.owner?.id) === String(memberId) && list.createdAt) activities.push({type:'list',title:list.title,createdAt:list.createdAt});
+    for (const comment of Array.isArray(list.comments) ? list.comments : []) if (String(comment.author?.id) === String(memberId)) activities.push({type:'comment',title:list.title,createdAt:comment.createdAt});
+    for (const [userId,createdAt] of Object.entries(list.likeActivity || {})) if (String(userId) === String(memberId)) activities.push({type:'list-like',title:list.title,createdAt});
+  }
+  return activities.filter(item => Number.isFinite(Date.parse(item.createdAt))).sort((a,b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0,20);
 }
 
 function profileTitlePage(items,offset = 0,limit = 5) {
@@ -1516,15 +1529,16 @@ async function handle(req, res) {
       .filter(item => item && item.public !== false && (!ownerId || String(item.owner?.id) === ownerId))
       .sort((a,b) => Date.parse(b.updatedAt || b.createdAt || '') - Date.parse(a.updatedAt || a.createdAt || ''))
       .slice(0,100)
-      .map(({id,owner,title,description,items,updatedAt,createdAt}) => ({id,owner,title,description,itemCount:Array.isArray(items) ? items.length : 0,updatedAt,createdAt}));
+      .map(({id,owner,title,description,items,likes,comments,updatedAt,createdAt}) => ({id,owner,title,description,itemCount:Array.isArray(items) ? items.length : 0,likeCount:Array.isArray(likes) ? likes.length : 0,commentCount:Array.isArray(comments) ? comments.length : 0,updatedAt,createdAt}));
     return json(res,200,{lists:visible});
   }
   if (req.method === 'GET' && url.pathname.startsWith('/api/lists/')) {
     const listId = url.pathname.slice('/api/lists/'.length);
     if (!/^[a-f0-9-]{36}$/i.test(listId)) return json(res,400,{error:'Lista inválida.'});
+    const viewer = await getAuthenticatedProfile(req,res);
     const lists = await readJsonState('userTitleLists',[]);
     const item = (Array.isArray(lists) ? lists : []).find(list => list?.id === listId && list.public !== false);
-    return item ? json(res,200,{list:item}) : json(res,404,{error:'Esta lista não está disponível.'});
+    return item ? json(res,200,{list:{...item,likes:undefined,likedByMe:Array.isArray(item.likes) && Boolean(viewer && item.likes.includes(viewer.id)),likeCount:Array.isArray(item.likes) ? item.likes.length : 0,comments:(Array.isArray(item.comments) ? item.comments : []).map(comment => ({...comment,author:{id:comment.author?.id,login:comment.author?.login,displayName:comment.author?.displayName,profileImageUrl:comment.author?.profileImageUrl}}))}}) : json(res,404,{error:'Esta lista não está disponível.'});
   }
   if (req.method === 'POST' && url.pathname === '/api/lists') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -1536,13 +1550,23 @@ async function handle(req, res) {
     const title = String(body.title || '').trim().slice(0,80);
     const description = String(body.description || '').trim().slice(0,240);
     if (title.length < 2) return privateJson(res,400,{error:'O nome da lista precisa ter pelo menos 2 caracteres.'});
+    const rawItems = Array.isArray(body.items) ? body.items : [];
+    if (rawItems.length > 100) return privateJson(res,400,{error:'Cada lista pode ter até 100 títulos.'});
+    const items = [];
+    for (const incoming of rawItems) {
+      const id = Number(incoming?.id), mediaType = String(incoming?.mediaType || ''), itemTitle = String(incoming?.title || '').trim().slice(0,160);
+      if (!Number.isSafeInteger(id) || id < 1 || !['movie','tv'].includes(mediaType) || !itemTitle) return privateJson(res,400,{error:'Um dos títulos selecionados é inválido.'});
+      if (items.some(item => item.id === id && item.mediaType === mediaType)) continue;
+      const posterUrl = String(incoming.posterUrl || '');
+      items.push({id,mediaType,title:itemTitle,year:String(incoming.year || '').slice(0,4),posterUrl:/^https:\/\/image\.tmdb\.org\//i.test(posterUrl) ? posterUrl.slice(0,500) : '',kind:String(incoming.kind || (mediaType === 'tv' ? 'Série' : 'Filme')).slice(0,40)});
+    }
     try {
       const created = await updateUserTitleLists(state => {
         if (!Array.isArray(state)) throw new Error('Não foi possível abrir o armazenamento das listas.');
         const mine = state.filter(item => String(item?.owner?.id) === String(profile.id));
         if (mine.length >= 50) throw new Error('Você chegou ao limite de 50 listas.');
         const now = new Date().toISOString();
-        const item = {id:randomUUID(),owner:{id:String(profile.id),login:String(profile.login || '').slice(0,25),displayName:String(profile.displayName || profile.login || 'Usuário').slice(0,50),profileImageUrl:String(profile.profileImageUrl || '').slice(0,500)},title,description,items:[],public:true,createdAt:now,updatedAt:now};
+        const item = {id:randomUUID(),owner:{id:String(profile.id),login:String(profile.login || '').slice(0,25),displayName:String(profile.displayName || profile.login || 'Usuário').slice(0,50),profileImageUrl:String(profile.profileImageUrl || '').slice(0,500)},title,description,items,likes:[],comments:[],public:true,createdAt:now,updatedAt:now};
         state.unshift(item); return item;
       });
       return privateJson(res,201,{list:created});
@@ -1562,8 +1586,26 @@ async function handle(req, res) {
         if (!Array.isArray(state)) throw new Error('Lista não encontrada.');
         const list = state.find(item => item?.id === listId);
         if (!list) throw new Error('Lista não encontrada.');
-        if (String(list.owner?.id) !== String(profile.id)) throw new Error('Você só pode alterar as suas próprias listas.');
         const action = String(body.action || 'update');
+        if (action === 'toggle-like') {
+          list.likes = Array.isArray(list.likes) ? list.likes : [];
+          list.likeActivity = list.likeActivity && typeof list.likeActivity === 'object' ? list.likeActivity : {};
+          const index = list.likes.indexOf(profile.id);
+          if (index < 0) { list.likes.push(profile.id); list.likeActivity[profile.id] = new Date().toISOString(); }
+          else { list.likes.splice(index,1); delete list.likeActivity[profile.id]; }
+          list.updatedAt = new Date().toISOString();
+          return {...list,likedByMe:index < 0,likeCount:list.likes.length};
+        }
+        if (action === 'add-comment') {
+          const text = String(body.text || '').trim().slice(0,1000);
+          if (!text) throw new Error('Escreva um comentário antes de enviar.');
+          list.comments = Array.isArray(list.comments) ? list.comments : [];
+          if (list.comments.length >= 500) throw new Error('Esta lista atingiu o limite de comentários.');
+          list.comments.push({id:randomUUID(),text,author:{id:String(profile.id),login:String(profile.login || '').slice(0,25),displayName:String(profile.displayName || profile.login || 'Usuário').slice(0,50),profileImageUrl:String(profile.profileImageUrl || '').slice(0,500)},createdAt:new Date().toISOString()});
+          list.updatedAt = new Date().toISOString();
+          return list;
+        }
+        if (String(list.owner?.id) !== String(profile.id)) throw new Error('Você só pode editar a sua própria lista.');
         if (action === 'delete-list') { state.splice(state.indexOf(list),1); return {deleted:true,id:listId}; }
         if (action === 'update') {
           const title = String(body.title ?? list.title).trim().slice(0,80);
@@ -1646,7 +1688,7 @@ async function handle(req, res) {
     const allRedemptions = (await readRedemptions())
       .filter(entry => entry.requester?.id === memberId && ['approved','completed'].includes(entry.status))
       .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
-      .map(({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}) => ({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}));
+      .map(({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt,createdAt}) => ({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt,createdAt}));
     const allRatings = userRatings(await readRatings(),memberId);
     const pages = Object.fromEntries(['redemptions','favorites','ratings'].map(key => [key,profileTitlePage(({redemptions:allRedemptions,favorites:allFavorites,ratings:allRatings})[key],Math.max(0,Number.parseInt(url.searchParams.get(`${key}Offset`) || '0',10) || 0))]));
     const {items:redemptions} = pages.redemptions;
@@ -1659,8 +1701,10 @@ async function handle(req, res) {
     const isAdmin = getTwitchRole(member) === 'admin';
     const profile = {id:member.id,login:member.login,displayName:member.displayName,profileImageUrl:member.profileImageUrl,joinedAt:member.joinedAt,isClubVime:hasClubVime(vicoinsStore,memberId),clubVimeExpiresAt:getClubVimeMembership(vicoinsStore,memberId)?.expiresAt || null,vicoins:await getVicoinsBalance(memberId,isAdmin),vicoinsInfinite:isAdmin,banner:bannerInventory.equipped};
     const savedLists = await readJsonState('userTitleLists',[]);
-    const lists = (Array.isArray(savedLists) ? savedLists : []).filter(item => String(item?.owner?.id) === memberId && item.public !== false).map(({id,title,items,updatedAt}) => ({id,title,itemCount:Array.isArray(items) ? items.length : 0,updatedAt}));
-    return json(res,200,{profile,favorites,redemptions,ratings,totals,achievements,lists,badges:await getCommunityBadgesForMember(memberId)});
+    const memberLists = (Array.isArray(savedLists) ? savedLists : []).filter(item => item.public !== false);
+    const lists = memberLists.filter(item => String(item?.owner?.id) === memberId).map(({id,title,items,updatedAt}) => ({id,title,itemCount:Array.isArray(items) ? items.length : 0,updatedAt}));
+    const activities = buildProfileActivities(memberId,{favorites:allFavorites,ratings:allRatings,redemptions:allRedemptions,lists:memberLists});
+    return json(res,200,{profile,favorites,redemptions,ratings,totals,achievements,activities,lists,badges:await getCommunityBadgesForMember(memberId)});
   }
   if (req.method === 'GET' && url.pathname === '/api/shop/rewards') {
     return json(res,200,{rewards:await readVicoinsRewards()});
@@ -1863,7 +1907,7 @@ async function handle(req, res) {
     const allRedemptions = (await readRedemptions())
       .filter(entry => entry.requester?.id === profile.id && ['approved','completed'].includes(entry.status))
       .sort((a,b) => Date.parse(b.approvedAt || b.createdAt) - Date.parse(a.approvedAt || a.createdAt))
-      .map(({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}) => ({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt}));
+      .map(({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt,createdAt}) => ({id,title,mediaType,posterUrl,durationMinutes,durationLabel,scheduledAt,approvedAt,createdAt}));
     const allRatings = userRatings(await readRatings(),profile.id);
     const pages = Object.fromEntries(['redemptions','favorites','ratings'].map(key => [key,profileTitlePage(({redemptions:allRedemptions,favorites:allFavorites,ratings:allRatings})[key],Math.max(0,Number.parseInt(url.searchParams.get(`${key}Offset`) || '0',10) || 0))]));
     const {items:redemptions} = pages.redemptions;
@@ -1875,8 +1919,10 @@ async function handle(req, res) {
     const communityMember = (await readCommunityMembers()).find(member => String(member.id) === String(profile.id));
     const bannerInventory = getProfileBannerInventory(vicoinsStore,profile.id);
     const savedLists = await readJsonState('userTitleLists',[]);
-    const lists = (Array.isArray(savedLists) ? savedLists : []).filter(item => String(item?.owner?.id) === String(profile.id) && item.public !== false).map(({id,title,items,updatedAt}) => ({id,title,itemCount:Array.isArray(items) ? items.length : 0,updatedAt}));
-    return privateJson(res,200,{profile:{...profile,joinedAt:communityMember?.joinedAt || null,isClubVime:hasClubVime(vicoinsStore,profile.id),clubVimeExpiresAt:getClubVimeMembership(vicoinsStore,profile.id)?.expiresAt || null,vicoins:await getVicoinsBalance(profile.id,profile.role === 'admin'),vicoinsInfinite:profile.role === 'admin',banner:bannerInventory.equipped},favorites,redemptions,ratings,totals,achievements,lists,badges:await getCommunityBadgesForMember(profile.id)});
+    const memberLists = (Array.isArray(savedLists) ? savedLists : []).filter(item => item.public !== false);
+    const lists = memberLists.filter(item => String(item?.owner?.id) === String(profile.id)).map(({id,title,items,updatedAt}) => ({id,title,itemCount:Array.isArray(items) ? items.length : 0,updatedAt}));
+    const activities = buildProfileActivities(profile.id,{favorites:allFavorites,ratings:allRatings,redemptions:allRedemptions,lists:memberLists});
+    return privateJson(res,200,{profile:{...profile,joinedAt:communityMember?.joinedAt || null,isClubVime:hasClubVime(vicoinsStore,profile.id),clubVimeExpiresAt:getClubVimeMembership(vicoinsStore,profile.id)?.expiresAt || null,vicoins:await getVicoinsBalance(profile.id,profile.role === 'admin'),vicoinsInfinite:profile.role === 'admin',banner:bannerInventory.equipped},favorites,redemptions,ratings,totals,achievements,activities,lists,badges:await getCommunityBadgesForMember(profile.id)});
   }
   if (req.method === 'GET' && url.pathname === '/api/account/profile-banner') {
     const profile = await getAuthenticatedProfile(req,res);
@@ -2592,8 +2638,8 @@ async function handle(req, res) {
         entry.posterUrl = title.posterUrl || entry.posterUrl || '';
         entry.votes = Array.isArray(entry.votes) ? entry.votes : [];
         const previous = entry.votes.find(vote => vote.clientId === clientId);
-        if (previous) previous.rating = rating;
-        else entry.votes.push({clientId,rating});
+          if (previous) { previous.rating = rating; previous.updatedAt = new Date().toISOString(); }
+          else entry.votes.push({clientId,rating,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
         return { ...ratingSummary(entry,clientId),topRated:publicTopRatings(entries) };
       });
       const reward = await awardActivityVicoins({userId:clientId,type:'rating-activity',referenceId:`${type}:${id}`,description:`Vicoins por avaliar: ${title.title}`});
@@ -2636,15 +2682,16 @@ async function handle(req, res) {
         let entry = entries.find(value => `${value.mediaType}:${value.id}` === entryKey);
         if (action === 'add') {
           if (!entry) {
-            entry = {id,mediaType,title,posterUrl,year:/^\d{4}$/.test(String(item.year || '')) ? String(item.year) : '',voters:[]};
+            entry = {id,mediaType,title,posterUrl,year:/^\d{4}$/.test(String(item.year || '')) ? String(item.year) : '',voters:[],voterActivity:{}};
             entries.push(entry);
           }
           entry.voters = Array.isArray(entry.voters) ? entry.voters : [];
-          if (!entry.voters.includes(clientId)) entry.voters.push(clientId);
+          if (!entry.voters.includes(clientId)) { entry.voters.push(clientId); entry.voterActivity = entry.voterActivity || {}; entry.voterActivity[clientId] = new Date().toISOString(); }
           entry.title = title;
           if (posterUrl) entry.posterUrl = posterUrl;
         } else if (entry) {
           entry.voters = (Array.isArray(entry.voters) ? entry.voters : []).filter(voter => voter !== clientId);
+          if (entry.voterActivity) delete entry.voterActivity[clientId];
           if (!entry.voters.length) entries.splice(entries.indexOf(entry), 1);
         }
         return {favorites:publicFavorites(entries,clientId)};
