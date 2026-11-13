@@ -6,10 +6,11 @@
   const ratingsRankingList = document.querySelector('#communityRatingsRankList');
   const rankingMoreButtons = document.querySelectorAll('[data-ranking-more]');
   const membersMoreButton = document.querySelector('#communityMembersMore');
-  const dialog = document.querySelector('#communityMemberDialog');
-  const close = document.querySelector('#communityMemberClose');
+  const profilePage = document.querySelector('#perfil');
+  const profileHero = document.querySelector('#communityProfileHero');
   const avatar = document.querySelector('#communityMemberAvatar');
   const name = document.querySelector('#communityMemberName');
+  const memberSince = document.querySelector('#communityMemberSince');
   const feedback = document.querySelector('#communityMemberFeedback');
   const redemptions = document.querySelector('#communityMemberRedemptions');
   const favorites = document.querySelector('#communityMemberFavorites');
@@ -17,14 +18,19 @@
   const achievementsRoot = document.querySelector('#communityAchievementList');
   const sidebarVicoinsCount = document.querySelector('#sidebarVicoinsCount');
   const shopVicoinsCount = document.querySelector('#shopVicoinsCount');
-  const dialogVicoinsCount = document.querySelector('#communityMemberVicoinsCount');
+  const profileVicoinsCount = document.querySelector('#communityMemberVicoinsCount');
   const sidebarVicoinsLink = document.querySelector('#sidebarVicoinsLink');
-  const dialogVicoinsLink = document.querySelector('#communityMemberVicoinsLink');
+  const profileVicoinsLink = document.querySelector('#communityMemberVicoinsLink');
   const sidebarProfileButton = document.querySelector('#sidebarUserOpenProfile');
-  const dialogHead = document.querySelector('.community-member-dialog-head');
+  const profileBannerPreview = document.querySelector('#communityProfileBannerPreview');
+  const profileBannerLabel = document.querySelector('#communityProfileBannerLabel');
+  const favoritesCount = document.querySelector('#communityMemberFavoritesCount');
+  const ratingsCount = document.querySelector('#communityMemberRatingsCount');
+  const redemptionsCount = document.querySelector('#communityMemberRedemptionsCount');
   const profileBannerImages = {'vimessias':'/assets/profile-banners/vimessias-1600x240.png?v=1'};
   const bases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
   let activeProfilePath = '';
+  let currentProfileId = '';
   let membersExpanded = false;
   const expandedRankings = new Set();
   let profileTitles = {redemptions:[],favorites:[],ratings:[]};
@@ -35,10 +41,10 @@
     return String(value).replace(/[&<>"']/g,character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
   }
 
-  function setVicoins(value,dialogOnly = false,infinite = false) {
+  function setVicoins(value,profileOnly = false,infinite = false) {
     const balance = Number.isSafeInteger(Number(value)) && Number(value) >= 0 ? Number(value) : 0;
-    const counters = dialogOnly ? [dialogVicoinsCount] : [sidebarVicoinsCount,shopVicoinsCount];
-    const links = dialogOnly ? [dialogVicoinsLink] : [sidebarVicoinsLink];
+    const counters = profileOnly ? [profileVicoinsCount] : [sidebarVicoinsCount,shopVicoinsCount];
+    const links = profileOnly ? [profileVicoinsLink] : [sidebarVicoinsLink];
     const label = infinite ? '∞' : balance.toLocaleString('pt-BR');
     for (const counter of counters) if (counter) counter.textContent = label;
     for (const link of links) if (link) link.setAttribute('aria-label',`${infinite ? 'Vicoins ilimitados' : `Vicoins: ${balance.toLocaleString('pt-BR')}`}. Abrir lojinha`);
@@ -49,12 +55,28 @@
     const suppliedUrl = String(banner?.imageUrl || '');
     const imageUrl = profileBannerImages[banner?.id] || (/^\/api\/profile-banners\/[a-f0-9-]{36}\.(?:png|jpg)$/i.test(suppliedUrl) ? suppliedUrl : '');
     if (!imageUrl) {
-      dialogHead.classList.remove('has-profile-banner');
-      dialogHead.style.removeProperty('--community-profile-banner');
+      profileHero.classList.remove('has-profile-banner');
+      profileHero.style.removeProperty('--community-profile-banner');
+      profileBannerPreview.style.removeProperty('background-image');
+      profileBannerPreview.classList.remove('has-banner');
+      profileBannerLabel.textContent = 'Nenhum banner de perfil equipado.';
       return;
     }
-    dialogHead.style.setProperty('--community-profile-banner',`url("${imageUrl}")`);
-    dialogHead.classList.add('has-profile-banner');
+    profileHero.style.setProperty('--community-profile-banner',`url("${imageUrl}")`);
+    profileHero.classList.add('has-profile-banner');
+    profileBannerPreview.style.backgroundImage = `url("${imageUrl}")`;
+    profileBannerPreview.classList.add('has-banner');
+    profileBannerLabel.textContent = 'Banner equipado no perfil.';
+  }
+
+  function renderProfileStats(profile = {}) {
+    if (favoritesCount) favoritesCount.textContent = Number(profileTotals.favorites || 0).toLocaleString('pt-BR');
+    if (ratingsCount) ratingsCount.textContent = Number(profileTotals.ratings || 0).toLocaleString('pt-BR');
+    if (redemptionsCount) redemptionsCount.textContent = Number(profileTotals.redemptions || 0).toLocaleString('pt-BR');
+    if (memberSince) {
+      const joinedAt = Date.parse(profile.joinedAt || '');
+      memberSince.textContent = Number.isFinite(joinedAt) ? `Membro desde ${new Date(joinedAt).getFullYear()}` : 'Membro da comunidade';
+    }
   }
 
   function renderAchievements(achievements = {}) {
@@ -128,7 +150,7 @@
 
   function updateMoreButtons() {
     for (const key of Object.keys(profileContainers)) {
-      const button = dialog.querySelector(`[data-profile-more="${key}"]`);
+      const button = profilePage.querySelector(`[data-profile-more="${key}"]`);
       if (!button) continue;
       const remaining = Math.max(0,profileTotals[key] - profileTitles[key].length);
       button.classList.toggle('hidden',remaining === 0);
@@ -142,12 +164,14 @@
     container.scrollBy({left:direction * Math.max(130,container.clientWidth * 0.82),behavior:'smooth'});
   }
 
-  async function openProfile(memberId) {
+  async function openProfile(memberId,{updateHistory = true} = {}) {
     if (!memberId) return;
-    if (!dialog.open) dialog.showModal();
+    currentProfileId = String(memberId);
+    window.CardapioNavigation?.showPage('perfil',null,updateHistory,currentProfileId);
     avatar.removeAttribute('src');
     avatar.alt = '';
     name.textContent = 'Carregando perfil…';
+    if (memberSince) memberSince.textContent = 'Carregando…';
     setProfileBanner(null);
     setVicoins(0,true);
     feedback.textContent = '';
@@ -155,13 +179,15 @@
     activeProfilePath = '';
     profileTitles = {redemptions:[],favorites:[],ratings:[]};
     profileTotals = {redemptions:0,favorites:0,ratings:0};
-    dialog.querySelectorAll('[data-profile-more]').forEach(button => button.classList.add('hidden'));
+    renderProfileStats();
+    profilePage.querySelectorAll('[data-profile-more]').forEach(button => button.classList.add('hidden'));
     redemptions.replaceChildren();
     favorites.replaceChildren();
     ratedTitles.replaceChildren();
     updateCarouselControls(redemptions);
     updateCarouselControls(favorites);
     updateCarouselControls(ratedTitles);
+    profilePage.scrollIntoView({block:'start',behavior:'smooth'});
     try {
       const ownProfile = String(window.CardapioAuth?.getUser()?.id || '') === String(memberId);
       activeProfilePath = ownProfile ? '/api/account/profile' : `/api/community/members/${encodeURIComponent(memberId)}`;
@@ -177,6 +203,7 @@
       }
       profileTitles = {redemptions:Array.isArray(data.redemptions) ? data.redemptions : [],favorites:Array.isArray(data.favorites) ? data.favorites : [],ratings:Array.isArray(data.ratings) ? data.ratings : []};
       profileTotals = {...profileTotals,...(data.totals || {})};
+      renderProfileStats(profile);
       renderTitles(redemptions,profileTitles.redemptions,'Ainda não há resgates aprovados.',true);
       renderTitles(favorites,profileTitles.favorites,'Ainda não há filmes ou séries favoritos.');
       renderRatedTitles(profileTitles.ratings);
@@ -280,9 +307,7 @@
     button.textContent = expanded ? 'Ver menos' : 'Ver mais';
     button.setAttribute('aria-expanded',String(expanded));
   });
-  close.addEventListener('click',() => dialog.close());
-  dialog.addEventListener('click',event => { if (event.target === dialog) dialog.close(); });
-  dialog.addEventListener('click',event => {
+  profilePage.addEventListener('click',event => {
     const moreButton = event.target.closest('[data-profile-more]');
     if (moreButton) {
       const key = moreButton.dataset.profileMore;
@@ -313,12 +338,11 @@
     container.addEventListener('scroll',() => updateCarouselControls(container),{passive:true});
     window.addEventListener('resize',() => updateCarouselControls(container));
   }
-  dialogVicoinsLink.addEventListener('click',() => dialog.close());
   sidebarProfileButton.addEventListener('click',() => openProfile(window.CardapioAuth?.getUser()?.id));
   window.addEventListener('cardapio:auth-updated',event => loadMyVicoins(event.detail?.user || null));
   window.addEventListener('cardapio:vicoins-updated',event => { setVicoins(event.detail?.balance,false,event.detail?.infinite); loadRankings(); });
   window.addEventListener('cardapio:redemptions-updated',loadRankings);
-  window.CardapioCommunityProfiles = {open:openProfile};
+  window.CardapioCommunityProfiles = {open:openProfile,getCurrentId:() => currentProfileId};
   loadMembers();
   loadRankings();
   window.setInterval(() => { if (!document.hidden) loadRankings(); },60000);

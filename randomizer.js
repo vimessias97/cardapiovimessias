@@ -12,6 +12,7 @@ const calendarPage = document.querySelector('#calendario');
 const profileFavoritesPage = document.querySelector('#favoritos');
 const profileRedemptionsPage = document.querySelector('#resgatados');
 const adminPage = document.querySelector('#admin');
+const communityProfilePage = document.querySelector('#perfil');
 const randomTypeButtons = [...document.querySelectorAll('.random-type')];
 const genreOptions = document.querySelector('#genreOptions');
 const pageButtons = [...document.querySelectorAll('[data-page]')];
@@ -41,8 +42,8 @@ async function fetchRandomApi(path) {
   throw lastError || new Error('Não foi possível conectar ao servidor local.');
 }
 
-function showPage(view, link = null, updateHistory = true) {
-  if (!['home','sorteador','sugestoes','jogos','forum','promocoes','lojinha','calendario','favoritos','resgatados','admin'].includes(view)) return;
+function showPage(view, link = null, updateHistory = true, profileId = '') {
+  if (!['home','sorteador','sugestoes','jogos','forum','promocoes','lojinha','calendario','favoritos','resgatados','admin','perfil'].includes(view)) return;
   homePage.classList.toggle('hidden', view !== 'home');
   randomPage.classList.toggle('hidden', view !== 'sorteador');
   suggestionsPage.classList.toggle('hidden', view !== 'sugestoes');
@@ -54,8 +55,12 @@ function showPage(view, link = null, updateHistory = true) {
   profileFavoritesPage.classList.toggle('hidden', view !== 'favoritos');
   profileRedemptionsPage.classList.toggle('hidden', view !== 'resgatados');
   adminPage.classList.toggle('hidden', view !== 'admin');
+  communityProfilePage.classList.toggle('hidden', view !== 'perfil');
   pageButtons.forEach(item => item.classList.toggle('selected', item === link || (!link && item.dataset.page === view)));
-  if (updateHistory) history.replaceState(null, '', `#${view === 'home' ? 'inicio' : view}`);
+  if (updateHistory) {
+    const target = view === 'home' ? 'inicio' : view === 'perfil' ? `perfil/${encodeURIComponent(profileId || window.CardapioCommunityProfiles?.getCurrentId?.() || '')}` : view;
+    history.replaceState(null, '', `#${target}`);
+  }
   if (view === 'sugestoes') window.CardapioFavorites?.refresh();
   if (view === 'favoritos') window.CardapioUserProfile?.loadFavorites();
   if (view === 'resgatados') window.CardapioUserProfile?.loadRedemptions();
@@ -71,7 +76,7 @@ window.CardapioNavigation = {showPage};
 
 pageButtons.forEach(link => link.addEventListener('click', event => {
   const view = link.dataset.page;
-  if (!['home','sorteador','sugestoes','jogos','forum','promocoes','lojinha','calendario','favoritos','resgatados','admin'].includes(view)) return;
+  if (!['home','sorteador','sugestoes','jogos','forum','promocoes','lojinha','calendario','favoritos','resgatados','admin','perfil'].includes(view)) return;
   event.preventDefault();
   if (['favoritos','resgatados'].includes(view) && !window.CardapioAuth?.requireLogin()) return;
   if (view === 'admin' && !window.CardapioAuth?.isAdmin()) {
@@ -179,4 +184,11 @@ if (location.hash === '#sorteador') {
   showPage('resgatados',null,false);
 } else if (location.hash === '#admin') {
   showPage('admin',null,false);
+} else if (location.hash.startsWith('#perfil/')) {
+  let profileId = '';
+  try { profileId = decodeURIComponent(location.hash.slice('#perfil/'.length)); } catch {}
+  if (profileId) {
+    showPage('perfil',null,false,profileId);
+    window.CardapioCommunityProfiles?.open(profileId,{updateHistory:false});
+  }
 }

@@ -1780,8 +1780,9 @@ async function handle(req, res) {
     const totals = Object.fromEntries(Object.entries(pages).map(([key,page]) => [key,page.total]));
     const achievements = {favorites:allFavorites.length,ratings:allRatings.length,redemptions:allRedemptions.length};
     const vicoinsStore = await readVicoinsStore();
+    const communityMember = (await readCommunityMembers()).find(member => String(member.id) === String(profile.id));
     const bannerInventory = getProfileBannerInventory(vicoinsStore,profile.id);
-    return privateJson(res,200,{profile:{...profile,isClubVime:hasClubVime(vicoinsStore,profile.id),clubVimeExpiresAt:getClubVimeMembership(vicoinsStore,profile.id)?.expiresAt || null,vicoins:await getVicoinsBalance(profile.id,profile.role === 'admin'),vicoinsInfinite:profile.role === 'admin',banner:bannerInventory.equipped},favorites,redemptions,ratings,totals,achievements,badges:await getCommunityBadgesForMember(profile.id)});
+    return privateJson(res,200,{profile:{...profile,joinedAt:communityMember?.joinedAt || null,isClubVime:hasClubVime(vicoinsStore,profile.id),clubVimeExpiresAt:getClubVimeMembership(vicoinsStore,profile.id)?.expiresAt || null,vicoins:await getVicoinsBalance(profile.id,profile.role === 'admin'),vicoinsInfinite:profile.role === 'admin',banner:bannerInventory.equipped},favorites,redemptions,ratings,totals,achievements,badges:await getCommunityBadgesForMember(profile.id)});
   }
   if (req.method === 'GET' && url.pathname === '/api/account/profile-banner') {
     const profile = await getAuthenticatedProfile(req,res);
