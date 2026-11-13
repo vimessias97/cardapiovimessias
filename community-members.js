@@ -22,10 +22,6 @@
   const sidebarVicoinsLink = document.querySelector('#sidebarVicoinsLink');
   const profileVicoinsLink = document.querySelector('#communityMemberVicoinsLink');
   const sidebarProfileButton = document.querySelector('#sidebarUserOpenProfile');
-  const profileBannerLabel = document.querySelector('#communityProfileBannerLabel');
-  const favoritesCount = document.querySelector('#communityMemberFavoritesCount');
-  const ratingsCount = document.querySelector('#communityMemberRatingsCount');
-  const redemptionsCount = document.querySelector('#communityMemberRedemptionsCount');
   const profileBannerImages = {'vimessias':'/assets/profile-banners/vimessias-1600x240.png?v=1'};
   const bases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
   let activeProfilePath = '';
@@ -56,18 +52,13 @@
     if (!imageUrl) {
       profileHero.classList.remove('has-profile-banner');
       profileHero.style.removeProperty('--community-profile-banner');
-      profileBannerLabel.textContent = 'Nenhum banner de perfil equipado.';
       return;
     }
     profileHero.style.setProperty('--community-profile-banner',`url("${imageUrl}")`);
     profileHero.classList.add('has-profile-banner');
-    profileBannerLabel.textContent = 'Banner equipado no perfil.';
   }
 
-  function renderProfileStats(profile = {}) {
-    if (favoritesCount) favoritesCount.textContent = Number(profileTotals.favorites || 0).toLocaleString('pt-BR');
-    if (ratingsCount) ratingsCount.textContent = Number(profileTotals.ratings || 0).toLocaleString('pt-BR');
-    if (redemptionsCount) redemptionsCount.textContent = Number(profileTotals.redemptions || 0).toLocaleString('pt-BR');
+  function renderProfileMembership(profile = {}) {
     if (memberSince) {
       const joinedAt = Date.parse(profile.joinedAt || '');
       memberSince.textContent = Number.isFinite(joinedAt) ? `Membro desde ${new Date(joinedAt).getFullYear()}` : 'Membro da comunidade';
@@ -174,7 +165,7 @@
     activeProfilePath = '';
     profileTitles = {redemptions:[],favorites:[],ratings:[]};
     profileTotals = {redemptions:0,favorites:0,ratings:0};
-    renderProfileStats();
+    renderProfileMembership();
     profilePage.querySelectorAll('[data-profile-more]').forEach(button => button.classList.add('hidden'));
     redemptions.replaceChildren();
     favorites.replaceChildren();
@@ -199,7 +190,7 @@
       }
       profileTitles = {redemptions:Array.isArray(data.redemptions) ? data.redemptions : [],favorites:Array.isArray(data.favorites) ? data.favorites : [],ratings:Array.isArray(data.ratings) ? data.ratings : []};
       profileTotals = {...profileTotals,...(data.totals || {})};
-      renderProfileStats(profile);
+      renderProfileMembership(profile);
       renderTitles(redemptions,profileTitles.redemptions,'Ainda não há resgates aprovados.',true);
       renderTitles(favorites,profileTitles.favorites,'Ainda não há filmes ou séries favoritos.');
       renderRatedTitles(profileTitles.ratings);

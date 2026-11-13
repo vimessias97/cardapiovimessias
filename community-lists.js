@@ -12,19 +12,25 @@
   let currentListId = '';
   let currentList = null;
   let searchTimer = 0;
+  let listOpenRequest = 0;
 
   const esc = value => String(value ?? '').replace(/[&<>"']/g,c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   async function api(path,options = {}) {
     let lastError;
     for (const base of apiBases) {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(),12000);
       try {
-        const response = await fetch(`${base}${path}`,{credentials:'same-origin',cache:'no-store',...options,headers:{'content-type':'application/json',...(options.headers || {})}});
+        const response = await fetch(`${base}${path}`,{credentials:'same-origin',cache:'no-store',...options,signal:controller.signal,headers:{'content-type':'application/json',...(options.headers || {})}});
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Não foi possível carregar as listas.');
         return data;
       } catch (error) {
+        if (error.name === 'AbortError') throw new Error('O servidor demorou para abrir esta lista. Tente novamente.');
         if (!(error instanceof TypeError)) throw error;
         lastError = error;
+      } finally {
+        window.clearTimeout(timer);
       }
     }
     throw lastError || new Error('Não foi possível conectar ao servidor.');
@@ -78,10 +84,17 @@
   }
   async function openList(id) {
     if (!id) return;
+    const requestId = ++listOpenRequest;
     currentListId = String(id);
     grid.innerHTML = '<p class="community-list-empty">Abrindo lista…</p>';
-    try { const data = await api(`/api/lists/${encodeURIComponent(id)}`); renderDetail(data.list); }
-    catch (error) { currentListId = ''; grid.innerHTML = `<p class="community-list-empty">${esc(error.message)}</p>`; }
+    try {
+      const data = await api(`/api/lists/${encodeURIComponent(id)}`);
+      if (requestId === listOpenRequest) renderDetail(data.list);
+    } catch (error) {
+      if (requestId !== listOpenRequest) return;
+      currentListId = '';
+      grid.innerHTML = `<div class="community-list-empty"><p>${esc(error.message)}</p><button type="button" class="community-list-secondary" data-retry-list="${esc(id)}">Tentar novamente</button></div>`;
+    }
   }
   async function searchTitles(query) {
     const results = document.querySelector('#communityListSearchResults');
@@ -126,6 +139,8 @@
     }
   });
   grid.addEventListener('click',async event => {
+    const retry = event.target.closest('[data-retry-list]');
+    if (retry) { openList(retry.dataset.retryList); return; }
     const add = event.target.closest('[data-add-title]');
     if (add) {
       const item = {id:Number(add.dataset.addTitle),mediaType:add.dataset.mediaType,title:add.dataset.title,kind:add.dataset.kind,year:add.dataset.year,posterUrl:add.dataset.poster};
