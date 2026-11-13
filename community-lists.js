@@ -147,7 +147,7 @@
     if (!homeTeaserGrid) return;
     try {
       const lists = (await fetchPublicLists()).slice(0,3);
-      homeTeaserGrid.innerHTML = lists.length ? lists.map(list => `<a class="home-list-teaser-card" href="#listas/${encodeURIComponent(list.id)}" data-home-open-list="${esc(list.id)}"><strong>${esc(list.title)}</strong><span>${Number(list.itemCount) || 0} títulos <b aria-hidden="true">→</b></span></a>`).join('') : '<p class="home-list-teaser-empty">As listas criadas pela comunidade aparecerão aqui.</p>';
+      homeTeaserGrid.innerHTML = lists.length ? lists.map(list => `<a class="home-list-teaser-card" href="#listas/${encodeURIComponent(list.id)}" data-home-open-list="${esc(list.id)}">${list.posterUrl ? `<img src="${esc(list.posterUrl)}" alt="" loading="lazy">` : '<span class="home-list-teaser-icon" aria-hidden="true">▤</span>'}<span class="home-list-teaser-copy"><strong>${esc(list.title)}</strong><span>${Number(list.itemCount) || 0} títulos <b aria-hidden="true">→</b></span></span></a>`).join('') : '<p class="home-list-teaser-empty">As listas criadas pela comunidade aparecerão aqui.</p>';
     } catch {
       homeTeaserGrid.innerHTML = '<p class="home-list-teaser-empty">As listas da comunidade serão exibidas aqui.</p>';
     }

@@ -1529,7 +1529,7 @@ async function handle(req, res) {
       .filter(item => item && item.public !== false && (!ownerId || String(item.owner?.id) === ownerId))
       .sort((a,b) => Date.parse(b.updatedAt || b.createdAt || '') - Date.parse(a.updatedAt || a.createdAt || ''))
       .slice(0,100)
-      .map(({id,owner,title,description,items,likes,comments,updatedAt,createdAt}) => ({id,owner,title,description,itemCount:Array.isArray(items) ? items.length : 0,likeCount:Array.isArray(likes) ? likes.length : 0,commentCount:Array.isArray(comments) ? comments.length : 0,updatedAt,createdAt}));
+      .map(({id,owner,title,description,items,likes,comments,updatedAt,createdAt}) => ({id,owner,title,description,itemCount:Array.isArray(items) ? items.length : 0,posterUrl:Array.isArray(items) ? items.find(item => item?.posterUrl)?.posterUrl || '' : '',likeCount:Array.isArray(likes) ? likes.length : 0,commentCount:Array.isArray(comments) ? comments.length : 0,updatedAt,createdAt}));
     return json(res,200,{lists:visible});
   }
   if (req.method === 'GET' && url.pathname.startsWith('/api/lists/')) {
