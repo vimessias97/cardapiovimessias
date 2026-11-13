@@ -4,10 +4,9 @@ const sidebarLoginArea = document.querySelector('#sidebarLoginArea');
 const sidebarUserProfile = document.querySelector('#sidebarUserProfile');
 const sidebarUserAvatar = document.querySelector('#sidebarUserAvatar');
 const sidebarUserName = document.querySelector('#sidebarUserName');
-const sidebarUserRole = document.querySelector('#sidebarUserRole');
+const sidebarProfileAdminLink = document.querySelector('#sidebarProfileAdminLink');
 const sidebarUserLogout = document.querySelector('#sidebarUserLogout');
 const gamesAccessNote = document.querySelector('#gamesAccessNote');
-const adminPanelNav = document.querySelector('#adminPanelNav');
 const twitchLoginDialog = document.querySelector('#twitchLoginDialog');
 const twitchLoginDialogMessage = document.querySelector('#twitchLoginDialogMessage');
 const twitchLoginDialogAction = document.querySelector('#twitchLoginDialogAction');
@@ -73,15 +72,13 @@ function updateTwitchUi(profile) {
   const authenticated = Boolean(profile);
   sidebarLoginArea.classList.toggle('hidden', authenticated);
   sidebarUserProfile.classList.toggle('hidden', !authenticated);
-  adminPanelNav?.classList.toggle('hidden', profile?.role !== 'admin');
+  sidebarProfileAdminLink?.classList.toggle('hidden', profile?.role !== 'admin');
   if (gamesAccessNote) gamesAccessNote.textContent = authenticated
     ? 'Escolha um desafio e divirta-se.'
     : 'Entre com a Twitch para jogar os desafios.';
   if (authenticated) {
     const name = profile.displayName || profile.login;
     sidebarUserName.innerHTML = window.CardapioClubVime?.name(name,profile.isClubVime,profile.clubVimeExpiresAt) || name;
-    sidebarUserRole.textContent = profile.role === 'admin' ? 'ADMINISTRADOR' : 'USUÁRIO TWITCH';
-    sidebarUserRole.classList.toggle('is-admin', profile.role === 'admin');
     if (profile.profileImageUrl) {
       sidebarUserAvatar.src = profile.profileImageUrl;
       sidebarUserAvatar.alt = `Foto de perfil de ${name}`;

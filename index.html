@@ -39,22 +39,25 @@
       <a class="side-brand" href="#inicio" aria-label="Vimessias Play — início"><img class="brand-emblem" src="assets/vimessias-play-mark.svg" alt=""><strong>VIMESSIAS<br><em>PLAY</em></strong><small>FILMES · SÉRIES · ANIMES</small></a>
       <nav class="side-nav" aria-label="Navegação principal">
         <a class="selected" href="#inicio" data-page="home"><span>⌂</span>Início</a>
-        <a href="#sorteador" data-page="sorteador"><span>⚄</span>Sorteador</a>
-        <a href="#calendario" data-page="calendario"><span>▦</span>Calendário</a>
-        <a href="#sugestoes" data-page="sugestoes"><span>♡</span>Favoritos</a>
-        <a href="#jogos" data-page="jogos"><span>▣</span>Jogos</a>
-        <a href="#forum" data-page="forum"><span>☷</span>Fórum</a>
         <a href="#promocoes" data-page="promocoes"><span>％</span>Promoções</a>
-        <a href="#lojinha" data-page="lojinha"><span>◉</span>Lojinha</a>
-        <a class="hidden" id="adminPanelNav" href="#admin" data-page="admin"><span>⚙</span>Painel administrativo</a>
+        <a href="#sorteador" data-page="sorteador"><span>⚄</span>Sorteador</a>
+        <a href="#sugestoes" data-page="sugestoes"><span>♡</span>Favoritos</a>
+        <a href="#calendario" data-page="calendario"><span>▦</span>Calendário</a>
       </nav>
-      <div class="sidebar-login-area" id="sidebarLoginArea"><a class="twitch-login" id="twitchLogin" href="/auth/twitch/start"><span class="twitch-mark" aria-hidden="true">◉</span><span>Entrar com Twitch</span></a><span class="twitch-auth-feedback" id="twitchAuthFeedback" aria-live="polite"></span></div>
-      <section class="sidebar-user-profile hidden" id="sidebarUserProfile" aria-label="Perfil da Twitch">
-        <div class="sidebar-user-heading"><img id="sidebarUserAvatar" alt=""><span><button class="sidebar-user-open-profile" id="sidebarUserOpenProfile" type="button" aria-label="Abrir meu perfil"><strong id="sidebarUserName"></strong><span aria-hidden="true">↗</span></button></span></div>
-        <a class="vicoins-balance sidebar-vicoins" id="sidebarVicoinsLink" href="#lojinha" data-page="lojinha" title="Vicoins" aria-label="Vicoins: 0. Abrir lojinha"><img src="assets/vicoins-coin-optimized.png" alt=""><span id="sidebarVicoinsCount">0</span></a>
-        <span class="sidebar-user-role" id="sidebarUserRole"></span>
-        <button class="sidebar-user-logout" id="sidebarUserLogout" type="button">Sair da conta</button>
-      </section>
+      <div class="sidebar-account-slot">
+        <div class="sidebar-login-area" id="sidebarLoginArea"><a class="twitch-login" id="twitchLogin" href="/auth/twitch/start"><span class="twitch-mark" aria-hidden="true">◉</span><span>Entrar com Twitch</span></a><span class="twitch-auth-feedback" id="twitchAuthFeedback" aria-live="polite"></span></div>
+        <section class="sidebar-user-profile hidden" id="sidebarUserProfile" aria-label="Perfil da Twitch">
+          <div class="sidebar-user-heading"><img id="sidebarUserAvatar" alt=""><span><button class="sidebar-user-open-profile" id="sidebarUserOpenProfile" type="button" aria-label="Abrir meu perfil"><strong id="sidebarUserName"></strong><span aria-hidden="true">↗</span></button></span></div>
+          <a class="vicoins-balance sidebar-vicoins" id="sidebarVicoinsLink" href="#lojinha" data-page="lojinha" title="Vicoins" aria-label="Vicoins: 0. Abrir lojinha"><img src="assets/vicoins-coin-optimized.png" alt=""><span id="sidebarVicoinsCount">0</span></a>
+          <a class="sidebar-profile-admin hidden" id="sidebarProfileAdminLink" href="#admin" data-page="admin"><span aria-hidden="true">⚙</span>Painel administrativo</a>
+          <button class="sidebar-user-logout" id="sidebarUserLogout" type="button">Sair da conta</button>
+        </section>
+      </div>
+      <nav class="side-nav side-nav-secondary" aria-label="Mais páginas">
+        <a href="#lojinha" data-page="lojinha"><span>◉</span>Lojinha</a>
+        <a href="#forum" data-page="forum"><span>☷</span>Fórum</a>
+        <a href="#jogos" data-page="jogos"><span>▣</span>Jogos</a>
+      </nav>
     </aside>
 
     <div class="workspace">
