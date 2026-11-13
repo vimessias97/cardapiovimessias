@@ -13,6 +13,7 @@
   const name = document.querySelector('#communityMemberName');
   const memberSince = document.querySelector('#communityMemberSince');
   const activityList = document.querySelector('#communityMemberActivity');
+  const profileClubCrown = document.querySelector('#communityProfileClubCrown');
   const feedback = document.querySelector('#communityMemberFeedback');
   const redemptions = document.querySelector('#communityMemberRedemptions');
   const favorites = document.querySelector('#communityMemberFavorites');
@@ -168,16 +169,24 @@
   function renderTitles(container,items,emptyText,showDate = false) {
     if (!items.length) {
       container.innerHTML = `<p class="community-members-empty">${safe(emptyText)}</p>`;
+      placeMoreButtonInRail(container);
       updateCarouselControls(container);
       return;
     }
     container.innerHTML = items.map(item => `<article class="community-member-title-card">${item.posterUrl ? `<img src="${safe(item.posterUrl)}" alt="Pôster de ${safe(item.title)}" loading="lazy">` : '<span class="community-member-title-poster" aria-hidden="true">✦</span>'}<div class="community-member-title-copy"><strong>${safe(item.title)}</strong><small>${safe(item.mediaType === 'tv' ? 'Série' : item.mediaType === 'other' ? 'Outro' : 'Filme')}${item.durationLabel ? ` · ${safe(item.durationLabel)}` : ''}</small>${showDate && item.scheduledAt ? `<small>Agendado: ${safe(new Date(item.scheduledAt).toLocaleDateString('pt-BR'))}</small>` : ''}</div></article>`).join('');
+    placeMoreButtonInRail(container);
     requestAnimationFrame(() => updateCarouselControls(container));
+  }
+
+  function placeMoreButtonInRail(container) {
+    const button = profilePage.querySelector(`[data-profile-more="${container.id === 'communityMemberRedemptions' ? 'redemptions' : container.id === 'communityMemberFavorites' ? 'favorites' : 'ratings'}"]`);
+    if (button && button.parentElement !== container) container.append(button);
   }
 
   function renderRatedTitles(items = []) {
     if (!items.length) {
       ratedTitles.innerHTML = '<p class="community-members-empty">Ainda não há filmes ou séries avaliados.</p>';
+      placeMoreButtonInRail(ratedTitles);
       updateCarouselControls(ratedTitles);
       return;
     }
@@ -190,6 +199,7 @@
       }).join('');
       return `<article class="community-member-title-card community-rated-title-card">${item.posterUrl ? `<img src="${safe(item.posterUrl)}" alt="Pôster de ${safe(item.title)}" loading="lazy">` : '<span class="community-member-title-poster" aria-hidden="true">✦</span>'}<div class="community-member-title-copy"><strong>${safe(item.title)}</strong><small>${safe(item.mediaType === 'tv' ? 'Série' : 'Filme')}</small><span class="community-rating-stars" aria-label="Nota ${rating.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} de 5">${stars}<small>${rating.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} / 5</small></span></div></article>`;
     }).join('');
+    placeMoreButtonInRail(ratedTitles);
     requestAnimationFrame(() => updateCarouselControls(ratedTitles));
   }
 
@@ -225,6 +235,7 @@
     avatar.alt = '';
     name.textContent = 'Carregando perfil…';
     if (memberSince) memberSince.textContent = 'Carregando…';
+    profileClubCrown?.classList.add('hidden');
     setProfileBanner(null);
     profileBannerSettings?.classList.add('hidden');
     setVicoins(0,true);
@@ -249,6 +260,8 @@
       const data = await api(activeProfilePath);
       const profile = data.profile || {};
       name.innerHTML = window.CardapioClubVime?.name(profile.displayName || profile.login || 'Perfil Twitch',profile.isClubVime,profile.clubVimeExpiresAt) || safe(profile.displayName || profile.login || 'Perfil Twitch');
+      name.querySelector('.club-vime-crown')?.remove();
+      profileClubCrown?.classList.toggle('hidden',!profile.isClubVime);
       setVicoins(profile.vicoins,true,profile.vicoinsInfinite);
       setProfileBanner(profile.banner);
       profileBannerSettings?.classList.toggle('hidden',!ownProfile);
