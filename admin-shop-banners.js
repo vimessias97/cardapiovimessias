@@ -95,9 +95,9 @@
     try {
       const image = await fileData(file);
       const bitmap = await createImageBitmap(file);
-      const dimensionsValid = bitmap.width === 1600 && bitmap.height === 240;
+      const dimensionsValid = bitmap.width === 2172 && bitmap.height === 724;
       bitmap.close();
-      if (!dimensionsValid) throw new Error('A imagem precisa ter exatamente 1600 × 240 px.');
+      if (!dimensionsValid) throw new Error('A imagem precisa ter exatamente 2172 × 724 px.');
       await api('/api/admin/profile-banners',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:data.get('name'),image})});
       form.reset();
       await load();

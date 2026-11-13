@@ -749,7 +749,7 @@ function decodeProfileBannerImage(image) {
       offset += length;
     }
   }
-  if (width !== 1600 || height !== 240) throw new Error('A imagem do banner precisa ter exatamente 1600 × 240 px.');
+  if (width !== 2172 || height !== 724) throw new Error('A imagem do banner precisa ter exatamente 2172 × 724 px.');
   return {buffer,extension,type};
 }
 
