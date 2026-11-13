@@ -83,8 +83,9 @@
 .community-rank-group .community-ranking-list{margin-top:4px}
 .community-rank-group .community-ranking-row{min-height:36px;padding:4px 0}
 .community-profile-page{max-width:1400px;min-height:calc(100vh - 70px);margin:0 auto;padding:24px 28px 55px;color:#eee9f2}
-.community-profile-hero{position:relative;display:flex;min-height:230px;align-items:flex-end;overflow:hidden;border:1px solid #57396a;border-radius:17px;background-image:linear-gradient(90deg,#09070de8 0%,#0d0913b5 52%,#09070db0 100%),var(--community-profile-banner,radial-gradient(ellipse at 76% 38%,#642487 0%,#281437 34%,#100d16 78%));background-position:center 46%;background-size:cover;box-shadow:0 15px 38px #0006}
-.community-profile-hero:after{position:absolute;inset:auto 0 0;height:44%;background:linear-gradient(0deg,#08070bd9,transparent);content:"";pointer-events:none}
+.community-profile-hero{position:relative;display:flex;min-height:230px;align-items:flex-end;overflow:hidden;border:1px solid #57396a;border-radius:17px;background-image:linear-gradient(90deg,#09070d55 0%,#0d09132b 42%,#09070d12 100%),var(--community-profile-banner,radial-gradient(ellipse at 76% 38%,#642487 0%,#281437 34%,#100d16 78%));background-position:center;background-size:cover;box-shadow:0 15px 38px #0006}
+.community-profile-hero.has-profile-banner{background-color:#0d0913;background-repeat:no-repeat;background-size:100% 100%,contain}
+.community-profile-hero:after{position:absolute;inset:auto 0 0;height:36%;background:linear-gradient(0deg,#08070b66,transparent);content:"";pointer-events:none}
 .community-profile-identity{position:relative;z-index:1;display:flex;align-items:center;gap:22px;padding:25px 32px}
 .community-profile-identity>img{width:136px;height:136px;flex:none;border:3px solid #a94add;border-radius:50%;object-fit:cover;background:#211929;box-shadow:0 0 25px #9a36c977}
 .community-profile-identity h1{max-width:min(58vw,780px);margin:5px 0 8px;overflow-wrap:anywhere;color:#fff8ff;font:700 clamp(32px,5vw,54px)/1.05 var(--serif);text-shadow:0 3px 16px #000b}
