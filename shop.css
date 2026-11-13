@@ -110,13 +110,14 @@
 .shop-more-banners-details{display:grid;align-content:center;gap:3px;min-height:55px;padding:7px 9px}
 .shop-more-banners-details>strong{color:#f1eaf4;font-size:11px}
 .shop-more-banners-details>small{color:#b5a5bd;font-size:9px}
-.shop-more-banners-dialog{width:min(900px,calc(100vw - 28px));max-width:none;max-height:min(86vh,800px);margin:auto;padding:20px;border:1px solid #533b60;border-radius:15px;background:linear-gradient(150deg,#17121c,#0d0b10 75%);color:#eee8f2;box-shadow:0 24px 90px #000b;overflow:auto}
+.shop-more-banners-dialog{width:min(900px,calc(100vw - 28px));max-width:none;max-height:min(86vh,800px);margin:auto;padding:20px;border:1px solid #533b60;border-radius:15px;background:linear-gradient(150deg,#17121c,#0d0b10 75%);color:#eee8f2;box-shadow:0 24px 90px #000b;overflow:hidden}
 .shop-more-banners-dialog::backdrop{background:#050408d9;backdrop-filter:blur(6px)}
 .shop-more-banners-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .shop-more-banners-head h2{margin:4px 0;color:#f5eff8;font:600 25px var(--serif)}
 .shop-more-banners-head button{display:grid;width:36px;height:36px;place-items:center;border:1px solid #493653;border-radius:8px;background:#17121c;color:#e6d9ed;font-size:25px;cursor:pointer}
 .shop-more-banners-dialog>p{margin:5px 0 12px;color:#b5adbb;font-size:12px}
-.shop-more-banners-dialog .shop-banner-grid{grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:none;grid-auto-columns:initial;overflow-x:hidden;overflow-y:auto;max-height:68vh;margin-top:0}
+.shop-more-banners-dialog .shop-banner-grid{grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:none;grid-auto-columns:initial;overflow-x:hidden;overflow-y:auto;max-height:68vh;margin-top:0;scrollbar-width:thin;scrollbar-color:#765087 transparent}
+.shop-more-banners-dialog .shop-banner-grid::-webkit-scrollbar{width:9px}.shop-more-banners-dialog .shop-banner-grid::-webkit-scrollbar-track{background:transparent}.shop-more-banners-dialog .shop-banner-grid::-webkit-scrollbar-thumb{border:2px solid #111;border-radius:8px;background:#765087}
 .shop-more-banners-empty{grid-column:1/-1;align-self:center;padding:26px 10px;text-align:center}
 .shop-banner-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,minmax(0,1fr));grid-auto-columns:minmax(270px,calc((100% - 12px)/2));gap:10px;margin-top:13px;padding:2px 2px 8px;overflow-x:auto;overflow-y:hidden;scrollbar-color:#5d4268 #17131a;scrollbar-width:thin;scroll-snap-type:x mandatory}
 .shop-banner-card{overflow:hidden;min-width:0;border:1px solid #513c5d;border-radius:10px;background:linear-gradient(145deg,#1b1520,#100e14 75%);box-shadow:0 8px 22px #0004}

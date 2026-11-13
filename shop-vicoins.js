@@ -190,11 +190,9 @@
   function renderBanners() {
     const authenticated = window.CardapioAuth?.isAuthenticated();
     const owned = new Set(Array.isArray(bannerInventory.owned) ? bannerInventory.owned : []);
-    const featured = bannerCatalog.find(banner => banner.id === 'vimessias') || bannerCatalog[0];
-    const more = bannerCatalog.filter(banner => banner.id !== featured?.id);
-    const moreCount = more.length;
-    bannerGrid.innerHTML = `${featured ? bannerCardMarkup(featured,authenticated,owned) : '<p class="shop-empty">Banner LivePix indisponível no momento.</p>'}<button type="button" class="shop-banner-card shop-more-banners-card" data-open-banners><span class="shop-more-banners-preview"><span aria-hidden="true">▧</span><strong>Confira mais banners</strong></span><span class="shop-more-banners-details"><strong>Ver coleção completa</strong><small>${moreCount ? `${moreCount} ${moreCount === 1 ? 'banner disponível' : 'banners disponíveis'} · Abrir ↗` : 'Novas opções em breve'}</small></span></button>`;
-    moreBannersGrid.innerHTML = more.length ? more.map(banner => bannerCardMarkup(banner,authenticated,owned)).join('') : '<p class="shop-empty shop-more-banners-empty">Ainda não há outros banners cadastrados. Volte em breve para conferir as novidades.</p>';
+    const allBanners = bannerCatalog;
+    bannerGrid.innerHTML = `<button type="button" class="shop-banner-card shop-more-banners-card" data-open-banners><span class="shop-more-banners-preview"><span aria-hidden="true">▧</span><strong>Confira todos os banners</strong></span></button>`;
+    moreBannersGrid.innerHTML = allBanners.length ? allBanners.map(banner => bannerCardMarkup(banner,authenticated,owned)).join('') : '<p class="shop-empty shop-more-banners-empty">Ainda não há banners cadastrados. Volte em breve para conferir as novidades.</p>';
     renderClubVime();
   }
 
@@ -382,7 +380,7 @@
     if (button) redeemGameKey(button);
   });
 
-  window.CardapioVicoinsShop = {load};
+  window.CardapioVicoinsShop = {load,openBanners:() => moreBannersDialog.showModal()};
   window.addEventListener('cardapio:auth-updated',load);
   window.addEventListener('cardapio:vicoins-updated',event => updateBalance(event.detail?.balance,false,event.detail?.infinite));
   window.addEventListener('cardapio:vicoins-orders-updated',load);

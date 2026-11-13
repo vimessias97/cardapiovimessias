@@ -286,8 +286,7 @@
 
   profileBannerSettings?.addEventListener('click',event => {
     event.preventDefault();
-    window.CardapioNavigation?.showPage('lojinha');
-    window.setTimeout(() => document.querySelector('#shopBannerGrid [data-open-banners]')?.click(),180);
+    window.CardapioVicoinsShop?.openBanners();
   });
 
   async function loadMembers() {
