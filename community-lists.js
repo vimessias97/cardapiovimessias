@@ -8,11 +8,18 @@
   const sectionHeading = document.querySelector('#communityListSectionHeading');
   const backButton = document.querySelector('#communityListsBack');
   const profileLists = document.querySelector('#communityProfileLists');
+  const homeTeaser = document.querySelector('#homeListsTeaser');
+  const homeTeaserGrid = document.querySelector('#homeListsTeaserGrid');
   const apiBases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
   let currentListId = '';
   let currentList = null;
   let searchTimer = 0;
   let listOpenRequest = 0;
+  let publicListsCache = null;
+  let publicListsPromise = null;
+  let publicListsRevision = 0;
+  let pendingListId = '';
+  const listDetailsCache = new Map();
 
   const esc = value => String(value ?? '').replace(/[&<>"']/g,c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   async function api(path,options = {}) {
@@ -59,6 +66,18 @@
       return `<article class="community-list-card"><h3>${esc(list.title)}</h3><p>${esc(list.description || 'Sem descrição.')}</p><div class="community-list-card-meta">${ownerMarkup(list.owner)}<span>${Number(list.itemCount ?? list.items?.length) || 0} títulos</span></div><a class="community-list-primary community-list-open" href="#listas/${encodeURIComponent(list.id)}" data-open-list="${esc(list.id)}">${isOwner ? 'Abrir e editar' : 'Ver lista'} <span aria-hidden="true">→</span></a></article>`;
     }).join('');
   }
+  async function fetchPublicLists() {
+    if (publicListsCache) return publicListsCache;
+    if (publicListsPromise) return publicListsPromise;
+    const revision = publicListsRevision;
+    const request = api('/api/lists').then(data => {
+      const lists = Array.isArray(data.lists) ? data.lists : [];
+      if (revision === publicListsRevision) publicListsCache = lists;
+      return lists;
+    }).finally(() => { if (publicListsPromise === request) publicListsPromise = null; });
+    publicListsPromise = request;
+    return request;
+  }
   function renderItems(list) {
     const items = Array.isArray(list.items) ? list.items : [];
     if (!items.length) return '<p class="community-list-empty">Esta lista ainda não tem títulos. Busque um filme ou uma série para adicionar.</p>';
@@ -76,24 +95,54 @@
     grid.innerHTML = `<div class="community-list-detail"><div class="community-list-detail-head"><div><h3>${esc(list.title)}</h3><p>${esc(list.description || 'Sem descrição.')}</p><div class="community-list-card-meta">${ownerMarkup(list.owner)}<span>${(list.items || []).length} títulos</span></div></div>${isOwner ? '<button type="button" class="community-list-secondary" data-delete-list>Excluir lista</button>' : ''}</div><p class="community-list-feedback" id="communityListActionFeedback" aria-live="polite"></p>${editing}<div class="community-list-items-wrap">${renderItems(list)}</div></div>`;
   }
   async function loadLists(ownerId = '') {
+    if (!ownerId) {
+      currentList = null; currentListId = '';
+      if (pendingListId) { listOpenRequest++; pendingListId = ''; }
+    }
     const query = ownerId ? `?owner=${encodeURIComponent(ownerId)}` : '';
     try {
-      const data = await api(`/api/lists${query}`);
-      renderCards(data.lists || []);
+      const lists = ownerId ? (await api(`/api/lists${query}`)).lists || [] : await fetchPublicLists();
+      if (!ownerId && currentListId) return;
+      renderCards(lists);
     } catch (error) { grid.innerHTML = `<p class="community-list-empty">${esc(error.message)}</p>`; }
   }
   async function openList(id) {
     if (!id) return;
+    if (currentList?.id === String(id)) { renderDetail(currentList); return; }
+    if (listDetailsCache.has(String(id))) { listOpenRequest++; pendingListId = ''; renderDetail(listDetailsCache.get(String(id))); return; }
+    if (pendingListId === String(id)) return;
     const requestId = ++listOpenRequest;
     currentListId = String(id);
-    grid.innerHTML = '<p class="community-list-empty">Abrindo lista…</p>';
+    pendingListId = String(id);
+    grid.innerHTML = '<div class="community-list-loading-skeleton" role="status" aria-label="Abrindo lista"><span></span><span></span><span></span></div>';
     try {
       const data = await api(`/api/lists/${encodeURIComponent(id)}`);
-      if (requestId === listOpenRequest) renderDetail(data.list);
+      if (requestId === listOpenRequest) { listDetailsCache.set(String(id),data.list); renderDetail(data.list); }
     } catch (error) {
       if (requestId !== listOpenRequest) return;
       currentListId = '';
       grid.innerHTML = `<div class="community-list-empty"><p>${esc(error.message)}</p><button type="button" class="community-list-secondary" data-retry-list="${esc(id)}">Tentar novamente</button></div>`;
+    } finally {
+      if (requestId === listOpenRequest) pendingListId = '';
+    }
+  }
+  function rememberList(list,{refreshIndex = false} = {}) {
+    if (!list?.id) return;
+    listDetailsCache.set(String(list.id),list);
+    if (refreshIndex) {
+      publicListsRevision++;
+      publicListsCache = null;
+      publicListsPromise = null;
+      loadHomeLists();
+    }
+  }
+  async function loadHomeLists() {
+    if (!homeTeaserGrid) return;
+    try {
+      const lists = (await fetchPublicLists()).slice(0,3);
+      homeTeaserGrid.innerHTML = lists.length ? lists.map(list => `<a class="home-list-teaser-card" href="#listas/${encodeURIComponent(list.id)}" data-home-open-list="${esc(list.id)}"><strong>${esc(list.title)}</strong><span>${Number(list.itemCount) || 0} títulos <b aria-hidden="true">→</b></span></a>`).join('') : '<p class="home-list-teaser-empty">As listas criadas pela comunidade aparecerão aqui.</p>';
+    } catch {
+      homeTeaserGrid.innerHTML = '<p class="home-list-teaser-empty">As listas da comunidade serão exibidas aqui.</p>';
     }
   }
   async function searchTitles(query) {
@@ -121,6 +170,7 @@
       const fields = new FormData(createForm);
       const data = await api('/api/lists',{method:'POST',body:JSON.stringify({title:fields.get('title'),description:fields.get('description')})});
       createForm.reset(); setFeedback('Lista criada. Agora você pode adicionar títulos.');
+      rememberList(data.list,{refreshIndex:true});
       await openList(data.list.id);
     } catch (error) { setFeedback(error.message,true); }
     finally { button.disabled = false; }
@@ -130,7 +180,7 @@
       event.preventDefault();
       if (!window.CardapioAuth?.requireLogin()) return;
       const form = event.target; const fields = new FormData(form); const button = form.querySelector('button'); button.disabled = true;
-      try { const data = await api(`/api/lists/${encodeURIComponent(currentListId)}`,{method:'PATCH',body:JSON.stringify({action:'update',title:fields.get('title'),description:fields.get('description')})}); renderDetail(data.list); }
+      try { const data = await api(`/api/lists/${encodeURIComponent(currentListId)}`,{method:'PATCH',body:JSON.stringify({action:'update',title:fields.get('title'),description:fields.get('description')})}); rememberList(data.list,{refreshIndex:true}); renderDetail(data.list); }
       catch (error) { setFeedback(error.message,true); } finally { button.disabled = false; }
       return;
     }
@@ -145,20 +195,20 @@
     if (add) {
       const item = {id:Number(add.dataset.addTitle),mediaType:add.dataset.mediaType,title:add.dataset.title,kind:add.dataset.kind,year:add.dataset.year,posterUrl:add.dataset.poster};
       add.disabled = true;
-      try { const data = await api(`/api/lists/${encodeURIComponent(currentListId)}`,{method:'PATCH',body:JSON.stringify({action:'add-title',item})}); renderDetail(data.list); }
+      try { const data = await api(`/api/lists/${encodeURIComponent(currentListId)}`,{method:'PATCH',body:JSON.stringify({action:'add-title',item})}); rememberList(data.list,{refreshIndex:true}); renderDetail(data.list); }
       catch (error) { add.disabled = false; setFeedback(error.message,true); }
       return;
     }
     const remove = event.target.closest('[data-remove-title]');
     if (remove) {
       remove.disabled = true;
-      try { const data = await api(`/api/lists/${encodeURIComponent(currentListId)}`,{method:'PATCH',body:JSON.stringify({action:'remove-title',titleId:Number(remove.dataset.removeTitle),mediaType:remove.dataset.mediaType})}); renderDetail(data.list); }
+      try { const data = await api(`/api/lists/${encodeURIComponent(currentListId)}`,{method:'PATCH',body:JSON.stringify({action:'remove-title',titleId:Number(remove.dataset.removeTitle),mediaType:remove.dataset.mediaType})}); rememberList(data.list,{refreshIndex:true}); renderDetail(data.list); }
       catch (error) { remove.disabled = false; setFeedback(error.message,true); }
       return;
     }
     if (event.target.closest('[data-delete-list]')) {
       if (!confirm('Excluir esta lista e os títulos organizados nela?')) return;
-      try { await api(`/api/lists/${encodeURIComponent(currentListId)}`,{method:'PATCH',body:JSON.stringify({action:'delete-list'})}); await showAllLists(); }
+      try { await api(`/api/lists/${encodeURIComponent(currentListId)}`,{method:'PATCH',body:JSON.stringify({action:'delete-list'})}); listDetailsCache.delete(String(currentListId)); publicListsRevision++; publicListsCache = null; publicListsPromise = null; await showAllLists(); loadHomeLists(); }
       catch (error) { setFeedback(error.message,true); }
     }
   });
@@ -182,20 +232,22 @@
     event.preventDefault();
     window.CardapioNavigation?.showPage('listas',null,true,'',open.dataset.openList);
   });
+  homeTeaser?.addEventListener('click',event => {
+    const link = event.target.closest('[data-home-open-list]');
+    if (!link) return;
+    event.preventDefault();
+    window.CardapioNavigation?.showPage('listas',null,true,'',link.dataset.homeOpenList);
+  });
   profileLists?.addEventListener('click',event => {
     const link = event.target.closest('[data-profile-list]');
     if (!link) return;
     event.preventDefault();
     window.CardapioNavigation?.showPage('listas',null,true,'',link.dataset.profileList);
   });
-  async function renderProfileLists(memberId) {
+  function renderProfileLists(memberId,items = []) {
     if (!profileLists) return;
-    profileLists.innerHTML = '<p>Carregando listas…</p>';
-    try {
-      const data = await api(`/api/lists?owner=${encodeURIComponent(memberId)}`);
-      const lists = Array.isArray(data.lists) ? data.lists : [];
-      profileLists.innerHTML = lists.length ? lists.map(list => `<a class="community-profile-list-link" href="#listas/${encodeURIComponent(list.id)}" data-profile-list="${esc(list.id)}"><strong>${esc(list.title)}</strong><span>${Number(list.itemCount) || 0} títulos →</span></a>`).join('') : '<p>Este perfil ainda não tem listas públicas.</p>';
-    } catch { profileLists.innerHTML = '<p>Não foi possível carregar as listas deste perfil.</p>'; }
+    const lists = Array.isArray(items) ? items : [];
+    profileLists.innerHTML = lists.length ? lists.map(list => `<a class="community-profile-list-link" href="#listas/${encodeURIComponent(list.id)}" data-profile-list="${esc(list.id)}"><strong>${esc(list.title)}</strong><span>${Number(list.itemCount) || 0} títulos →</span></a>`).join('') : '<p>Este perfil ainda não tem listas públicas.</p>';
   }
   window.CardapioLists = {load:loadLists,open:openList,renderProfileLists};
   window.CardapioAuth?.ready.then(user => {
@@ -206,7 +258,7 @@
   window.addEventListener('cardapio:auth-updated',event => {
     const user = event.detail?.user;
     if (createHint) createHint.textContent = user ? 'Crie uma lista e organize seus filmes e séries favoritos.' : 'Entre com a Twitch para montar e editar suas listas.';
-    if (page && !page.classList.contains('hidden')) currentListId ? openList(currentListId) : loadLists();
+    if (page && !page.classList.contains('hidden')) currentList ? renderDetail(currentList) : currentListId ? openList(currentListId) : loadLists();
   });
-  window.addEventListener('cardapio:profile-opened',event => renderProfileLists(event.detail?.id));
+  loadHomeLists();
 })();

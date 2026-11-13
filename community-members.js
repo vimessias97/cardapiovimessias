@@ -182,7 +182,7 @@
       name.innerHTML = window.CardapioClubVime?.name(profile.displayName || profile.login || 'Perfil Twitch',profile.isClubVime,profile.clubVimeExpiresAt) || safe(profile.displayName || profile.login || 'Perfil Twitch');
       setVicoins(profile.vicoins,true,profile.vicoinsInfinite);
       setProfileBanner(profile.banner);
-      window.CardapioLists?.renderProfileLists(memberId);
+      window.CardapioLists?.renderProfileLists(memberId,data.lists || []);
       renderAchievements(data.achievements || {});
       if (profile.profileImageUrl) {
         avatar.src = profile.profileImageUrl;
