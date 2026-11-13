@@ -87,7 +87,7 @@
     const items = Array.isArray(list.items) ? list.items : [];
     if (!items.length) return '<p class="community-list-empty">Esta lista ainda não tem títulos. Busque um filme ou uma série para adicionar.</p>';
     const isOwner = String(window.CardapioAuth?.getUser()?.id || '') === String(list.owner?.id || '');
-    return `<div class="community-list-items">${items.map(item => `<article class="community-list-item">${item.posterUrl ? `<img src="${esc(item.posterUrl)}" alt="Pôster de ${esc(item.title)}" loading="lazy">` : '<span class="community-list-item-placeholder" aria-hidden="true">✦</span>'}<strong title="${esc(item.title)}">${esc(item.title)}</strong><small>${esc(item.kind || (item.mediaType === 'tv' ? 'Série' : 'Filme'))}${item.year ? ` · ${esc(item.year)}` : ''}</small>${isOwner ? `<button type="button" class="community-list-item-remove" data-remove-title="${Number(item.id)}" data-media-type="${esc(item.mediaType)}" aria-label="Remover ${esc(item.title)} da lista">×</button>` : ''}</article>`).join('')}</div>`;
+    return `<div class="community-list-items">${items.map(item => `<article class="community-list-item"><button type="button" class="community-list-poster-open" data-list-title-popup="${Number(item.id)}" data-media-type="${esc(item.mediaType)}" aria-label="Abrir detalhes de ${esc(item.title)}">${item.posterUrl ? `<img src="${esc(item.posterUrl)}" alt="Pôster de ${esc(item.title)}" loading="lazy">` : '<span class="community-list-item-placeholder" aria-hidden="true">✦</span>'}</button><strong title="${esc(item.title)}">${esc(item.title)}</strong><small>${esc(item.kind || (item.mediaType === 'tv' ? 'Série' : 'Filme'))}${item.year ? ` · ${esc(item.year)}` : ''}</small>${isOwner ? `<button type="button" class="community-list-item-remove" data-remove-title="${Number(item.id)}" data-media-type="${esc(item.mediaType)}" aria-label="Remover ${esc(item.title)} da lista">×</button>` : ''}</article>`).join('')}</div>`;
   }
   function renderDetail(list) {
     currentList = list;
@@ -230,6 +230,16 @@
     }
   });
   grid.addEventListener('click',async event => {
+    const titlePoster = event.target.closest('[data-list-title-popup]');
+    if (titlePoster) {
+      titlePoster.disabled = true;
+      try {
+        const data = await api(`/api/catalog/title?type=${encodeURIComponent(titlePoster.dataset.mediaType)}&id=${encodeURIComponent(titlePoster.dataset.listTitlePopup)}`);
+        if (typeof window.openCatalogTitle === 'function') window.openCatalogTitle(data.result);
+      } catch (error) { setFeedback(error.message || 'Não foi possível abrir os detalhes deste título.',true); }
+      finally { titlePoster.disabled = false; }
+      return;
+    }
     if (event.target.closest('[data-toggle-list-editor]')) { grid.querySelector('.community-list-editor')?.classList.toggle('hidden'); return; }
     if (event.target.closest('[data-share-list]')) {
       const url = `${location.origin}${location.pathname}${location.search}#listas/${encodeURIComponent(currentListId)}`;
