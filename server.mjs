@@ -1792,6 +1792,24 @@ async function handle(req, res) {
     const makeActivityRank = (counts,key) => [...counts.entries()].map(([id,count]) => rankedMember(id,{[key]:count})).filter(member => member[key] > 0 && !isExcluded(memberById.get(member.id) || {id:member.id})).sort((a,b) => b[key] - a[key] || a.displayName.localeCompare(b.displayName,'pt-BR'));
     return json(res,200,{vicoins,redemptionSpenders,favoriteLeaders:makeActivityRank(favoriteCounts,'favoriteCount'),ratingLeaders:makeActivityRank(ratingCounts,'ratingCount'),redemptionValueRule:'R$ 5 por bloco iniciado de 30 minutos; considera apenas resgates aprovados.'});
   }
+  const communityFriendsMatch = /^\/api\/community\/members\/(\d{1,32})\/friends$/.exec(url.pathname);
+  if (req.method === 'GET' && communityFriendsMatch) {
+    const memberId = communityFriendsMatch[1];
+    const state = await readJsonState('communitySocial',{friendships:[],requests:[],notifications:[]});
+    const friendIds = (Array.isArray(state.friendships) ? state.friendships : [])
+      .filter(item => item?.memberIds?.includes(memberId))
+      .map(item => String(item.memberIds.find(id => String(id) !== memberId) || ''));
+    const clubStore = await readVicoinsStore();
+    const members = await readCommunityMembers();
+    const memberById = new Map(members.map(member => [String(member.id),member]));
+    const friends = friendIds.map(id => {
+      const friend = memberById.get(id);
+      if (!friend) return null;
+      const membership = getClubVimeMembership(clubStore,id);
+      return {id,login:friend.login || '',displayName:friend.displayName || friend.login || 'Usuário Twitch',profileImageUrl:friend.profileImageUrl || '',clubVime:hasClubVime(clubStore,id),clubVimeExpiresAt:membership?.expiresAt || null};
+    }).filter(Boolean);
+    return json(res,200,{friends});
+  }
   if (req.method === 'GET' && url.pathname.startsWith('/api/community/members/')) {
     const memberId = url.pathname.slice('/api/community/members/'.length);
     if (!/^\d{1,32}$/.test(memberId)) return json(res,400,{error:'Perfil inválido.'});

@@ -60,7 +60,7 @@ async function loadReactWeek() {
     reactWeekList.innerHTML = days.map((date,index) => {
       const dayEntries = entriesByDate.get(reactWeekDateKey(date)) || [];
       const eventMarkup = dayEntries.length
-        ? dayEntries.map(entry => `<div class="react-week-event"><span class="react-week-clapper" aria-hidden="true">▣</span><span class="react-week-event-title" title="${reactWeekSafe(entry.title)}">${reactWeekSafe(entry.title)}</span><time>${reactWeekTime(entry.scheduledAt)}</time></div>`).join('')
+        ? dayEntries.map(entry => `<div class="react-week-event"><span class="react-week-clapper" aria-hidden="true">▣</span><div class="react-week-event-details"><span class="react-week-event-title" title="${reactWeekSafe(entry.title)}">${reactWeekSafe(entry.title)}</span><time>${reactWeekTime(entry.scheduledAt)}</time></div></div>`).join('')
         : '<div class="react-week-empty-day"><span class="react-week-clapper" aria-hidden="true">▣</span><span>Sem react agendado</span></div>';
       const label = reactWeekDateLabel(date);
       return `<div class="react-week-day${index === 0 ? ' is-today' : ''}"><span class="react-week-date"><strong>${index === 0 ? 'Hoje · ' : ''}${reactWeekSafe(label.weekday)}</strong><time>${reactWeekSafe(label.dayMonth)}</time></span><div class="react-week-events">${eventMarkup}</div></div>`;

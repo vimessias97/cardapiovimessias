@@ -272,6 +272,7 @@
       const data = await api(activeProfilePath);
       const profile = data.profile || {};
       window.CardapioSocial?.showProfile(profile,ownProfile);
+      window.CardapioSocial?.loadProfileFriends(memberId);
       name.innerHTML = window.CardapioClubVime?.name(profile.displayName || profile.login || 'Perfil Twitch',profile.isClubVime,profile.clubVimeExpiresAt) || safe(profile.displayName || profile.login || 'Perfil Twitch');
       name.querySelector('.club-vime-crown')?.remove();
       profileClubCrown?.classList.toggle('hidden',!profile.isClubVime);

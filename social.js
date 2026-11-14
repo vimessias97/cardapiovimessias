@@ -6,6 +6,7 @@
   const friendsList = document.querySelector('#sidebarFriendsList');
   const closeButton = document.querySelector('#sidebarSocialClose');
   const friendButton = document.querySelector('#communityFriendButton');
+  const profileFriends = document.querySelector('#communityProfileFriends');
   const bases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
   let isOpen = false;
   let currentUser = null;
@@ -110,6 +111,20 @@
     }
   }
 
+  async function loadProfileFriends(memberId) {
+    if (!profileFriends || !memberId) return;
+    profileFriends.innerHTML = '<span class="community-profile-friends-empty">Carregando amizades…</span>';
+    try {
+      const data = await api(`/api/community/members/${encodeURIComponent(memberId)}/friends`);
+      const friends = Array.isArray(data.friends) ? data.friends : [];
+      profileFriends.innerHTML = friends.length ? friends.map(friend => {
+        const label = friend.displayName || friend.login || 'Usuário Twitch';
+        const markedName = window.CardapioClubVime?.name(label,friend.clubVime,friend.clubVimeExpiresAt) || safe(label);
+        return `<button type="button" class="community-profile-friend" data-profile-friend-id="${safe(friend.id)}" title="${safe(label)}" aria-label="Abrir perfil de ${safe(label)}">${friend.profileImageUrl ? `<img src="${safe(friend.profileImageUrl)}" alt="" loading="lazy">` : '<span class="community-profile-friend-fallback" aria-hidden="true">✦</span>'}<span class="community-profile-friend-tooltip">${markedName}</span></button>`;
+      }).join('') : '<span class="community-profile-friends-empty">Ainda não há amizades.</span>';
+    } catch (error) { profileFriends.innerHTML = `<span class="community-profile-friends-empty">${safe(error.message || 'Não foi possível carregar amizades.')}</span>`; }
+  }
+
   notificationButton?.addEventListener('click',openPanel);
   closeButton?.addEventListener('click',() => { isOpen = false; socialPanel.classList.add('hidden'); notificationButton.setAttribute('aria-expanded','false'); });
   friendButton?.addEventListener('click',async () => {
@@ -134,6 +149,10 @@
     const profile = event.target.closest('[data-social-profile]');
     if (profile) window.CardapioCommunityProfiles?.open(profile.dataset.socialProfile);
   });
+  profileFriends?.addEventListener('click',event => {
+    const friend = event.target.closest('[data-profile-friend-id]');
+    if (friend) window.CardapioCommunityProfiles?.open(friend.dataset.profileFriendId);
+  });
 
   document.addEventListener('click',event => {
     if (isOpen && !socialPanel.contains(event.target) && !notificationButton.contains(event.target)) {
@@ -154,5 +173,5 @@
     if (currentUser) refresh();
   });
   window.setInterval(() => { if (currentUser && !document.hidden) refresh(); },60000);
-  window.CardapioSocial = {showProfile,refresh,open:openPanel};
+  window.CardapioSocial = {showProfile,refresh,open:openPanel,loadProfileFriends};
 })();
