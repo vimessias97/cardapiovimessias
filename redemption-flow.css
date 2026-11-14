@@ -1,10 +1,10 @@
 .redemption-request-form{display:grid;gap:9px;margin-top:15px;padding:12px;border:1px solid #4a3558;border-radius:9px;background:linear-gradient(140deg,#1a1420,#100d14)}
-.redemption-form-heading{display:grid;gap:3px}.redemption-form-heading strong{color:#f4eafa;font-size:13px}.redemption-form-heading span{color:#aaa0b2;font-size:11px}
+.redemption-form-heading{display:grid;gap:3px}.redemption-form-heading strong{color:#f4eafa;font-size:15px}.redemption-form-heading span{color:#aaa0b2;font-size:13px}
 .redemption-schedule-fields{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-.redemption-schedule-fields label{display:grid;gap:5px;color:#d3c6dc;font-size:11px;font-weight:600}
+.redemption-schedule-fields label{display:grid;gap:5px;color:#d3c6dc;font-size:13px;font-weight:600}
 .redemption-schedule-fields input{width:100%;min-width:0;min-height:38px;padding:5px 8px;border:1px solid #4b3956;border-radius:6px;background:#0d0b11;color:#f5eff8;color-scheme:dark;font:12px var(--sans)}
 .redemption-schedule-fields input:focus{outline:1px solid #a45bc9}
-.redemption-request-feedback{min-height:16px;margin:0;color:#a99fb0;font-size:10px;line-height:1.45}
+.redemption-request-feedback{min-height:16px;margin:0;color:#a99fb0;font-size:12px;line-height:1.45}
 .redemption-request-form .redemption-link{width:100%;margin:0;cursor:pointer}
 .redemption-request-form .redemption-link:disabled{opacity:.65;cursor:wait}
 .recent-redemptions-card .rail-heading{flex-wrap:wrap}.recent-redemptions-list{display:grid;gap:8px;margin-top:9px}
@@ -12,39 +12,39 @@
 .recent-redemption-poster{display:block;width:52px;aspect-ratio:2/3;align-self:start;object-fit:cover;border-radius:4px;background:#24172d}
 .recent-redemption-no-poster{display:grid;place-items:center;color:#d1a7ed;font-size:22px}
 .recent-redemption-copy{display:grid;align-content:start;gap:4px;min-width:0}
-.recent-redemption-copy>strong{overflow:hidden;color:#f0eaf4;font-size:12px;text-overflow:ellipsis;white-space:nowrap}
-.recent-redemption-copy>small{color:#a99eaf;font-size:10px;line-height:1.4}
-.recent-redemption-requester{overflow-wrap:anywhere;color:#d5b2e8;font-size:10px;line-height:1.35}
+.recent-redemption-copy>strong{overflow:hidden;color:#f0eaf4;font-size:14px;text-overflow:ellipsis;white-space:nowrap}
+.recent-redemption-copy>small{color:#a99eaf;font-size:12px;line-height:1.4}
+.recent-redemption-requester{overflow-wrap:anywhere;color:#d5b2e8;font-size:12px;line-height:1.35}
 .recent-redemption-requester-link{padding:0;border:0;background:transparent;color:inherit;font:inherit;text-align:left;text-decoration:underline;text-decoration-color:#8d68a0;text-underline-offset:2px;cursor:pointer}
 .recent-redemption-requester-link:hover,.recent-redemption-requester-link:focus-visible{color:#f0d2ff;text-decoration-color:currentColor}
-.recent-redemption-date-status{color:#cba2e3;font-size:10px;line-height:1.4}
+.recent-redemption-date-status{color:#cba2e3;font-size:12px;line-height:1.4}
 .account-redemptions-list,.admin-redemptions-list{display:grid;gap:12px;margin-top:22px}
 .account-redemption-item{display:grid;grid-template-columns:66px minmax(0,1fr) auto;gap:13px;align-items:center;padding:12px;border:1px solid #352a40;border-radius:10px;background:linear-gradient(140deg,#15121a,#100d14)}
 .account-redemption-item>img,.account-redemption-no-poster{width:66px;aspect-ratio:2/3;object-fit:cover;border-radius:5px;background:#24172d}
 .account-redemption-no-poster{display:grid;place-items:center;color:#d1a7ed;font-size:24px}
-.account-redemption-item>div{display:grid;gap:5px;min-width:0}.account-redemption-item>div strong{color:#f4edf7;font:600 16px var(--serif)}.account-redemption-item>div small{color:#aa9eaf;font-size:11px;line-height:1.4}
-.account-redemption-status,.admin-redemption-status{padding:5px 8px;border:1px solid #5b476a;border-radius:14px;color:#dbc6e7;font-size:10px;font-weight:700;text-align:center;white-space:nowrap}
+.account-redemption-item>div{display:grid;gap:5px;min-width:0}.account-redemption-item>div strong{color:#f4edf7;font:600 16px var(--serif)}.account-redemption-item>div small{color:#aa9eaf;font-size:13px;line-height:1.4}
+.account-redemption-status,.admin-redemption-status{padding:5px 8px;border:1px solid #5b476a;border-radius:14px;color:#dbc6e7;font-size:12px;font-weight:700;text-align:center;white-space:nowrap}
 .account-redemption-status.status-approved,.admin-redemption-status.status-approved{border-color:#3f7653;background:#17261c;color:#b9ebc8}
 .account-redemption-status.status-rejected,.admin-redemption-status.status-rejected{border-color:#70404b;background:#2b171b;color:#efb6bf}
 .account-redemption-status.status-pending,.admin-redemption-status.status-pending{border-color:#795b35;background:#2a2115;color:#f0d4a7}
 .admin-page{max-width:1320px;min-height:calc(100vh - 70px);margin:0 auto;padding:44px 28px 60px}
-.admin-page-intro .eyebrow{color:#d5aa73;font-size:11px;letter-spacing:.14em}.admin-page-intro h1{margin:8px 0 5px;color:#f5eff8;font:600 36px var(--serif)}.admin-page-intro h1 em{color:#dcb37c;font-style:normal}.admin-page-intro p{margin:0;color:#b5adbb;font-size:15px;line-height:1.6}
+.admin-page-intro .eyebrow{color:#d5aa73;font-size:13px;letter-spacing:.14em}.admin-page-intro h1{margin:8px 0 5px;color:#f5eff8;font:600 36px var(--serif)}.admin-page-intro h1 em{color:#dcb37c;font-style:normal}.admin-page-intro p{margin:0;color:#b5adbb;font-size:17px;line-height:1.6}
 .admin-redemptions-section{margin:18px 0 26px;padding:17px;border:1px solid #493554;border-radius:13px;background:linear-gradient(145deg,#17121c,#0e0c12 75%);box-shadow:0 12px 30px #0003}
 .admin-redemptions-section>div:first-child h2{margin:5px 0;color:#f5eff8;font:600 24px var(--serif)}
-.admin-redemptions-section>div:first-child p{margin:0;color:#b5adbb;font-size:12px;line-height:1.5}
+.admin-redemptions-section>div:first-child p{margin:0;color:#b5adbb;font-size:14px;line-height:1.5}
 .admin-redemptions-section .admin-redemptions-feedback{margin:12px 0 0}
 .admin-redemptions-section .admin-redemptions-list{gap:10px;margin-top:10px}
-.admin-payment-note{margin:20px 0 0;padding:12px 14px;border:1px solid #71532e;border-radius:8px;background:#221b12;color:#e5cfaa;font-size:12px;line-height:1.55}
-.admin-redemptions-feedback{margin:18px 0;color:#b6adbf;font-size:13px;line-height:1.6}
-.admin-redemptions-more{display:block;min-height:40px;margin:13px auto 0;padding:0 18px;border:1px solid #624376;border-radius:7px;background:#21152b;color:#e6c9f7;font-size:12px;font-weight:700}
+.admin-payment-note{margin:20px 0 0;padding:12px 14px;border:1px solid #71532e;border-radius:8px;background:#221b12;color:#e5cfaa;font-size:14px;line-height:1.55}
+.admin-redemptions-feedback{margin:18px 0;color:#b6adbf;font-size:15px;line-height:1.6}
+.admin-redemptions-more{display:block;min-height:40px;margin:13px auto 0;padding:0 18px;border:1px solid #624376;border-radius:7px;background:#21152b;color:#e6c9f7;font-size:14px;font-weight:700}
 .admin-redemptions-more:hover{border-color:#a15bc6;background:#2a1935}
 .admin-redemption-value{color:#ddb0f4!important;font-weight:700}
 .admin-redemption-card{display:grid;grid-template-columns:82px minmax(0,1fr);gap:15px;padding:14px;border:1px solid #3c3046;border-radius:11px;background:linear-gradient(140deg,#17131b,#100d14);box-shadow:0 7px 22px #0003}
 .admin-redemption-card.status-approved{border-color:#335640}.admin-redemption-card.status-rejected{opacity:.72}
 .admin-redemption-poster{display:block;width:82px;aspect-ratio:2/3;object-fit:cover;border-radius:6px;background:#24172d}.admin-no-poster{display:grid;place-items:center;color:#d1a7ed;font-size:28px}
-.admin-redemption-main{min-width:0}.admin-redemption-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.admin-redemption-title-row h2{margin:0;color:#f4edf7;font:600 20px var(--serif)}.admin-redemption-title-row p,.admin-redemption-requester,.admin-redemption-requested-date,.admin-redemption-final-date{margin:5px 0 0;color:#a99eaf;font-size:11px;line-height:1.5}
-.admin-redemption-requester strong{color:#e1d5e8}.admin-redemption-edit{display:flex;align-items:flex-end;flex-wrap:wrap;gap:8px;margin-top:12px}.admin-redemption-edit label{display:grid;flex:1;min-width:200px;gap:5px;color:#d1c4d8;font-size:10px;font-weight:600}.admin-redemption-edit input{min-height:36px;padding:5px 8px;border:1px solid #4b3956;border-radius:6px;background:#0d0b11;color:#f5eff8;color-scheme:dark;font-size:12px}
-.admin-action{min-height:36px;padding:0 12px;border:1px solid #624376;border-radius:6px;background:#21152b;color:#e6c9f7;font-size:11px;font-weight:700}.admin-action:hover{filter:brightness(1.2)}.admin-action.approve{border-color:#4a835e;background:#1b3524;color:#c5f0d0}.admin-action.reject,.admin-action.delete{border-color:#784752;background:#351c22;color:#f0c1c8}.admin-action:disabled,.admin-redemption-edit input:disabled{opacity:.6}
+.admin-redemption-main{min-width:0}.admin-redemption-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.admin-redemption-title-row h2{margin:0;color:#f4edf7;font:600 20px var(--serif)}.admin-redemption-title-row p,.admin-redemption-requester,.admin-redemption-requested-date,.admin-redemption-final-date{margin:5px 0 0;color:#a99eaf;font-size:13px;line-height:1.5}
+.admin-redemption-requester strong{color:#e1d5e8}.admin-redemption-edit{display:flex;align-items:flex-end;flex-wrap:wrap;gap:8px;margin-top:12px}.admin-redemption-edit label{display:grid;flex:1;min-width:200px;gap:5px;color:#d1c4d8;font-size:12px;font-weight:600}.admin-redemption-edit input{min-height:36px;padding:5px 8px;border:1px solid #4b3956;border-radius:6px;background:#0d0b11;color:#f5eff8;color-scheme:dark;font-size:14px}
+.admin-action{min-height:36px;padding:0 12px;border:1px solid #624376;border-radius:6px;background:#21152b;color:#e6c9f7;font-size:13px;font-weight:700}.admin-action:hover{filter:brightness(1.2)}.admin-action.approve{border-color:#4a835e;background:#1b3524;color:#c5f0d0}.admin-action.reject,.admin-action.delete{border-color:#784752;background:#351c22;color:#f0c1c8}.admin-action:disabled,.admin-redemption-edit input:disabled{opacity:.6}
 @media(max-width:760px){.admin-page{min-height:0;padding:28px 15px 40px}.admin-page-intro h1{font-size:30px}.account-redemption-item{grid-template-columns:54px minmax(0,1fr)}.account-redemption-item>img,.account-redemption-no-poster{width:54px}.account-redemption-status{grid-column:2;justify-self:start}}
-@media(max-width:520px){.redemption-schedule-fields{gap:7px}.redemption-schedule-fields label{font-size:10px}.admin-page{padding:22px 10px 32px}.admin-redemption-card{grid-template-columns:62px minmax(0,1fr);gap:10px;padding:10px}.admin-redemption-poster{width:62px}.admin-redemption-title-row h2{font-size:17px}.admin-redemption-title-row{flex-direction:column;gap:6px}.admin-redemption-edit label{min-width:100%;}.admin-redemption-edit .admin-action{flex:1;padding:0 8px;font-size:10px}.account-redemption-item{grid-template-columns:45px minmax(0,1fr);gap:9px;padding:9px}.account-redemption-item>img,.account-redemption-no-poster{width:45px}.account-redemption-item>div strong{font-size:14px}}
+@media(max-width:520px){.redemption-schedule-fields{gap:7px}.redemption-schedule-fields label{font-size:12px}.admin-page{padding:22px 10px 32px}.admin-redemption-card{grid-template-columns:62px minmax(0,1fr);gap:10px;padding:10px}.admin-redemption-poster{width:62px}.admin-redemption-title-row h2{font-size:18px}.admin-redemption-title-row{flex-direction:column;gap:6px}.admin-redemption-edit label{min-width:100%;}.admin-redemption-edit .admin-action{flex:1;padding:0 8px;font-size:12px}.account-redemption-item{grid-template-columns:45px minmax(0,1fr);gap:9px;padding:9px}.account-redemption-item>img,.account-redemption-no-poster{width:45px}.account-redemption-item>div strong{font-size:16px}}
 .recent-redemption-poster-button{width:52px}

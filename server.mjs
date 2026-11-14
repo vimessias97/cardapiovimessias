@@ -68,10 +68,12 @@ const defaultPromotionCollections = [
   {id:'harry-potter',name:'Coleção completa Harry Potter',discountPercent:30,titles:[{id:671,mediaType:'movie'},{id:672,mediaType:'movie'},{id:673,mediaType:'movie'},{id:674,mediaType:'movie'},{id:675,mediaType:'movie'},{id:767,mediaType:'movie'},{id:12444,mediaType:'movie'},{id:12445,mediaType:'movie'}]}
 ];
 const defaultVicoinsRewards = [
-  {id:'content-15',contentLimit:15,coinCost:500},
-  {id:'content-20',contentLimit:20,coinCost:600},
-  {id:'content-25',contentLimit:25,coinCost:700},
-  {id:'content-30',contentLimit:30,coinCost:800}
+  {id:'content-duration-30',contentLimit:30,durationLabel:'30 min',coinCost:500},
+  {id:'content-duration-60',contentLimit:60,durationLabel:'1h',coinCost:600},
+  {id:'content-duration-90',contentLimit:90,durationLabel:'1h30',coinCost:700},
+  {id:'content-duration-120',contentLimit:120,durationLabel:'2h',coinCost:800},
+  {id:'content-duration-150',contentLimit:150,durationLabel:'2h30',coinCost:900},
+  {id:'content-duration-180',contentLimit:180,durationLabel:'3h',coinCost:1000}
 ];
 async function readVicoinsRewards() {
   const saved = await readJsonState('vicoinsRewards',defaultVicoinsRewards);
@@ -2194,8 +2196,8 @@ async function handle(req, res) {
       const result = await updateVicoinsStore(store => {
         const previous = store.orders.find(order => order.requester?.id === profile.id && order.requestKey === requestKey);
         if (previous) return {order:previous,balance:Number(store.balances[profile.id]) || 0};
-        const order = {id:randomUUID(),requestKey,rewardId:reward.id,contentLimit:reward.contentLimit,coinCost:reward.coinCost,requestedTitle,status:'pending',requester:{id:profile.id,login:profile.login,displayName:profile.displayName},createdAt:new Date().toISOString()};
-        const balance = applyVicoinsTransaction(store,{userId:profile.id,amount:-reward.coinCost,type:'shop-redemption',referenceId:order.id,description:`Resgate de conteúdo até R$ ${reward.contentLimit}`});
+        const order = {id:randomUUID(),requestKey,rewardId:reward.id,contentLimit:reward.contentLimit,durationLabel:reward.durationLabel,coinCost:reward.coinCost,requestedTitle,status:'pending',requester:{id:profile.id,login:profile.login,displayName:profile.displayName},createdAt:new Date().toISOString()};
+        const balance = applyVicoinsTransaction(store,{userId:profile.id,amount:-reward.coinCost,type:'shop-redemption',referenceId:order.id,description:`Resgate de conteúdo até ${reward.durationLabel}`});
         store.orders.push(order);
         return {order,balance};
       });
@@ -2269,7 +2271,7 @@ async function handle(req, res) {
             if (order.status !== 'pending') throw new Error('Este pedido já foi finalizado.');
             order.status = 'delivered'; order.deliveredAt = now; order.deliveredBy = profile.id;
           } else {
-            if (order.status === 'pending') applyVicoinsTransaction(store,{userId:order.requester.id,amount:order.coinCost,type:'shop-refund',referenceId:order.id,description:`Devolução do pedido excluído da lojinha até R$ ${order.contentLimit}`});
+            if (order.status === 'pending') applyVicoinsTransaction(store,{userId:order.requester.id,amount:order.coinCost,type:'shop-refund',referenceId:order.id,description:`Devolução do pedido excluído da lojinha até ${order.durationLabel || `R$ ${order.contentLimit}`}`});
             order.status = 'deleted'; order.deletedAt = now; order.deletedBy = profile.id;
           }
         } else if (orderType === 'paid-banner' || orderType === 'club-vime') {
@@ -2502,7 +2504,7 @@ async function handle(req, res) {
           order.deliveredAt = new Date().toISOString();
           order.deliveredBy = profile.id;
         } else {
-          applyVicoinsTransaction(store,{userId:order.requester.id,amount:order.coinCost,type:'shop-refund',referenceId:order.id,description:`Devolução do pedido da lojinha até R$ ${order.contentLimit}`});
+          applyVicoinsTransaction(store,{userId:order.requester.id,amount:order.coinCost,type:'shop-refund',referenceId:order.id,description:`Devolução do pedido da lojinha até ${order.durationLabel || `R$ ${order.contentLimit}`}`});
           order.status = 'cancelled';
           order.cancelledAt = new Date().toISOString();
           order.cancelledBy = profile.id;

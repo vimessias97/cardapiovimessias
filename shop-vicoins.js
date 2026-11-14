@@ -15,10 +15,12 @@
   const clubRequestButton = document.querySelector('#clubVimeRequest');
   const apiBases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
   let rewards = [
-    {id:'content-15',contentLimit:15,coinCost:500},
-    {id:'content-20',contentLimit:20,coinCost:600},
-    {id:'content-25',contentLimit:25,coinCost:700},
-    {id:'content-30',contentLimit:30,coinCost:800}
+    {id:'content-duration-30',contentLimit:30,durationLabel:'30 min',coinCost:500},
+    {id:'content-duration-60',contentLimit:60,durationLabel:'1h',coinCost:600},
+    {id:'content-duration-90',contentLimit:90,durationLabel:'1h30',coinCost:700},
+    {id:'content-duration-120',contentLimit:120,durationLabel:'2h',coinCost:800},
+    {id:'content-duration-150',contentLimit:150,durationLabel:'2h30',coinCost:900},
+    {id:'content-duration-180',contentLimit:180,durationLabel:'3h',coinCost:1000}
   ];
   let balance = 0;
   let infiniteBalance = false;
@@ -121,7 +123,7 @@
   function renderRewards() {
     const authenticated = window.CardapioAuth?.isAuthenticated();
     const isAdmin = Boolean(window.CardapioAuth?.isAdmin());
-    rewardsRoot.innerHTML = rewards.map(reward => `<article class="shop-reward-card"><span class="shop-reward-kicker">VALE DE CONTEÚDO</span><h2>Resgate até <strong>${safe(reward.contentLimit.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}))}</strong></h2><p>Use Vicoins para solicitar um resgate de conteúdo neste valor ou menos.</p><div class="shop-reward-cost"><img src="assets/vicoins-coin-optimized.png" alt=""><strong>${reward.coinCost.toLocaleString('pt-BR')}</strong><span>Vicoins</span></div>${isAdmin ? `<label class="shop-reward-admin-cost">Alterar custo <input type="number" min="1" max="1000000" step="1" value="${reward.coinCost}" data-reward-cost="${safe(reward.id)}"><span>Vicoins</span><button type="button" data-save-reward="${safe(reward.id)}">Salvar</button></label>` : ''}<button type="button" data-reward-id="${safe(reward.id)}" ${authenticated && balance < reward.coinCost ? 'disabled' : ''}>${!authenticated ? 'Entrar para resgatar' : balance < reward.coinCost ? 'Saldo insuficiente' : 'Resgatar'}</button></article>`).join('');
+    rewardsRoot.innerHTML = rewards.map(reward => `<article class="shop-reward-card"><span class="shop-reward-kicker">VALE DE CONTEÚDO</span><h2>Resgate até <strong>${safe(reward.durationLabel || `${reward.contentLimit} min`)}</strong></h2><div class="shop-reward-cost"><img src="assets/vicoins-coin-optimized.png" alt=""><strong>${reward.coinCost.toLocaleString('pt-BR')}</strong><span>Vicoins</span></div>${isAdmin ? `<label class="shop-reward-admin-cost">Alterar custo <input type="number" min="1" max="1000000" step="1" value="${reward.coinCost}" data-reward-cost="${safe(reward.id)}"><span>Vicoins</span><button type="button" data-save-reward="${safe(reward.id)}">Salvar</button></label>` : ''}<button type="button" data-reward-id="${safe(reward.id)}" ${authenticated && balance < reward.coinCost ? 'disabled' : ''}>${!authenticated ? 'Entrar para resgatar' : balance < reward.coinCost ? 'Saldo insuficiente' : 'Resgatar'}</button></article>`).join('');
     rewardsRoot.querySelectorAll('[data-reward-id]').forEach(button => button.addEventListener('click',() => submitOrder(button)));
     rewardsRoot.querySelectorAll('[data-save-reward]').forEach(button => button.addEventListener('click',async () => {
       if (!window.CardapioAuth?.isAdmin()) return;
@@ -191,7 +193,7 @@
     const authenticated = window.CardapioAuth?.isAuthenticated();
     const owned = new Set(Array.isArray(bannerInventory.owned) ? bannerInventory.owned : []);
     const allBanners = bannerCatalog;
-    bannerGrid.innerHTML = `<button type="button" class="shop-banner-card shop-more-banners-card" data-open-banners><span class="shop-more-banners-preview"><span aria-hidden="true">▧</span><strong>Confira todos os banners</strong></span></button>`;
+    bannerGrid.innerHTML = `<button type="button" class="shop-banner-card shop-more-banners-card" data-open-banners aria-label="Confira todos os banners"><span class="shop-more-banners-preview"><span class="shop-banner-profile-prototype"><span class="shop-banner-prototype-cover"></span><span class="shop-banner-prototype-user"><span class="shop-banner-prototype-avatar">V</span><span><b>Seu perfil</b><small>Banner personalizado</small></span><span class="shop-banner-prototype-crown">👑</span></span></span><strong>Confira todos os banners <span aria-hidden="true">→</span></strong></span></button>`;
     moreBannersGrid.innerHTML = allBanners.length ? allBanners.map(banner => bannerCardMarkup(banner,authenticated,owned)).join('') : '<p class="shop-empty shop-more-banners-empty">Ainda não há banners cadastrados. Volte em breve para conferir as novidades.</p>';
     renderClubVime();
   }
@@ -265,8 +267,8 @@
       feedback.textContent = 'Você não tem Vicoins suficientes para este vale.';
       return;
     }
-    const amount = reward.contentLimit.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-    if (!window.confirm(`Solicitar um vale de resgate de conteúdo até ${amount} por ${reward.coinCost} Vicoins? As moedas serão descontadas agora. Se o pedido for cancelado pelo administrador, elas serão devolvidas.`)) return;
+    const amount = reward.durationLabel || `${reward.contentLimit} min`;
+    if (!window.confirm(`Solicitar um resgate de conteúdo de até ${amount} por ${reward.coinCost} Vicoins? As moedas serão descontadas agora. Se o pedido for cancelado pelo administrador, elas serão devolvidas.`)) return;
     button.dataset.requestKey = button.dataset.requestKey || crypto.randomUUID();
     button.disabled = true;
     feedback.textContent = 'Registrando seu pedido…';

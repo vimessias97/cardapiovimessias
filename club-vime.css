@@ -22,7 +22,7 @@
 .admin-list-more.hidden,[hidden].admin-list-more{display:none}
 .admin-club-banner-grant{display:grid;grid-template-columns:1fr 1fr auto;align-items:end;gap:10px;margin-top:18px;padding:15px;border:1px solid #594927;border-radius:11px;background:#17140e}
 .admin-club-banner-grant h3{grid-column:1/-1;margin:0;color:#f1d078;font:600 18px var(--serif)}
-.admin-club-banner-grant label{display:grid;gap:5px;color:#ddd2b3;font-size:12px;font-weight:700}
+.admin-club-banner-grant label{display:grid;gap:5px;color:#ddd2b3;font-size:14px;font-weight:700}
 .admin-club-banner-grant select{min-height:39px;padding:8px;border:1px solid #66552d;border-radius:7px;background:#0e0c08;color:#f5ecd2;font:inherit}
 .admin-club-banner-grant button{min-height:39px;padding:0 14px;border:1px solid #d5b85f;border-radius:7px;background:linear-gradient(110deg,#9d7826,#584517);color:#fff8db;font-weight:700;cursor:pointer}
 @media(max-width:760px){.club-vime-home-card,.club-vime-shop-card{align-items:stretch;flex-direction:column;padding:18px}.club-vime-home-card>a{margin-left:0}.club-vime-shop-checkout{min-width:0}}
