@@ -44,3 +44,11 @@
 .home-list-teaser-card{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:10px;min-height:0;padding:10px}.home-list-poster-stack{height:clamp(100px,9vw,145px);flex:none}.home-list-teaser-copy{gap:5px}.home-list-teaser-copy>strong{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}.home-list-teaser-copy>.home-list-teaser-byline{display:block;color:#b8aabd;font-size:13px;line-height:1.4}.home-list-teaser-copy>.home-list-teaser-likes{align-items:center;color:#dca7f2;font-size:13px}.home-list-teaser-copy b{margin-left:auto}
 @media(max-width:680px){.community-list-poster-stack{height:clamp(145px,42vw,205px)}.home-list-poster-stack{height:clamp(115px,34vw,165px)}.home-list-teaser-card{min-height:0}.home-lists-teaser-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:420px){.home-lists-teaser-grid{grid-template-columns:1fr}.home-list-poster-stack{height:145px}}
+.community-list-items{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));grid-auto-flow:row;grid-auto-columns:auto;grid-template-rows:none;overflow:visible;overflow-x:visible;overflow-y:visible;scroll-snap-type:none;padding:2px 0 10px}
+.community-list-item{scroll-snap-align:none}
+@media(max-width:1000px){.community-list-items{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:620px){.community-list-items{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.community-list-card .community-list-open{display:inline-flex;align-items:center;justify-content:center;gap:9px;width:auto;min-height:40px;margin:14px 0 0 auto;padding:0 15px;border:1px solid #76458d;border-radius:999px;background:linear-gradient(135deg,#211729,#17111e);color:#e9c8fa;font-size:14px;font-weight:700;line-height:1;text-decoration:none;transition:background .18s,border-color .18s,transform .18s,box-shadow .18s}
+.community-list-card .community-list-open:hover{transform:translateY(-1px);border-color:#bd75df;background:linear-gradient(135deg,#3b1d4c,#24132f);box-shadow:0 5px 16px #8f37b533;color:#fff}
+.community-list-card .community-list-open span{font-size:18px;transition:transform .18s}
+.community-list-card .community-list-open:hover span{transform:translateX(3px)}

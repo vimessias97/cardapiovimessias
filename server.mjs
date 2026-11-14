@@ -1613,6 +1613,21 @@ async function handle(req, res) {
           const title = String(body.title ?? list.title).trim().slice(0,80);
           if (title.length < 2) throw new Error('O nome da lista precisa ter pelo menos 2 caracteres.');
           list.title = title; list.description = String(body.description ?? list.description).trim().slice(0,240);
+          if (Array.isArray(body.items)) {
+            if (body.items.length > 100) throw new Error('Cada lista pode ter até 100 títulos.');
+            const seen = new Set();
+            list.items = body.items.map(incoming => {
+              const id = Number(incoming?.id);
+              const mediaType = String(incoming?.mediaType || '');
+              const itemTitle = String(incoming?.title || '').trim().slice(0,160);
+              if (!Number.isSafeInteger(id) || id < 1 || !['movie','tv'].includes(mediaType) || !itemTitle) throw new Error('Há um título inválido na lista.');
+              const key = `${mediaType}:${id}`;
+              if (seen.has(key)) throw new Error('A lista não pode ter títulos repetidos.');
+              seen.add(key);
+              const posterUrl = String(incoming?.posterUrl || '');
+              return {id,mediaType,title:itemTitle,year:String(incoming?.year || '').slice(0,4),posterUrl:/^https:\/\/image\.tmdb\.org\//i.test(posterUrl) ? posterUrl.slice(0,500) : '',kind:String(incoming?.kind || (mediaType === 'tv' ? 'Série' : 'Filme')).slice(0,40)};
+            });
+          }
         } else if (action === 'add-title') {
           if (!Array.isArray(list.items)) list.items = [];
           if (list.items.length >= 100) throw new Error('Cada lista pode ter até 100 títulos.');

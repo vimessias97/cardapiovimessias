@@ -34,6 +34,7 @@
   let bannerOrders = [];
   let equippedProfileBannerId = '';
   let clubMembership = {active:false,pending:false,expiresAt:null,order:null};
+  const rewardCostDrafts = new Map();
 
   function safe(value = '') {
     return String(value).replace(/[&<>"']/g,character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
@@ -120,10 +121,15 @@
     }
   }
 
-  function renderRewards() {
+  function renderRewards({force = false} = {}) {
+    const activeCostInput = rewardsRoot.contains(document.activeElement) && document.activeElement.matches('[data-reward-cost]');
+    if (activeCostInput && !force) return;
     const authenticated = window.CardapioAuth?.isAuthenticated();
     const isAdmin = Boolean(window.CardapioAuth?.isAdmin());
-    rewardsRoot.innerHTML = rewards.map(reward => `<article class="shop-reward-card"><span class="shop-reward-kicker">VALE DE CONTEÚDO</span><h2>Resgate até <strong>${safe(reward.durationLabel || `${reward.contentLimit} min`)}</strong></h2><div class="shop-reward-cost"><img src="assets/vicoins-coin-optimized.png" alt=""><strong>${reward.coinCost.toLocaleString('pt-BR')}</strong><span>Vicoins</span></div>${isAdmin ? `<label class="shop-reward-admin-cost">Alterar custo <input type="number" min="1" max="1000000" step="1" value="${reward.coinCost}" data-reward-cost="${safe(reward.id)}"><span>Vicoins</span><button type="button" data-save-reward="${safe(reward.id)}">Salvar</button></label>` : ''}<button type="button" data-reward-id="${safe(reward.id)}" ${authenticated && balance < reward.coinCost ? 'disabled' : ''}>${!authenticated ? 'Entrar para resgatar' : balance < reward.coinCost ? 'Saldo insuficiente' : 'Resgatar'}</button></article>`).join('');
+    rewardsRoot.innerHTML = rewards.map(reward => {
+      const cost = Number(rewardCostDrafts.get(reward.id) ?? reward.coinCost);
+      return `<article class="shop-reward-card"><span class="shop-reward-kicker">VALE DE CONTEÚDO</span><h2>Resgate até <strong>${safe(reward.durationLabel || `${reward.contentLimit} min`)}</strong></h2><div class="shop-reward-cost"><img src="assets/vicoins-coin-optimized.png" alt=""><strong>${Number(reward.coinCost).toLocaleString('pt-BR')}</strong><span>Vicoins</span></div>${isAdmin ? `<label class="shop-reward-admin-cost">Alterar custo <input type="number" min="1" max="1000000" step="1" value="${Number.isFinite(cost) ? cost : ''}" data-reward-cost="${safe(reward.id)}"><span>Vicoins</span><button type="button" data-save-reward="${safe(reward.id)}">Salvar</button></label>` : ''}<button type="button" data-reward-id="${safe(reward.id)}" ${authenticated && balance < reward.coinCost ? 'disabled' : ''}>${!authenticated ? 'Entrar para resgatar' : balance < reward.coinCost ? 'Saldo insuficiente' : 'Resgatar'}</button></article>`;
+    }).join('');
     rewardsRoot.querySelectorAll('[data-reward-id]').forEach(button => button.addEventListener('click',() => submitOrder(button)));
     rewardsRoot.querySelectorAll('[data-save-reward]').forEach(button => button.addEventListener('click',async () => {
       if (!window.CardapioAuth?.isAdmin()) return;
@@ -131,10 +137,14 @@
       const coinCost = Number(input?.value);
       if (!Number.isSafeInteger(coinCost) || coinCost < 1 || coinCost > 1000000) { feedback.textContent = 'Informe um valor entre 1 e 1.000.000 Vicoins.'; return; }
       button.disabled = true; feedback.textContent = 'Salvando custo do vale…';
-      try { const data = await api('/api/admin/vicoins-rewards',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:button.dataset.saveReward,coinCost})}); rewards = data.rewards || rewards; renderRewards(); feedback.textContent = 'Novo custo salvo. Ele será usado nos próximos pedidos.'; }
+      try { const data = await api('/api/admin/vicoins-rewards',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:button.dataset.saveReward,coinCost})}); rewards = data.rewards || rewards; rewardCostDrafts.delete(button.dataset.saveReward); renderRewards({force:true}); feedback.textContent = 'Novo custo salvo. Ele será usado nos próximos pedidos.'; }
       catch (error) { feedback.textContent = error.message || 'Não foi possível salvar o custo.'; button.disabled = false; }
     }));
   }
+  rewardsRoot.addEventListener('input',event => {
+    const input = event.target.closest('[data-reward-cost]');
+    if (input) rewardCostDrafts.set(input.dataset.rewardCost,input.value);
+  });
 
   function renderGameKeys() {
     if (!gameKeysRoot) return;

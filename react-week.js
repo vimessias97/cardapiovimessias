@@ -9,10 +9,11 @@ function reactWeekDateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 }
 
-function reactWeekDateLabel(date,index) {
-  const weekday = new Intl.DateTimeFormat('pt-BR',{weekday:'short'}).format(date).replace('.','');
-  const dayMonth = new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit'}).format(date);
-  return `${index === 0 ? 'Hoje · ' : ''}${weekday}, ${dayMonth}`;
+function reactWeekDateLabel(date) {
+  return {
+    weekday:new Intl.DateTimeFormat('pt-BR',{weekday:'short'}).format(date).replace('.',''),
+    dayMonth:new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit'}).format(date)
+  };
 }
 
 function reactWeekTime(value) {
@@ -59,9 +60,10 @@ async function loadReactWeek() {
     reactWeekList.innerHTML = days.map((date,index) => {
       const dayEntries = entriesByDate.get(reactWeekDateKey(date)) || [];
       const eventMarkup = dayEntries.length
-        ? dayEntries.map(entry => `<div class="react-week-event"><span title="${reactWeekSafe(entry.title)}">${reactWeekSafe(entry.title)}</span><time>${reactWeekTime(entry.scheduledAt)}</time></div>`).join('')
-        : '<span class="react-week-empty-day">Sem react agendado</span>';
-      return `<div class="react-week-day${index === 0 ? ' is-today' : ''}"><span class="react-week-date">${reactWeekSafe(reactWeekDateLabel(date,index))}</span><div class="react-week-events">${eventMarkup}</div></div>`;
+        ? dayEntries.map(entry => `<div class="react-week-event"><span class="react-week-clapper" aria-hidden="true">▣</span><span class="react-week-event-title" title="${reactWeekSafe(entry.title)}">${reactWeekSafe(entry.title)}</span><time>${reactWeekTime(entry.scheduledAt)}</time></div>`).join('')
+        : '<div class="react-week-empty-day"><span class="react-week-clapper" aria-hidden="true">▣</span><span>Sem react agendado</span></div>';
+      const label = reactWeekDateLabel(date);
+      return `<div class="react-week-day${index === 0 ? ' is-today' : ''}"><span class="react-week-date"><strong>${index === 0 ? 'Hoje · ' : ''}${reactWeekSafe(label.weekday)}</strong><time>${reactWeekSafe(label.dayMonth)}</time></span><div class="react-week-events">${eventMarkup}</div></div>`;
     }).join('');
   } catch (error) {
     reactWeekList.innerHTML = `<p class="rail-empty">${reactWeekSafe(error.message || 'Não foi possível carregar a agenda.')}</p>`;

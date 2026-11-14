@@ -19,6 +19,8 @@
   let searchTimer = 0;
   let createSearchTimer = 0;
   let creatingItems = [];
+  let draftListItems = null;
+  let listEditing = false;
   let listOpenRequest = 0;
   let publicListsCache = null;
   let publicListsPromise = null;
@@ -90,20 +92,23 @@
   function renderItems(list) {
     const items = Array.isArray(list.items) ? list.items : [];
     if (!items.length) return '<p class="community-list-empty">Esta lista ainda não tem títulos. Busque um filme ou uma série para adicionar.</p>';
-    const isOwner = String(window.CardapioAuth?.getUser()?.id || '') === String(list.owner?.id || '');
-    return `<div class="community-list-items">${items.map(item => `<article class="community-list-item"><button type="button" class="community-list-poster-open" data-list-title-popup="${Number(item.id)}" data-media-type="${esc(item.mediaType)}" aria-label="Abrir detalhes de ${esc(item.title)}">${item.posterUrl ? `<img src="${esc(item.posterUrl)}" alt="Pôster de ${esc(item.title)}" loading="lazy">` : '<span class="community-list-item-placeholder" aria-hidden="true">✦</span>'}</button><strong title="${esc(item.title)}">${esc(item.title)}</strong><small>${esc(item.kind || (item.mediaType === 'tv' ? 'Série' : 'Filme'))}${item.year ? ` · ${esc(item.year)}` : ''}</small>${isOwner ? `<button type="button" class="community-list-item-remove" data-remove-title="${Number(item.id)}" data-media-type="${esc(item.mediaType)}" aria-label="Remover ${esc(item.title)} da lista">×</button>` : ''}</article>`).join('')}</div>`;
+    const isOwner = listEditing && String(window.CardapioAuth?.getUser()?.id || '') === String(list.owner?.id || '');
+    const displayItems = Array.isArray(draftListItems) && listEditing ? draftListItems : items;
+    return `<div class="community-list-items">${displayItems.map(item => `<article class="community-list-item"><button type="button" class="community-list-poster-open" data-list-title-popup="${Number(item.id)}" data-media-type="${esc(item.mediaType)}" aria-label="Abrir detalhes de ${esc(item.title)}">${item.posterUrl ? `<img src="${esc(item.posterUrl)}" alt="Pôster de ${esc(item.title)}" loading="lazy">` : '<span class="community-list-item-placeholder" aria-hidden="true">✦</span>'}</button><strong title="${esc(item.title)}">${esc(item.title)}</strong><small>${esc(item.kind || (item.mediaType === 'tv' ? 'Série' : 'Filme'))}${item.year ? ` · ${esc(item.year)}` : ''}</small>${isOwner ? `<button type="button" class="community-list-item-remove" data-remove-title="${Number(item.id)}" data-media-type="${esc(item.mediaType)}" aria-label="Remover ${esc(item.title)} da lista">×</button>` : ''}</article>`).join('')}</div>`;
   }
   function renderDetail(list) {
     currentList = list;
     currentListId = list.id;
+    draftListItems = null;
+    listEditing = false;
     const isOwner = String(window.CardapioAuth?.getUser()?.id || '') === String(list.owner?.id || '');
     createPanel.classList.add('hidden');
     sectionHeading.textContent = list.title;
     backButton.classList.remove('hidden');
-    const editing = isOwner ? `<div class="community-list-owner-controls"><button type="button" class="community-list-secondary" data-toggle-list-editor>Editar lista</button><button type="button" class="community-list-secondary" data-delete-list>Excluir lista</button></div><div class="community-list-editor hidden"><form class="community-list-edit-form" id="communityListEditForm"><label>Nome<input name="title" maxlength="80" required value="${esc(list.title)}"></label><label>Descrição<textarea name="description" maxlength="240" rows="2">${esc(list.description || '')}</textarea></label><button class="community-list-primary" type="submit">Salvar</button></form><form class="community-list-search" id="communityListSearchForm"><input name="q" type="search" minlength="2" placeholder="Adicionar filme ou série…" autocomplete="off" required><button class="community-list-secondary" type="submit">Buscar</button></form><div class="community-list-search-results" id="communityListSearchResults"></div></div>` : '';
+    const editing = isOwner ? `<div class="community-list-owner-controls"><button type="button" class="community-list-secondary" data-toggle-list-editor>Editar lista</button><button type="button" class="community-list-secondary" data-delete-list>Excluir lista</button></div><div class="community-list-editor hidden"><form class="community-list-edit-form" id="communityListEditForm"><label>Nome<input name="title" maxlength="80" required value="${esc(list.title)}"></label><label>Descrição<textarea name="description" maxlength="240" rows="2">${esc(list.description || '')}</textarea></label><button class="community-list-primary" type="submit">Salvar alterações</button></form><form class="community-list-search" id="communityListSearchForm"><input name="q" type="search" minlength="2" placeholder="Adicionar filme ou série…" autocomplete="off" required><button class="community-list-secondary" type="submit">Buscar</button></form><div class="community-list-search-results" id="communityListSearchResults"></div></div>` : '';
     const comments = Array.isArray(list.comments) ? list.comments : [];
     const liked = Boolean(list.likedByMe);
-    grid.innerHTML = `<div class="community-list-detail"><div class="community-list-detail-head"><div><h3>${esc(list.title)}</h3><p>${esc(list.description || '')}</p><div class="community-list-card-meta">${ownerMarkup(list.owner)}<span>${(list.items || []).length} títulos</span></div></div></div><div class="community-list-social"><button type="button" class="community-list-social-button${liked ? ' is-liked' : ''}" data-list-like aria-pressed="${liked}">♥ <span>${Number(list.likeCount) || 0}</span> Curtir</button><button type="button" class="community-list-social-button" data-share-list>↗ Compartilhar</button></div><p class="community-list-feedback" id="communityListActionFeedback" aria-live="polite"></p>${editing}<div class="community-list-items-wrap">${renderItems(list)}</div><section class="community-list-comments"><h4>Comentários <span>${comments.length}</span></h4><div class="community-list-comment-list">${comments.map(comment => `<article class="community-list-comment">${ownerMarkup(comment.author)}<p>${esc(comment.text)}</p><time>${new Date(comment.createdAt).toLocaleString('pt-BR')}</time></article>`).join('') || '<p class="community-list-empty">Ainda não há comentários.</p>'}</div><form class="community-list-comment-form" id="communityListCommentForm"><textarea name="comment" maxlength="1000" rows="2" placeholder="Comente nesta lista…" required></textarea><button class="community-list-primary" type="submit">Comentar</button></form>${window.CardapioAuth?.getUser() ? '' : '<p class="community-list-login-hint">Entre com a Twitch para curtir ou comentar.</p>'}</section></div>`;
+    grid.innerHTML = `<div class="community-list-detail"><div class="community-list-detail-head"><div><p>${esc(list.description || '')}</p><div class="community-list-card-meta">${ownerMarkup(list.owner)}<span>${(list.items || []).length} títulos</span></div></div></div><div class="community-list-social"><button type="button" class="community-list-social-button${liked ? ' is-liked' : ''}" data-list-like aria-pressed="${liked}">♥ <span>${Number(list.likeCount) || 0}</span> Curtir</button><button type="button" class="community-list-social-button" data-share-list>↗ Compartilhar</button></div><p class="community-list-feedback" id="communityListActionFeedback" aria-live="polite"></p>${editing}<div class="community-list-items-wrap">${renderItems(list)}</div><section class="community-list-comments"><h4>Comentários <span>${comments.length}</span></h4><div class="community-list-comment-list">${comments.map(comment => `<article class="community-list-comment">${ownerMarkup(comment.author)}<p>${esc(comment.text)}</p><time>${new Date(comment.createdAt).toLocaleString('pt-BR')}</time></article>`).join('') || '<p class="community-list-empty">Ainda não há comentários.</p>'}</div><form class="community-list-comment-form" id="communityListCommentForm"><textarea name="comment" maxlength="1000" rows="2" placeholder="Comente nesta lista…" required></textarea><button class="community-list-primary" type="submit">Comentar</button></form>${window.CardapioAuth?.getUser() ? '' : '<p class="community-list-login-hint">Entre com a Twitch para curtir ou comentar.</p>'}</section></div>`;
   }
   async function loadLists(ownerId = '') {
     if (!ownerId) {
@@ -225,7 +230,7 @@
       event.preventDefault();
       if (!window.CardapioAuth?.requireLogin()) return;
       const form = event.target; const fields = new FormData(form); const button = form.querySelector('button'); button.disabled = true;
-      try { const data = await api(`/api/lists/${encodeURIComponent(currentListId)}`,{method:'PATCH',body:JSON.stringify({action:'update',title:fields.get('title'),description:fields.get('description')})}); rememberList(data.list,{refreshIndex:true}); renderDetail(data.list); }
+      try { const data = await api(`/api/lists/${encodeURIComponent(currentListId)}`,{method:'PATCH',body:JSON.stringify({action:'update',title:fields.get('title'),description:fields.get('description'),items:draftListItems || currentList.items || []})}); rememberList(data.list,{refreshIndex:true}); renderDetail(data.list); }
       catch (error) { setFeedback(error.message,true); } finally { button.disabled = false; }
       return;
     }
@@ -244,7 +249,13 @@
       finally { titlePoster.disabled = false; }
       return;
     }
-    if (event.target.closest('[data-toggle-list-editor]')) { grid.querySelector('.community-list-editor')?.classList.toggle('hidden'); return; }
+    if (event.target.closest('[data-toggle-list-editor]')) {
+      const editor = grid.querySelector('.community-list-editor');
+      const opening = editor?.classList.contains('hidden');
+      if (opening) { draftListItems = (currentList?.items || []).map(item => ({...item})); listEditing = true; editor.classList.remove('hidden'); }
+      else { listEditing = false; draftListItems = null; editor?.classList.add('hidden'); const wrap = grid.querySelector('.community-list-items-wrap'); if (wrap && currentList) wrap.innerHTML = renderItems(currentList); }
+      return;
+    }
     if (event.target.closest('[data-share-list]')) {
       const url = `${location.origin}${location.pathname}${location.search}#listas/${encodeURIComponent(currentListId)}`;
       try { await navigator.clipboard.writeText(url); setFeedback('Link da lista copiado.'); }
@@ -262,17 +273,20 @@
     if (retry) { openList(retry.dataset.retryList); return; }
     const add = event.target.closest('[data-add-title]');
     if (add) {
+      if (!listEditing) return;
       const item = {id:Number(add.dataset.addTitle),mediaType:add.dataset.mediaType,title:add.dataset.title,kind:add.dataset.kind,year:add.dataset.year,posterUrl:add.dataset.poster};
-      add.disabled = true;
-      try { const data = await api(`/api/lists/${encodeURIComponent(currentListId)}`,{method:'PATCH',body:JSON.stringify({action:'add-title',item})}); rememberList(data.list,{refreshIndex:true}); renderDetail(data.list); }
-      catch (error) { add.disabled = false; setFeedback(error.message,true); }
+      if (draftListItems.some(existing => Number(existing.id) === item.id && existing.mediaType === item.mediaType)) { setFeedback('Este título já está na lista.',true); return; }
+      if (draftListItems.length >= 100) { setFeedback('Cada lista pode ter até 100 títulos.',true); return; }
+      draftListItems.push(item);
+      add.disabled = true; add.textContent = 'Adicionado';
+      const wrap = grid.querySelector('.community-list-items-wrap'); if (wrap) wrap.innerHTML = renderItems(currentList);
       return;
     }
     const remove = event.target.closest('[data-remove-title]');
     if (remove) {
-      remove.disabled = true;
-      try { const data = await api(`/api/lists/${encodeURIComponent(currentListId)}`,{method:'PATCH',body:JSON.stringify({action:'remove-title',titleId:Number(remove.dataset.removeTitle),mediaType:remove.dataset.mediaType})}); rememberList(data.list,{refreshIndex:true}); renderDetail(data.list); }
-      catch (error) { remove.disabled = false; setFeedback(error.message,true); }
+      if (!listEditing) return;
+      draftListItems = draftListItems.filter(item => !(Number(item.id) === Number(remove.dataset.removeTitle) && item.mediaType === remove.dataset.mediaType));
+      const wrap = grid.querySelector('.community-list-items-wrap'); if (wrap) wrap.innerHTML = renderItems(currentList);
       return;
     }
     if (event.target.closest('[data-delete-list]')) {

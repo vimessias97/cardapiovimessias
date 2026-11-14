@@ -10,3 +10,23 @@
 .react-week-event time{color:#cbbbd4;font-size:11px;text-align:right}
 .react-week-empty-day{color:#797280;font-size:11px}
 .react-week-card .rail-link{margin-top:8px}
+.react-week-card{position:relative;overflow:hidden;border-color:#63377b;background:radial-gradient(ellipse at 50% -15%,#8d37bd2c,transparent 55%),linear-gradient(150deg,#17101d,#0e0a13 78%);box-shadow:0 10px 28px #0007,0 0 18px #a333d51c}
+.react-week-titlebar{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;min-height:46px;margin:0 8px 12px;padding:7px 16px;border:1px solid #a64bd0;border-radius:7px;background:linear-gradient(180deg,#2b1637,#170e20);box-shadow:inset 0 0 14px #bd54ee22,0 0 12px #a637d544}
+.react-week-titlebar:before,.react-week-titlebar:after{position:absolute;top:50%;width:22px;height:22px;border-top:1px solid #c56aeb;border-bottom:1px solid #c56aeb;content:"";transform:translateY(-50%) rotate(45deg)}
+.react-week-titlebar:before{left:-11px;border-left:1px solid #c56aeb}.react-week-titlebar:after{right:-11px;border-right:1px solid #c56aeb}
+.react-week-title-icon{color:#d27bfa;font-size:21px;text-shadow:0 0 12px #bc45f4}
+.react-week-titlebar h2{margin:0;color:#f7ebff;font:600 18px var(--serif);text-shadow:0 0 13px #bc45f455}
+.react-week-list{gap:5px;margin-top:0}
+.react-week-card .react-week-day{position:relative;display:grid;grid-template-columns:minmax(78px,32%) minmax(0,1fr);gap:9px;align-items:center;min-height:58px;padding:7px 9px;border:1px solid #63347a;border-radius:4px;background:linear-gradient(100deg,#1b1022,#100c15 62%,#17101e);box-shadow:inset 3px 0 #7e35a0,0 3px 9px #0004}
+.react-week-card .react-week-day.is-today{border-color:#be5be9;background:linear-gradient(100deg,#351844,#160f1c 70%);box-shadow:inset 3px 0 #d456ff,0 0 12px #b33bdb42}
+.right-rail .react-week-card .react-week-date{display:grid;gap:1px;padding:0;color:#f1e7f6;font-size:15px!important;line-height:1.2;text-align:center;white-space:normal}
+.right-rail .react-week-card .react-week-date strong{font:600 15px var(--serif);text-transform:capitalize}
+.right-rail .react-week-card .react-week-date time{color:#d47ff3;font:600 14px var(--serif)}
+.react-week-events{gap:5px}
+.react-week-event{grid-template-columns:25px minmax(0,1fr) auto;gap:7px;min-height:32px}
+.react-week-event-title{display:-webkit-box!important;overflow:hidden!important;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-height:1.25!important;text-overflow:ellipsis}
+.react-week-clapper{color:#c968ef;font-size:20px;line-height:1;text-shadow:0 0 11px #b43adb77}
+.react-week-empty-day{display:grid;grid-template-columns:25px minmax(0,1fr);align-items:center;gap:7px;color:#b7a6bf;font-size:14px!important;text-align:left!important}
+.right-rail .react-week-card .react-week-event-title{display:block!important;overflow:visible!important;-webkit-line-clamp:unset;text-align:left!important;overflow-wrap:anywhere}
+.right-rail .react-week-card .react-week-event .react-week-clapper{font-size:20px!important;text-align:center!important}
+@media(max-width:760px){.react-week-card .react-week-day{grid-template-columns:92px minmax(0,1fr);min-height:55px}.right-rail .react-week-card .react-week-date strong{font-size:14px}.right-rail .react-week-card .react-week-date time{font-size:13px}}
