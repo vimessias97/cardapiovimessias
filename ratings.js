@@ -2,8 +2,10 @@
   const topRatedList = document.querySelector('#topRatedList');
   const topRatedFeedback = document.querySelector('#topRatedFeedback');
   const topRatedMore = document.querySelector('#topRatedMore');
+  const allRatedList = document.querySelector('#allRatedList');
+  const allRatingsFeedback = document.querySelector('#allRatingsFeedback');
   const apiBases = location.protocol === 'file:' ? ['http://localhost:3002','http://localhost:3000'] : [''];
-  let topRatedExpanded = false;
+  let latestRatedItems = [];
 
   function safe(value = '') {
     return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -26,29 +28,38 @@
     throw lastError || new Error('Não foi possível conectar ao servidor.');
   }
 
-  function renderTopRated(items = []) {
-    if (!topRatedList || !topRatedFeedback) return;
-    if (!items.length) {
-      topRatedList.innerHTML = '';
-      topRatedMore?.classList.add('hidden');
-      topRatedFeedback.textContent = 'Ainda não há avaliações de títulos com react no Patreon.';
-      return;
-    }
-    topRatedFeedback.textContent = '';
-    topRatedList.innerHTML = items.map((item,index) => `<li class="top-rated-item${index >= 3 && !topRatedExpanded ? ' hidden' : ''}"${index >= 3 ? ' data-top-rated-extra="true"' : ''}><span class="top-rated-rank">${String(index + 1).padStart(2,'0')}</span><button type="button" class="top-rated-open" data-open-top-rated="${index}" aria-label="Abrir e avaliar ${safe(item.title)}">${item.posterUrl ? `<img class="top-rated-poster" src="${safe(item.posterUrl)}" alt="" loading="lazy">` : '<span class="top-rated-poster top-rated-no-poster" aria-hidden="true">✦</span>'}<span class="top-rated-copy"><strong>${safe(item.title)}</strong><span class="top-rated-score"><span aria-hidden="true">★</span> ${Number(item.averageRating).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} <small>(${item.ratingCount})</small></span></span></button></li>`).join('');
-    topRatedMore?.classList.toggle('hidden',items.length <= 3);
-    if (topRatedMore) {
-      topRatedMore.textContent = topRatedExpanded ? 'Ver menos' : 'Ver mais';
-      topRatedMore.setAttribute('aria-expanded',String(topRatedExpanded));
-    }
-    topRatedList.querySelectorAll('[data-open-top-rated]').forEach(button => button.addEventListener('click',async () => {
-      const item = items[Number(button.dataset.openTopRated)];
+  function ratingItemMarkup(item,index) {
+    return `<li class="top-rated-item"><span class="top-rated-rank">${String(index + 1).padStart(2,'0')}</span><button type="button" class="top-rated-open" data-open-rated="${index}" aria-label="Abrir e avaliar ${safe(item.title)}">${item.posterUrl ? `<img class="top-rated-poster" src="${safe(item.posterUrl)}" alt="" loading="lazy">` : '<span class="top-rated-poster top-rated-no-poster" aria-hidden="true">✦</span>'}<span class="top-rated-copy"><strong>${safe(item.title)}</strong><span class="top-rated-score"><span aria-hidden="true">★</span> ${Number(item.averageRating).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} <small>(${item.ratingCount})</small></span></span></button></li>`;
+  }
+
+  function bindRatingOpen(container,items,feedbackTarget) {
+    if (!container) return;
+    container.querySelectorAll('[data-open-rated]').forEach(button => button.addEventListener('click',async () => {
+      const item = items[Number(button.dataset.openRated)];
       if (!item || !window.CardapioFavorites?.getTitle || !window.openCatalogTitle) return;
       button.disabled = true;
       try { window.openCatalogTitle(await window.CardapioFavorites.getTitle(item)); }
-      catch (error) { topRatedFeedback.textContent = error.message || 'Não foi possível abrir este título.'; }
+      catch (error) { if (feedbackTarget) feedbackTarget.textContent = error.message || 'Não foi possível abrir este título.'; }
       finally { button.disabled = false; }
     }));
+  }
+
+  function renderAllRated(items = latestRatedItems) {
+    if (!allRatedList || !allRatingsFeedback) return;
+    allRatingsFeedback.textContent = items.length ? '' : 'Ainda não há títulos avaliados pela comunidade.';
+    allRatedList.innerHTML = items.map((item,index) => ratingItemMarkup(item,index)).join('');
+    bindRatingOpen(allRatedList,items,allRatingsFeedback);
+  }
+
+  function renderTopRated(items = []) {
+    latestRatedItems = items;
+    if (topRatedList && topRatedFeedback) {
+      topRatedFeedback.textContent = items.length ? '' : 'Ainda não há avaliações de títulos com react no Patreon.';
+      topRatedList.innerHTML = items.slice(0,5).map((item,index) => ratingItemMarkup(item,index)).join('');
+      topRatedMore?.classList.remove('hidden');
+      bindRatingOpen(topRatedList,items.slice(0,5),topRatedFeedback);
+    }
+    renderAllRated(items);
   }
 
   async function refresh() {
@@ -58,16 +69,12 @@
       return data.topRated || [];
     } catch (error) {
       if (topRatedFeedback) topRatedFeedback.textContent = error.message || 'Não foi possível carregar o ranking.';
+      if (allRatingsFeedback) allRatingsFeedback.textContent = error.message || 'Não foi possível carregar as avaliações.';
       return [];
     }
   }
 
-  topRatedMore?.addEventListener('click',() => {
-    topRatedExpanded = !topRatedExpanded;
-    topRatedList.querySelectorAll('[data-top-rated-extra]').forEach(item => item.classList.toggle('hidden',!topRatedExpanded));
-    topRatedMore.textContent = topRatedExpanded ? 'Ver menos' : 'Ver mais';
-    topRatedMore.setAttribute('aria-expanded',String(topRatedExpanded));
-  });
+  topRatedMore?.addEventListener('click',() => window.CardapioNavigation?.showPage('avaliacoes'));
 
   async function get(item) {
     return api(`/api/catalog/rating?type=${encodeURIComponent(item.mediaType)}&id=${encodeURIComponent(item.id)}`);
@@ -86,6 +93,6 @@
     return data;
   }
 
-  window.CardapioRatings = {ready:refresh(),refresh,get,rate,renderTopRated};
+  window.CardapioRatings = {ready:refresh(),refresh,get,rate,renderTopRated,showAll:renderAllRated};
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 })();

@@ -32,6 +32,7 @@ const profileBannersDir = path.join(dataRoot, 'profile-banners');
 const youtubeVideosFile = path.join(dataRoot, 'youtube-videos.json');
 const patreonMappingsFile = path.join(dataRoot, 'patreon-mappings.json');
 const userTitleListsFile = path.join(dataRoot, 'user-title-lists.json');
+const communitySocialFile = path.join(dataRoot, 'community-social.json');
 await mkdir(forumUploadsDir,{recursive:true});
 await mkdir(profileBannersDir,{recursive:true});
 if (persistenceMode === 'local' && dataRoot !== root) {
@@ -253,7 +254,8 @@ const localStateFiles = {
   forum:forumFile,
   youtubeVideos:youtubeVideosFile,
   patreonMappings:patreonMappingsFile,
-  userTitleLists:userTitleListsFile
+  userTitleLists:userTitleListsFile,
+  communitySocial:communitySocialFile
 };
 
 async function supabaseRest(resource,options = {}) {
@@ -626,8 +628,7 @@ function publicTopRatings(entries) {
     posterUrl:entry.posterUrl,
     ...ratingSummary(entry)
   })).filter(entry => entry.ratingCount > 0)
-    .sort((a,b) => b.averageRating - a.averageRating || b.ratingCount - a.ratingCount || a.title.localeCompare(b.title, 'pt-BR'))
-    .slice(0,5);
+    .sort((a,b) => b.averageRating - a.averageRating || b.ratingCount - a.ratingCount || a.title.localeCompare(b.title, 'pt-BR'));
 }
 
 function parseSteamImageUrl(value) {
@@ -1518,11 +1519,109 @@ async function handle(req, res) {
   }
   if (req.method === 'GET' && url.pathname === '/api/community/members') {
     const clubVimeStore = await readVicoinsStore();
-    const members = (await readCommunityMembers())
-      .sort((a,b) => (Date.parse(b.joinedAt || '') || 0) - (Date.parse(a.joinedAt || '') || 0))
-      .slice(0,8)
+    const allMembers = (await readCommunityMembers())
+      .sort((a,b) => (Date.parse(b.joinedAt || '') || 0) - (Date.parse(a.joinedAt || '') || 0));
+    const members = (url.searchParams.get('all') === '1' ? allMembers : allMembers.slice(0,8))
       .map(({id,login,displayName,profileImageUrl,joinedAt}) => ({id,login,displayName,profileImageUrl,joinedAt,clubVime:hasClubVime(clubVimeStore,id),clubVimeExpiresAt:getClubVimeMembership(clubVimeStore,id)?.expiresAt || null}));
     return json(res,200,{members});
+  }
+  if (req.method === 'GET' && url.pathname === '/api/account/social') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para ver suas amizades e notificações.'});
+    const state = await readJsonState('communitySocial',{friendships:[],requests:[],notifications:[]});
+    const members = await readCommunityMembers();
+    const memberById = new Map(members.map(member => [String(member.id),member]));
+    const clubStore = await readVicoinsStore();
+    const profileData = id => {
+      const member = memberById.get(String(id));
+      if (!member) return {id:String(id),displayName:'Usuário Twitch',login:'',profileImageUrl:''};
+      const membership = getClubVimeMembership(clubStore,String(id));
+      return {id:String(id),displayName:member.displayName || member.login || 'Usuário Twitch',login:member.login || '',profileImageUrl:member.profileImageUrl || '',clubVime:hasClubVime(clubStore,String(id)),clubVimeExpiresAt:membership?.expiresAt || null};
+    };
+    const friendships = (Array.isArray(state.friendships) ? state.friendships : []).filter(item => item?.memberIds?.includes(String(profile.id))).map(item => profileData(item.memberIds.find(id => String(id) !== String(profile.id))));
+    const requests = (Array.isArray(state.requests) ? state.requests : []).filter(item => item?.status === 'pending' && String(item.to) === String(profile.id)).map(item => ({id:item.id,createdAt:item.createdAt,from:profileData(item.from)}));
+    const notifications = (Array.isArray(state.notifications) ? state.notifications : []).filter(item => String(item.userId) === String(profile.id)).sort((a,b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || '')).slice(0,50).map(item => ({id:item.id,type:item.type,requestId:item.requestId,createdAt:item.createdAt,read:Boolean(item.readAt),actor:profileData(item.actorId)}));
+    return privateJson(res,200,{friendships,requests,notifications,unreadCount:notifications.filter(item => !item.read).length});
+  }
+  if (req.method === 'GET' && url.pathname.startsWith('/api/community/friendship/')) {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para adicionar amizades.'});
+    const targetId = url.pathname.slice('/api/community/friendship/'.length);
+    if (!/^\d{1,32}$/.test(targetId)) return privateJson(res,400,{error:'Perfil inválido.'});
+    if (String(profile.id) === targetId) return privateJson(res,200,{relationship:'self'});
+    const state = await readJsonState('communitySocial',{friendships:[],requests:[],notifications:[]});
+    const friendship = (state.friendships || []).find(item => item?.memberIds?.includes(String(profile.id)) && item.memberIds.includes(targetId));
+    const request = (state.requests || []).find(item => item?.status === 'pending' && ((String(item.from) === String(profile.id) && String(item.to) === targetId) || (String(item.to) === String(profile.id) && String(item.from) === targetId)));
+    return privateJson(res,200,{relationship:friendship ? 'friends' : request ? String(request.from) === String(profile.id) ? 'pending-sent' : 'pending-received' : 'none',requestId:request?.id || null});
+  }
+  if (req.method === 'POST' && url.pathname === '/api/community/friend-requests') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para enviar um pedido de amizade.'});
+    const origin = req.headers.origin;
+    if (origin && origin !== 'null' && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req,5000); } catch (error) { return privateJson(res,400,{error:error.message}); }
+    const targetId = String(body.targetId || '');
+    if (!/^\d{1,32}$/.test(targetId) || targetId === String(profile.id)) return privateJson(res,400,{error:'Selecione outro perfil válido.'});
+    if (!(await readCommunityMembers()).some(member => String(member.id) === targetId)) return privateJson(res,404,{error:'Este perfil não está disponível.'});
+    const now = new Date().toISOString();
+    try {
+      const result = await updateJsonState('communitySocial',{friendships:[],requests:[],notifications:[]},state => {
+        state.friendships = Array.isArray(state.friendships) ? state.friendships : [];
+        state.requests = Array.isArray(state.requests) ? state.requests : [];
+        state.notifications = Array.isArray(state.notifications) ? state.notifications : [];
+        if (state.friendships.some(item => item.memberIds?.includes(String(profile.id)) && item.memberIds.includes(targetId))) return {relationship:'friends'};
+        const existing = state.requests.find(item => item.status === 'pending' && ((String(item.from) === String(profile.id) && String(item.to) === targetId) || (String(item.to) === String(profile.id) && String(item.from) === targetId)));
+        if (existing) return {relationship:String(existing.from) === String(profile.id) ? 'pending-sent' : 'pending-received',requestId:existing.id};
+        const request = {id:randomUUID(),from:String(profile.id),to:targetId,status:'pending',createdAt:now};
+        state.requests.unshift(request);
+        state.notifications.unshift({id:randomUUID(),userId:targetId,type:'friend-request',actorId:String(profile.id),requestId:request.id,createdAt:now,readAt:null});
+        return {relationship:'pending-sent',requestId:request.id};
+      });
+      return privateJson(res,200,result);
+    } catch (error) { return privateJson(res,500,{error:error.message || 'Não foi possível enviar o pedido de amizade.'}); }
+  }
+  const friendRequestRespondMatch = /^\/api\/account\/friend-requests\/([a-f0-9-]{36})\/respond$/i.exec(url.pathname);
+  if (req.method === 'POST' && friendRequestRespondMatch) {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para responder ao pedido.'});
+    const origin = req.headers.origin;
+    if (origin && origin !== 'null' && new URL(origin).host !== req.headers.host) return privateJson(res,403,{error:'Origem da solicitação inválida.'});
+    let body;
+    try { body = await readRequestJson(req,5000); } catch (error) { return privateJson(res,400,{error:error.message}); }
+    const action = body.action === 'accept' ? 'accepted' : body.action === 'decline' ? 'declined' : '';
+    if (!action) return privateJson(res,400,{error:'Ação inválida.'});
+    const requestId = friendRequestRespondMatch[1];
+    const now = new Date().toISOString();
+    try {
+      const result = await updateJsonState('communitySocial',{friendships:[],requests:[],notifications:[]},state => {
+        state.friendships = Array.isArray(state.friendships) ? state.friendships : [];
+        state.requests = Array.isArray(state.requests) ? state.requests : [];
+        state.notifications = Array.isArray(state.notifications) ? state.notifications : [];
+        const request = state.requests.find(item => item.id === requestId && String(item.to) === String(profile.id) && item.status === 'pending');
+        if (!request) return {error:'Este pedido já foi respondido ou não existe.'};
+        request.status = action;
+        request.respondedAt = now;
+        for (const notice of state.notifications) if (notice.requestId === requestId && String(notice.userId) === String(profile.id)) notice.readAt = now;
+        if (action === 'accepted') {
+          if (!state.friendships.some(item => item.memberIds?.includes(String(request.from)) && item.memberIds.includes(String(request.to)))) state.friendships.push({id:randomUUID(),memberIds:[String(request.from),String(request.to)],createdAt:now});
+          state.notifications.unshift({id:randomUUID(),userId:String(request.from),type:'friend-accepted',actorId:String(profile.id),requestId,createdAt:now,readAt:null});
+        }
+        return {status:action};
+      });
+      return result.error ? privateJson(res,409,result) : privateJson(res,200,result);
+    } catch (error) { return privateJson(res,500,{error:error.message || 'Não foi possível responder ao pedido.'}); }
+  }
+  if (req.method === 'POST' && url.pathname === '/api/account/notifications/read') {
+    const profile = await getAuthenticatedProfile(req,res);
+    if (!profile) return privateJson(res,401,{error:'Entre com a Twitch para ver notificações.'});
+    const now = new Date().toISOString();
+    try {
+      await updateJsonState('communitySocial',{friendships:[],requests:[],notifications:[]},state => {
+        for (const notice of Array.isArray(state.notifications) ? state.notifications : []) if (String(notice.userId) === String(profile.id) && !notice.readAt) notice.readAt = now;
+      });
+      return privateJson(res,200,{ok:true});
+    } catch (error) { return privateJson(res,500,{error:error.message || 'Não foi possível atualizar as notificações.'}); }
   }
   if (req.method === 'GET' && url.pathname === '/api/lists') {
     const ownerId = String(url.searchParams.get('owner') || '').slice(0,32);

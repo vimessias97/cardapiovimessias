@@ -8,6 +8,7 @@
   const fullRankingHeading = document.querySelector('#communityFullRankingHeading');
   const fullRankingDescription = document.querySelector('#communityFullRankingDescription');
   const membersMoreButton = document.querySelector('#communityMembersMore');
+  const allMembersList = document.querySelector('#allCommunityMembersList');
   const profilePage = document.querySelector('#perfil');
   const profileHero = document.querySelector('#communityProfileHero');
   const profileBannerSettings = document.querySelector('#communityProfileBannerSettings');
@@ -16,6 +17,7 @@
   const memberSince = document.querySelector('#communityMemberSince');
   const activityList = document.querySelector('#communityMemberActivity');
   const profileClubCrown = document.querySelector('#communityProfileClubCrown');
+  const friendButton = document.querySelector('#communityFriendButton');
   const feedback = document.querySelector('#communityMemberFeedback');
   const redemptions = document.querySelector('#communityMemberRedemptions');
   const favorites = document.querySelector('#communityMemberFavorites');
@@ -245,6 +247,7 @@
     name.textContent = 'Carregando perfil…';
     if (memberSince) memberSince.textContent = 'Carregando…';
     profileClubCrown?.classList.add('hidden');
+    friendButton?.classList.add('hidden');
     setProfileBanner(null);
     profileBannerSettings?.classList.add('hidden');
     setVicoins(0,true);
@@ -268,6 +271,7 @@
       activeProfilePath = ownProfile ? '/api/account/profile' : `/api/community/members/${encodeURIComponent(memberId)}`;
       const data = await api(activeProfilePath);
       const profile = data.profile || {};
+      window.CardapioSocial?.showProfile(profile,ownProfile);
       name.innerHTML = window.CardapioClubVime?.name(profile.displayName || profile.login || 'Perfil Twitch',profile.isClubVime,profile.clubVimeExpiresAt) || safe(profile.displayName || profile.login || 'Perfil Twitch');
       name.querySelector('.club-vime-crown')?.remove();
       profileClubCrown?.classList.toggle('hidden',!profile.isClubVime);
@@ -298,21 +302,39 @@
     window.CardapioVicoinsShop?.openBanners();
   });
 
+  async function fetchMembers(all = false) {
+    const response = await api(`/api/community/members${all ? '?all=1' : ''}`);
+    return Array.isArray(response.members) ? response.members : [];
+  }
+
+  function memberButtonMarkup(member,index = 0,extraClass = '') {
+    const label = member.displayName || member.login || 'Usuário Twitch';
+    const avatarMarkup = member.profileImageUrl ? `<img src="${safe(member.profileImageUrl)}" alt="" loading="lazy">` : '<span class="community-member-avatar-fallback" aria-hidden="true">✦</span>';
+    const display = window.CardapioClubVime?.name(label,member.clubVime,member.clubVimeExpiresAt) || safe(label);
+    return `<button class="community-member-link ${extraClass}" type="button" data-member-id="${safe(member.id)}" aria-label="Ver perfil de ${safe(label)}">${avatarMarkup}<span>${display}</span></button>`;
+  }
+
   async function loadMembers() {
     try {
-      const data = await api('/api/community/members');
-      const members = Array.isArray(data.members) ? data.members : [];
+      const members = await fetchMembers(false);
       if (!members.length) {
         list.innerHTML = '<p class="community-members-empty">Os novos membros aparecerão aqui após entrarem com a Twitch.</p>';
         return;
       }
       membersExpanded = false;
-      list.innerHTML = members.map((member,index) => `<button class="community-member-link${index >= 3 ? ' community-member-extra hidden' : ''}" type="button" data-member-id="${safe(member.id)}" aria-label="Ver perfil de ${safe(member.displayName || member.login)}">${member.profileImageUrl ? `<img src="${safe(member.profileImageUrl)}" alt="" loading="lazy">` : '<span class="community-member-avatar-fallback" aria-hidden="true">✦</span>'}<span>${window.CardapioClubVime?.name(member.displayName || member.login,member.clubVime,member.clubVimeExpiresAt) || safe(member.displayName || member.login)}</span></button>`).join('');
-      membersMoreButton?.classList.toggle('hidden',members.length <= 3);
-      if (membersMoreButton) membersMoreButton.textContent = 'Ver mais';
+      list.innerHTML = members.slice(0,3).map((member,index) => memberButtonMarkup(member,index,index >= 3 ? 'community-member-extra hidden' : '')).join('');
     } catch (error) {
       list.innerHTML = `<p class="community-members-empty">${safe(error.message || 'Não foi possível carregar os membros.')}</p>`;
     }
+  }
+
+  async function loadAllMembers() {
+    if (!allMembersList) return;
+    allMembersList.innerHTML = '<p class="community-ranking-empty">Carregando membros…</p>';
+    try {
+      const members = await fetchMembers(true);
+      allMembersList.innerHTML = members.length ? members.map((member,index) => memberButtonMarkup(member,index,'all-community-member-link')).join('') : '<p class="community-ranking-empty">Ainda não há membros cadastrados.</p>';
+    } catch (error) { allMembersList.innerHTML = `<p class="community-ranking-empty">${safe(error.message || 'Não foi possível carregar os membros.')}</p>`; }
   }
 
   function renderRanking(target,items,type,limit = Infinity) {
@@ -374,6 +396,10 @@
     const button = event.target.closest('[data-member-id]');
     if (button) openProfile(button.dataset.memberId);
   });
+  allMembersList?.addEventListener('click',event => {
+    const button = event.target.closest('[data-member-id]');
+    if (button) openProfile(button.dataset.memberId);
+  });
   for (const ranking of [vicoinsRankingList,redeemersRankingList,favoritesRankingList,ratingsRankingList,fullRankingList]) ranking.addEventListener('click',event => {
     const button = event.target.closest('[data-profile-id]');
     if (button) openProfile(button.dataset.profileId);
@@ -419,7 +445,7 @@
   window.addEventListener('cardapio:auth-updated',event => loadMyVicoins(event.detail?.user || null));
   window.addEventListener('cardapio:vicoins-updated',event => { setVicoins(event.detail?.balance,false,event.detail?.infinite); loadRankings(); });
   window.addEventListener('cardapio:redemptions-updated',loadRankings);
-  window.CardapioCommunityProfiles = {open:openProfile,getCurrentId:() => currentProfileId};
+  window.CardapioCommunityProfiles = {open:openProfile,getCurrentId:() => currentProfileId,loadAllMembers};
   window.CardapioCommunityRankings = {show:showFullRanking,refresh:loadRankings};
   loadMembers();
   loadRankings();

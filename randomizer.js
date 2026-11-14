@@ -15,6 +15,9 @@ const adminPage = document.querySelector('#admin');
 const communityProfilePage = document.querySelector('#perfil');
 const communityListsPage = document.querySelector('#listas');
 const communityRankingPage = document.querySelector('#ranking');
+const communityRatedPage = document.querySelector('#avaliacoes');
+const allMembersPage = document.querySelector('#novos-membros');
+const allRecentRedemptionsPage = document.querySelector('#resgates-recentes');
 const randomTypeButtons = [...document.querySelectorAll('.random-type')];
 const genreOptions = document.querySelector('#genreOptions');
 const pageButtons = [...document.querySelectorAll('[data-page]')];
@@ -45,7 +48,7 @@ async function fetchRandomApi(path) {
 }
 
 function showPage(view, link = null, updateHistory = true, profileId = '', listId = '', rankingCategory = '') {
-  if (!['home','sorteador','sugestoes','jogos','forum','promocoes','lojinha','calendario','listas','favoritos','resgatados','admin','perfil','ranking'].includes(view)) return;
+  if (!['home','sorteador','sugestoes','jogos','forum','promocoes','lojinha','calendario','listas','favoritos','resgatados','admin','perfil','ranking','avaliacoes','members-all','redemptions-all'].includes(view)) return;
   homePage.classList.toggle('hidden', view !== 'home');
   randomPage.classList.toggle('hidden', view !== 'sorteador');
   suggestionsPage.classList.toggle('hidden', view !== 'sugestoes');
@@ -60,9 +63,12 @@ function showPage(view, link = null, updateHistory = true, profileId = '', listI
   communityProfilePage.classList.toggle('hidden', view !== 'perfil');
   communityListsPage.classList.toggle('hidden', view !== 'listas');
   communityRankingPage.classList.toggle('hidden', view !== 'ranking');
+  communityRatedPage?.classList.toggle('hidden', view !== 'avaliacoes');
+  allMembersPage?.classList.toggle('hidden',view !== 'members-all');
+  allRecentRedemptionsPage?.classList.toggle('hidden',view !== 'redemptions-all');
   pageButtons.forEach(item => item.classList.toggle('selected', item === link || (!link && item.dataset.page === view)));
   if (updateHistory) {
-    const target = view === 'home' ? 'inicio' : view === 'perfil' ? `perfil/${encodeURIComponent(profileId || window.CardapioCommunityProfiles?.getCurrentId?.() || '')}` : view === 'listas' && listId ? `listas/${encodeURIComponent(listId)}` : view === 'ranking' ? `ranking/${encodeURIComponent(rankingCategory || 'vicoins')}` : view;
+    const target = view === 'home' ? 'inicio' : view === 'perfil' ? `perfil/${encodeURIComponent(profileId || window.CardapioCommunityProfiles?.getCurrentId?.() || '')}` : view === 'listas' && listId ? `listas/${encodeURIComponent(listId)}` : view === 'ranking' ? `ranking/${encodeURIComponent(rankingCategory || 'vicoins')}` : view === 'members-all' ? 'novos-membros' : view === 'redemptions-all' ? 'resgates-recentes' : view;
     history.replaceState(null, '', `#${target}`);
   }
   if (view === 'sugestoes') window.CardapioFavorites?.refresh();
@@ -76,6 +82,9 @@ function showPage(view, link = null, updateHistory = true, profileId = '', listI
   if (view === 'forum') window.CardapioForum?.load();
   if (view === 'listas') listId ? window.CardapioLists?.open(listId) : window.CardapioLists?.load();
   if (view === 'ranking') window.CardapioCommunityRankings?.show(rankingCategory || 'vicoins');
+  if (view === 'avaliacoes') window.CardapioRatings?.showAll();
+  if (view === 'members-all') window.CardapioCommunityProfiles?.loadAllMembers();
+  if (view === 'redemptions-all') window.CardapioRecentRedemptions?.loadAll();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 window.CardapioNavigation = {showPage};
@@ -93,6 +102,15 @@ pageButtons.forEach(link => link.addEventListener('click', event => {
 }));
 
 document.addEventListener('click',event => {
+  if (event.target.closest('[data-all-members]')) { event.preventDefault(); showPage('members-all'); return; }
+  if (event.target.closest('[data-all-recent-redemptions]')) { event.preventDefault(); showPage('redemptions-all'); return; }
+  if (event.target.closest('[data-community-back]')) { showPage('home'); return; }
+  if (event.target.closest('[data-all-ratings]')) {
+    event.preventDefault();
+    showPage('avaliacoes');
+    return;
+  }
+  if (event.target.closest('[data-rated-back]')) { showPage('home'); return; }
   const categoryLink = event.target.closest('[data-ranking-category]');
   if (categoryLink) {
     event.preventDefault();
@@ -200,6 +218,12 @@ if (location.hash === '#sorteador') {
   let category = '';
   try { category = decodeURIComponent(location.hash.slice('#ranking/'.length)); } catch {}
   showPage('ranking',null,false,'','',category);
+} else if (location.hash === '#avaliacoes') {
+  showPage('avaliacoes',null,false);
+} else if (location.hash === '#novos-membros') {
+  showPage('members-all',null,false);
+} else if (location.hash === '#resgates-recentes') {
+  showPage('redemptions-all',null,false);
 } else if (location.hash.startsWith('#listas/')) {
   let listId = '';
   try { listId = decodeURIComponent(location.hash.slice('#listas/'.length)); } catch {}
