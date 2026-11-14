@@ -79,3 +79,39 @@
 @media(max-width:1000px){.feature-strip>div,.feature-strip>a{gap:9px!important;padding:10px 8px!important}.feature-strip>div>span,.feature-strip>a>span{flex-basis:34px!important;width:34px!important;height:34px!important}.feature-strip svg{width:34px;height:34px}.feature-strip p{font-size:15px!important}}
 @media(max-width:760px){.feature-strip{grid-template-columns:repeat(2,minmax(0,1fr))!important;padding:6px!important}.feature-strip>:nth-child(1),.feature-strip>:nth-child(2){border-bottom:1px solid #382a42!important}.feature-strip>:nth-child(2){border-right:0!important}.feature-strip>:nth-child(3){border-bottom:0!important}.feature-strip>:nth-child(4){border:0!important}.feature-strip>div,.feature-strip>a{justify-content:flex-start!important;padding:11px 10px!important}.feature-strip p{font-size:15px!important}}
 @media(max-width:520px){.feature-strip{min-height:0!important;border-radius:15px!important}.feature-strip>div,.feature-strip>a{gap:8px!important;padding:10px 7px!important}.feature-strip>div>span,.feature-strip>a>span{flex-basis:27px!important;width:27px!important;height:27px!important}.feature-strip svg{width:27px;height:27px}.feature-strip p{font-size:14px!important;line-height:1.35!important}}
+.right-rail .community-members-card,.right-rail .recent-redemptions-card,.right-rail .top-rated-card{position:relative;overflow:hidden;border-color:#63377b;background:radial-gradient(ellipse at 50% -10%,#8d37bd25,transparent 45%),linear-gradient(150deg,#17101d,#0e0a13 78%);box-shadow:0 10px 28px #0007,0 0 18px #a333d51c}
+.right-rail .community-members-card>.rail-heading,.right-rail .recent-redemptions-card>.rail-heading,.right-rail .top-rated-card>.rail-heading{position:relative;display:flex;align-items:center;justify-content:center;gap:9px;min-height:46px;margin:0 8px 12px;padding:7px 14px;border:1px solid #a64bd0;border-radius:7px;background:linear-gradient(180deg,#2b1637,#170e20);box-shadow:inset 0 0 14px #bd54ee22,0 0 12px #a637d544}
+.right-rail .community-members-card>.rail-heading:before,.right-rail .community-members-card>.rail-heading:after,.right-rail .recent-redemptions-card>.rail-heading:before,.right-rail .recent-redemptions-card>.rail-heading:after,.right-rail .top-rated-card>.rail-heading:before,.right-rail .top-rated-card>.rail-heading:after{position:absolute;top:50%;width:22px;height:22px;border-top:1px solid #c56aeb;border-bottom:1px solid #c56aeb;content:"";transform:translateY(-50%) rotate(45deg)}
+.right-rail .community-members-card>.rail-heading:before,.right-rail .recent-redemptions-card>.rail-heading:before,.right-rail .top-rated-card>.rail-heading:before{left:-11px;border-left:1px solid #c56aeb}
+.right-rail .community-members-card>.rail-heading:after,.right-rail .recent-redemptions-card>.rail-heading:after,.right-rail .top-rated-card>.rail-heading:after{right:-11px;border-right:1px solid #c56aeb}
+.right-rail .community-members-card>.rail-heading .rail-icon,.right-rail .recent-redemptions-card>.rail-heading .rail-icon,.right-rail .top-rated-card>.rail-heading .rail-icon{color:#d27bfa;font-size:21px;text-shadow:0 0 12px #bc45f4}
+.right-rail .community-members-card>.rail-heading h2,.right-rail .recent-redemptions-card>.rail-heading h2,.right-rail .top-rated-card>.rail-heading h2{color:#f7ebff;font:600 18px var(--serif);text-shadow:0 0 13px #bc45f455}
+.right-rail .community-members-intro,.right-rail .top-rated-card>p{margin:0 0 9px;color:#c4b2cd;font-size:13px;line-height:1.45;text-align:center}
+.right-rail .community-members-list{gap:6px}
+.right-rail .community-member-link{min-height:46px;padding:6px 9px;border:1px solid #63347a;border-radius:6px;background:linear-gradient(100deg,#1b1022,#100c15 62%,#17101e);box-shadow:inset 3px 0 #7e35a0,0 3px 9px #0004}
+.right-rail .community-member-link:hover{border-color:#be5be9;background:linear-gradient(100deg,#30153c,#160f1c 70%);box-shadow:inset 3px 0 #d456ff,0 0 12px #b33bdb42}
+.right-rail .community-member-link img,.right-rail .community-member-link .community-member-avatar-fallback{width:33px;height:33px;border-color:#9950b7}
+.right-rail .community-member-link span{color:#f0e4f6;font-size:14px}
+.right-rail .recent-redemptions-list{display:grid;gap:7px;margin-top:0}
+.right-rail .recent-redemption-item{grid-template-columns:62px minmax(0,1fr);gap:10px;padding:9px;border:1px solid #63347a;border-radius:6px;background:linear-gradient(100deg,#1b1022,#100c15 62%,#17101e);box-shadow:inset 3px 0 #7e35a0,0 3px 9px #0004}
+.right-rail .recent-redemption-poster,.right-rail .recent-redemption-poster-button{width:62px}
+.right-rail .recent-redemption-poster{border:1px solid #704283;border-radius:5px}
+.right-rail .recent-redemption-copy{gap:5px}
+.right-rail .recent-redemption-copy>strong{color:#f5eafa;font:600 15px/1.3 var(--serif);white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.right-rail .recent-redemption-copy>small{color:#c1b1ca;font-size:13px}
+.right-rail .recent-redemption-requester{color:#cba2e3;font-size:12px;line-height:1.35}
+.right-rail .recent-redemption-requester-link{color:#e9c4fa;font-weight:700}
+.right-rail .recent-redemption-date-status{color:#aa9bb4;font-size:12px}
+.right-rail .top-rated-feedback{margin:0 0 8px;color:#b9a9c2;font-size:13px;text-align:center}
+.right-rail .top-rated-list{display:grid;gap:7px}
+.right-rail .top-rated-item{grid-template-columns:25px minmax(0,1fr);min-height:0;padding:8px;border:1px solid #63347a;border-radius:6px;background:linear-gradient(100deg,#1b1022,#100c15 62%,#17101e);box-shadow:inset 3px 0 #7e35a0,0 3px 9px #0004}
+.right-rail .top-rated-rank{color:#d27bf0;font-size:16px}
+.right-rail .top-rated-open{grid-template-columns:42px minmax(0,1fr);gap:10px}
+.right-rail .top-rated-poster{width:42px;height:60px;border:1px solid #704283;border-radius:5px}
+.right-rail .top-rated-copy{gap:6px}
+.right-rail .top-rated-copy strong{color:#f5eafa;font:600 15px/1.3 var(--serif);white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.right-rail .top-rated-score{color:#f0ce78;font-size:14px}
+.right-rail .top-rated-score small{color:#b1a3ba;font-size:12px}
+.right-rail .community-members-card>.rail-more-button,.right-rail .recent-redemptions-card>.rail-more-button,.right-rail .top-rated-card>.rail-more-button{min-height:35px;margin:10px auto 0;padding:0 16px;border-color:#76458d;border-radius:999px;background:linear-gradient(135deg,#211729,#17111e);color:#e9c8fa;font-size:13px}
+.right-rail .community-members-card>.rail-more-button:hover,.right-rail .recent-redemptions-card>.rail-more-button:hover,.right-rail .top-rated-card>.rail-more-button:hover{border-color:#bd75df;background:linear-gradient(135deg,#3b1d4c,#24132f);box-shadow:0 5px 16px #8f37b533;color:#fff}
+@media(max-width:520px){.right-rail .community-members-card>.rail-heading,.right-rail .recent-redemptions-card>.rail-heading,.right-rail .top-rated-card>.rail-heading{min-height:43px}.right-rail .recent-redemption-item{grid-template-columns:56px minmax(0,1fr)}.right-rail .recent-redemption-poster,.right-rail .recent-redemption-poster-button{width:56px}}
