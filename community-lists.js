@@ -57,6 +57,10 @@
     const label = owner.displayName || owner.login || 'Membro da comunidade';
     return `<a class="community-list-card-owner" href="#perfil/${encodeURIComponent(owner.id || '')}" data-list-owner="${esc(owner.id || '')}">${owner.profileImageUrl ? `<img src="${esc(owner.profileImageUrl)}" alt="" loading="lazy">` : ''}<span>${esc(label)}</span></a>`;
   }
+  function renderPosterStack(list, className = 'community-list-poster-stack') {
+    const posters = Array.isArray(list.posterUrls) ? list.posterUrls.filter(Boolean).slice(0,5) : (list.posterUrl ? [list.posterUrl] : []);
+    return `<div class="${className}" aria-label="Pôsteres dos títulos desta lista">${posters.length ? posters.map((url,index) => `<img src="${esc(url)}" alt="" loading="lazy" style="--poster-index:${index}">`).join('') : '<span class="community-list-poster-stack-empty" aria-hidden="true">▤</span>'}</div>`;
+  }
   function renderCards(lists = []) {
     createPanel.classList.remove('hidden');
     sectionHeading.textContent = 'Listas da comunidade';
@@ -68,7 +72,7 @@
     const userId = String(window.CardapioAuth?.getUser()?.id || '');
     grid.innerHTML = lists.map(list => {
       const isOwner = userId && String(list.owner?.id) === userId;
-      return `<article class="community-list-card"><h3>${esc(list.title)}</h3><p>${esc(list.description || 'Sem descrição.')}</p><div class="community-list-card-meta">${ownerMarkup(list.owner)}<span>${Number(list.itemCount ?? list.items?.length) || 0} títulos</span></div><div class="community-list-card-social">♥ ${Number(list.likeCount) || 0} · Comentários ${Number(list.commentCount) || 0}</div><a class="community-list-primary community-list-open" href="#listas/${encodeURIComponent(list.id)}" data-open-list="${esc(list.id)}">${isOwner ? 'Ver lista' : 'Ver lista'} <span aria-hidden="true">→</span></a></article>`;
+      return `<article class="community-list-card">${renderPosterStack(list)}<h3>${esc(list.title)}</h3><div class="community-list-card-meta"><span class="community-list-byline">Por: ${ownerMarkup(list.owner)}</span><span>${Number(list.itemCount ?? list.items?.length) || 0} títulos</span></div>${list.description ? `<p>${esc(list.description)}</p>` : ''}<div class="community-list-card-social">♥ ${Number(list.likeCount) || 0} · Comentários ${Number(list.commentCount) || 0}</div><a class="community-list-primary community-list-open" href="#listas/${encodeURIComponent(list.id)}" data-open-list="${esc(list.id)}">Ver lista <span aria-hidden="true">→</span></a></article>`;
     }).join('');
   }
   async function fetchPublicLists() {
@@ -146,8 +150,8 @@
   async function loadHomeLists() {
     if (!homeTeaserGrid) return;
     try {
-      const lists = (await fetchPublicLists()).slice(0,3);
-      homeTeaserGrid.innerHTML = lists.length ? lists.map(list => `<a class="home-list-teaser-card" href="#listas/${encodeURIComponent(list.id)}" data-home-open-list="${esc(list.id)}">${list.posterUrl ? `<img src="${esc(list.posterUrl)}" alt="" loading="lazy">` : '<span class="home-list-teaser-icon" aria-hidden="true">▤</span>'}<span class="home-list-teaser-copy"><strong>${esc(list.title)}</strong><span>${Number(list.itemCount) || 0} títulos <b aria-hidden="true">→</b></span></span></a>`).join('') : '<p class="home-list-teaser-empty">As listas criadas pela comunidade aparecerão aqui.</p>';
+      const lists = (await fetchPublicLists()).slice().sort((a,b) => (Number(b.likeCount) || 0) - (Number(a.likeCount) || 0) || (Date.parse(b.createdAt || '') || 0) - (Date.parse(a.createdAt || '') || 0)).slice(0,3);
+      homeTeaserGrid.innerHTML = lists.length ? lists.map(list => `<a class="home-list-teaser-card" href="#listas/${encodeURIComponent(list.id)}" data-home-open-list="${esc(list.id)}">${renderPosterStack(list,'home-list-poster-stack')}<span class="home-list-teaser-copy"><strong>${esc(list.title)}</strong><span class="home-list-teaser-byline">Por: ${esc(list.owner?.displayName || list.owner?.login || 'Membro da comunidade')} · ${Number(list.itemCount) || 0} títulos</span><span class="home-list-teaser-likes">♥ ${Number(list.likeCount) || 0} curtidas <b aria-hidden="true">→</b></span></span></a>`).join('') : '<p class="home-list-teaser-empty">As listas criadas pela comunidade aparecerão aqui.</p>';
     } catch {
       homeTeaserGrid.innerHTML = '<p class="home-list-teaser-empty">As listas da comunidade serão exibidas aqui.</p>';
     }

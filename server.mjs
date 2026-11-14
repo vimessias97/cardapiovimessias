@@ -1529,9 +1529,9 @@ async function handle(req, res) {
     const lists = await readJsonState('userTitleLists',[]);
     const visible = (Array.isArray(lists) ? lists : [])
       .filter(item => item && item.public !== false && (!ownerId || String(item.owner?.id) === ownerId))
-      .sort((a,b) => Date.parse(b.updatedAt || b.createdAt || '') - Date.parse(a.updatedAt || a.createdAt || ''))
+      .sort((a,b) => (Date.parse(b.createdAt || b.updatedAt || '') || 0) - (Date.parse(a.createdAt || a.updatedAt || '') || 0))
       .slice(0,100)
-      .map(({id,owner,title,description,items,likes,comments,updatedAt,createdAt}) => ({id,owner,title,description,itemCount:Array.isArray(items) ? items.length : 0,posterUrl:Array.isArray(items) ? items.find(item => item?.posterUrl)?.posterUrl || '' : '',likeCount:Array.isArray(likes) ? likes.length : 0,commentCount:Array.isArray(comments) ? comments.length : 0,updatedAt,createdAt}));
+      .map(({id,owner,title,description,items,likes,comments,updatedAt,createdAt}) => ({id,owner,title,description,itemCount:Array.isArray(items) ? items.length : 0,posterUrl:Array.isArray(items) ? items.find(item => item?.posterUrl)?.posterUrl || '' : '',posterUrls:Array.isArray(items) ? items.filter(item => item?.posterUrl).slice(0,5).map(item => item.posterUrl) : [],likeCount:Array.isArray(likes) ? likes.length : 0,commentCount:Array.isArray(comments) ? comments.length : 0,updatedAt,createdAt}));
     return json(res,200,{lists:visible});
   }
   if (req.method === 'GET' && url.pathname.startsWith('/api/lists/')) {
