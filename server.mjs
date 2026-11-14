@@ -1667,8 +1667,7 @@ async function handle(req, res) {
         return {id,displayName:member.displayName || member.login || 'Usuário Twitch',profileImageUrl:member.profileImageUrl || '',clubVime:hasClubVime(store,id),clubVimeExpiresAt:getClubVimeMembership(store,id)?.expiresAt || null,balance:Number(value) || 0,isAdmin:getTwitchRole({...member,id}) === 'admin'};
       })
       .filter(member => member.balance > 0 && !member.isAdmin && !isExcluded(memberById.get(member.id) || {id:member.id}))
-      .sort((a,b) => b.balance - a.balance || a.displayName.localeCompare(b.displayName,'pt-BR'))
-      .slice(0,5);
+      .sort((a,b) => b.balance - a.balance || a.displayName.localeCompare(b.displayName,'pt-BR'));
     const totals = new Map();
     for (const entry of await readRedemptions()) {
       const userId = String(entry.requester?.id || '');
@@ -1686,13 +1685,12 @@ async function handle(req, res) {
         return rankedMember(id,value);
       })
       .filter(member => !isExcluded(memberById.get(member.id) || {id:member.id}))
-      .sort((a,b) => b.totalValue - a.totalValue || b.redemptionCount - a.redemptionCount || a.displayName.localeCompare(b.displayName,'pt-BR'))
-      .slice(0,5);
+      .sort((a,b) => b.totalValue - a.totalValue || b.redemptionCount - a.redemptionCount || a.displayName.localeCompare(b.displayName,'pt-BR'));
     const favoriteCounts = new Map();
     for (const entry of await readFavorites()) for (const id of new Set(Array.isArray(entry.voters) ? entry.voters : [])) favoriteCounts.set(id,(favoriteCounts.get(id) || 0) + 1);
     const ratingCounts = new Map();
     for (const entry of await readRatings()) for (const id of new Set((Array.isArray(entry.votes) ? entry.votes : []).map(vote => String(vote.clientId || '')).filter(Boolean))) ratingCounts.set(id,(ratingCounts.get(id) || 0) + 1);
-    const makeActivityRank = (counts,key) => [...counts.entries()].map(([id,count]) => rankedMember(id,{[key]:count})).filter(member => member[key] > 0 && !isExcluded(memberById.get(member.id) || {id:member.id})).sort((a,b) => b[key] - a[key] || a.displayName.localeCompare(b.displayName,'pt-BR')).slice(0,5);
+    const makeActivityRank = (counts,key) => [...counts.entries()].map(([id,count]) => rankedMember(id,{[key]:count})).filter(member => member[key] > 0 && !isExcluded(memberById.get(member.id) || {id:member.id})).sort((a,b) => b[key] - a[key] || a.displayName.localeCompare(b.displayName,'pt-BR'));
     return json(res,200,{vicoins,redemptionSpenders,favoriteLeaders:makeActivityRank(favoriteCounts,'favoriteCount'),ratingLeaders:makeActivityRank(ratingCounts,'ratingCount'),redemptionValueRule:'R$ 5 por bloco iniciado de 30 minutos; considera apenas resgates aprovados.'});
   }
   if (req.method === 'GET' && url.pathname.startsWith('/api/community/members/')) {

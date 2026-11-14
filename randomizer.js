@@ -14,6 +14,7 @@ const profileRedemptionsPage = document.querySelector('#resgatados');
 const adminPage = document.querySelector('#admin');
 const communityProfilePage = document.querySelector('#perfil');
 const communityListsPage = document.querySelector('#listas');
+const communityRankingPage = document.querySelector('#ranking');
 const randomTypeButtons = [...document.querySelectorAll('.random-type')];
 const genreOptions = document.querySelector('#genreOptions');
 const pageButtons = [...document.querySelectorAll('[data-page]')];
@@ -43,8 +44,8 @@ async function fetchRandomApi(path) {
   throw lastError || new Error('Não foi possível conectar ao servidor local.');
 }
 
-function showPage(view, link = null, updateHistory = true, profileId = '', listId = '') {
-  if (!['home','sorteador','sugestoes','jogos','forum','promocoes','lojinha','calendario','listas','favoritos','resgatados','admin','perfil'].includes(view)) return;
+function showPage(view, link = null, updateHistory = true, profileId = '', listId = '', rankingCategory = '') {
+  if (!['home','sorteador','sugestoes','jogos','forum','promocoes','lojinha','calendario','listas','favoritos','resgatados','admin','perfil','ranking'].includes(view)) return;
   homePage.classList.toggle('hidden', view !== 'home');
   randomPage.classList.toggle('hidden', view !== 'sorteador');
   suggestionsPage.classList.toggle('hidden', view !== 'sugestoes');
@@ -58,9 +59,10 @@ function showPage(view, link = null, updateHistory = true, profileId = '', listI
   adminPage.classList.toggle('hidden', view !== 'admin');
   communityProfilePage.classList.toggle('hidden', view !== 'perfil');
   communityListsPage.classList.toggle('hidden', view !== 'listas');
+  communityRankingPage.classList.toggle('hidden', view !== 'ranking');
   pageButtons.forEach(item => item.classList.toggle('selected', item === link || (!link && item.dataset.page === view)));
   if (updateHistory) {
-    const target = view === 'home' ? 'inicio' : view === 'perfil' ? `perfil/${encodeURIComponent(profileId || window.CardapioCommunityProfiles?.getCurrentId?.() || '')}` : view === 'listas' && listId ? `listas/${encodeURIComponent(listId)}` : view;
+    const target = view === 'home' ? 'inicio' : view === 'perfil' ? `perfil/${encodeURIComponent(profileId || window.CardapioCommunityProfiles?.getCurrentId?.() || '')}` : view === 'listas' && listId ? `listas/${encodeURIComponent(listId)}` : view === 'ranking' ? `ranking/${encodeURIComponent(rankingCategory || 'vicoins')}` : view;
     history.replaceState(null, '', `#${target}`);
   }
   if (view === 'sugestoes') window.CardapioFavorites?.refresh();
@@ -73,6 +75,7 @@ function showPage(view, link = null, updateHistory = true, profileId = '', listI
   if (view === 'lojinha') window.CardapioVicoinsShop?.load();
   if (view === 'forum') window.CardapioForum?.load();
   if (view === 'listas') listId ? window.CardapioLists?.open(listId) : window.CardapioLists?.load();
+  if (view === 'ranking') window.CardapioCommunityRankings?.show(rankingCategory || 'vicoins');
   window.scrollTo({top:0,behavior:'smooth'});
 }
 window.CardapioNavigation = {showPage};
@@ -88,6 +91,16 @@ pageButtons.forEach(link => link.addEventListener('click', event => {
   }
   showPage(view,link);
 }));
+
+document.addEventListener('click',event => {
+  const categoryLink = event.target.closest('[data-ranking-category]');
+  if (categoryLink) {
+    event.preventDefault();
+    showPage('ranking',null,true,'','',categoryLink.dataset.rankingCategory);
+    return;
+  }
+  if (event.target.closest('[data-ranking-back]')) { showPage('home'); }
+});
 
 randomTypeButtons.forEach(button => button.addEventListener('click', () => {
   selectedType = button.dataset.type;
@@ -183,6 +196,10 @@ if (location.hash === '#sorteador') {
   showPage('calendario',null,false);
 } else if (location.hash === '#listas') {
   showPage('listas',null,false);
+} else if (location.hash.startsWith('#ranking/')) {
+  let category = '';
+  try { category = decodeURIComponent(location.hash.slice('#ranking/'.length)); } catch {}
+  showPage('ranking',null,false,'','',category);
 } else if (location.hash.startsWith('#listas/')) {
   let listId = '';
   try { listId = decodeURIComponent(location.hash.slice('#listas/'.length)); } catch {}

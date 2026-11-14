@@ -16,7 +16,7 @@
 @media(max-width:520px){.shop-page{padding:22px 10px 32px}.shop-wallet{margin-top:20px}.shop-wallet>img{width:62px;height:62px}.shop-wallet>div>strong{font-size:25px}.shop-coming-soon{padding:17px}}
 .shop-vicoins-rule{max-width:340px;margin:7px 0 0;color:#b9a27a;font-size:10px;line-height:1.45}
 .shop-feedback{margin:22px 0 12px;color:#b8adbf;font-size:13px;line-height:1.5}
-.shop-rewards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:22px}
+.shop-rewards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:22px}
 .shop-reward-card{display:flex;min-width:0;flex-direction:column;padding:17px;border:1px solid #493a27;border-radius:12px;background:radial-gradient(ellipse at 50% 0%,#49321355,transparent 58%),linear-gradient(145deg,#1b160e,#100e14 75%)}
 .shop-reward-kicker{color:#d7b873;font-size:9px;font-weight:700;letter-spacing:.13em}
 .shop-reward-card h2{margin:9px 0 6px;color:#f5eff8;font:600 20px var(--serif)}

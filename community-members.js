@@ -4,7 +4,9 @@
   const redeemersRankingList = document.querySelector('#communityRedeemersRankList');
   const favoritesRankingList = document.querySelector('#communityFavoritesRankList');
   const ratingsRankingList = document.querySelector('#communityRatingsRankList');
-  const rankingMoreButtons = document.querySelectorAll('[data-ranking-more]');
+  const fullRankingList = document.querySelector('#communityFullRankingList');
+  const fullRankingHeading = document.querySelector('#communityFullRankingHeading');
+  const fullRankingDescription = document.querySelector('#communityFullRankingDescription');
   const membersMoreButton = document.querySelector('#communityMembersMore');
   const profilePage = document.querySelector('#perfil');
   const profileHero = document.querySelector('#communityProfileHero');
@@ -31,7 +33,14 @@
   let currentProfileId = '';
   let profileBannerPaletteRequest = 0;
   let membersExpanded = false;
-  const expandedRankings = new Set();
+  let currentFullRanking = 'vicoins';
+  let rankingsData = null;
+  const rankingCategories = {
+    redemptions:{key:'redemptionSpenders',type:'redemptions',title:'Valor resgatado',description:'Pessoas com maior valor acumulado em resgates aprovados.'},
+    vicoins:{key:'vicoins',type:'vicoins',title:'Vicoins',description:'Pessoas com maior saldo de Vicoins.'},
+    favorites:{key:'favoriteLeaders',type:'favorites',title:'Maiores favoritos',description:'Pessoas que mais favoritaram títulos.'},
+    ratings:{key:'ratingLeaders',type:'ratings',title:'Maiores avaliadores',description:'Pessoas que mais avaliaram títulos.'}
+  };
   let profileTitles = {redemptions:[],favorites:[],ratings:[]};
   let profileTotals = {redemptions:0,favorites:0,ratings:0};
   const profileContainers = {redemptions,favorites,ratings:ratedTitles};
@@ -306,15 +315,12 @@
     }
   }
 
-  function renderRanking(target,items,type) {
+  function renderRanking(target,items,type,limit = Infinity) {
     if (!Array.isArray(items) || !items.length) {
       target.innerHTML = '<li class="community-ranking-empty">Ainda não há dados para este ranking.</li>';
-      expandedRankings.delete(target.id);
-      document.querySelector(`[data-ranking-more="${target.id}"]`)?.classList.add('hidden');
       return;
     }
-    const expanded = expandedRankings.has(target.id);
-    target.innerHTML = items.map((member,index) => {
+    target.innerHTML = items.slice(0,limit).map((member,index) => {
       const avatarMarkup = member.profileImageUrl ? `<img src="${safe(member.profileImageUrl)}" alt="" loading="lazy">` : '<span class="community-ranking-avatar-fallback" aria-hidden="true">✦</span>';
       const activityCount = type === 'favorites' ? member.favoriteCount : member.ratingCount;
       const value = type === 'vicoins'
@@ -322,23 +328,28 @@
         : type === 'redemptions'
           ? `<span class="community-ranking-value"><strong>${Number(member.totalValue || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</strong><small>${Number(member.redemptionCount || 0)} ${Number(member.redemptionCount) === 1 ? 'resgate' : 'resgates'}</small></span>`
           : `<span class="community-ranking-value"><strong>${Number(activityCount || 0).toLocaleString('pt-BR')}</strong><small>${type === 'favorites' ? 'favoritos' : 'avaliações'}</small></span>`;
-      return `<li class="community-ranking-row${index >= 3 && !expanded ? ' hidden' : ''}"${index >= 3 ? ' data-ranking-extra="true"' : ''}><span class="community-ranking-position">${index + 1}</span><button type="button" class="community-ranking-profile" data-profile-id="${safe(member.id)}">${avatarMarkup}<span>${window.CardapioClubVime?.name(member.displayName || 'Usuário Twitch',member.clubVime,member.clubVimeExpiresAt) || safe(member.displayName || 'Usuário Twitch')}</span></button>${value}</li>`;
+      return `<li class="community-ranking-row"><span class="community-ranking-position">${index + 1}</span><button type="button" class="community-ranking-profile" data-profile-id="${safe(member.id)}">${avatarMarkup}<span>${window.CardapioClubVime?.name(member.displayName || 'Usuário Twitch',member.clubVime,member.clubVimeExpiresAt) || safe(member.displayName || 'Usuário Twitch')}</span></button>${value}</li>`;
     }).join('');
-    const moreButton = document.querySelector(`[data-ranking-more="${target.id}"]`);
-    if (moreButton) {
-      moreButton.classList.toggle('hidden',items.length <= 3);
-      moreButton.textContent = expanded ? 'Ver menos' : 'Ver mais';
-      moreButton.setAttribute('aria-expanded',String(expanded));
-    }
+  }
+
+  function showFullRanking(category = 'vicoins') {
+    const config = rankingCategories[category] || rankingCategories.vicoins;
+    currentFullRanking = rankingCategories[category] ? category : 'vicoins';
+    fullRankingHeading.textContent = config.title;
+    fullRankingDescription.textContent = config.description;
+    if (rankingsData) renderRanking(fullRankingList,rankingsData[config.key],config.type);
+    else fullRankingList.innerHTML = '<li class="community-ranking-empty">Carregando ranking…</li>';
   }
 
   async function loadRankings() {
     try {
       const data = await api('/api/community/rankings');
-      renderRanking(vicoinsRankingList,data.vicoins,'vicoins');
-      renderRanking(redeemersRankingList,data.redemptionSpenders,'redemptions');
-      renderRanking(favoritesRankingList,data.favoriteLeaders,'favorites');
-      renderRanking(ratingsRankingList,data.ratingLeaders,'ratings');
+      rankingsData = data;
+      renderRanking(vicoinsRankingList,data.vicoins,'vicoins',3);
+      renderRanking(redeemersRankingList,data.redemptionSpenders,'redemptions',3);
+      renderRanking(favoritesRankingList,data.favoriteLeaders,'favorites',3);
+      renderRanking(ratingsRankingList,data.ratingLeaders,'ratings',3);
+      if (!document.querySelector('#ranking')?.classList.contains('hidden')) showFullRanking(currentFullRanking);
     } catch (error) {
       const message = safe(error.message || 'Não foi possível carregar este ranking.');
       vicoinsRankingList.innerHTML = `<li class="community-ranking-empty">${message}</li>`;
@@ -363,7 +374,7 @@
     const button = event.target.closest('[data-member-id]');
     if (button) openProfile(button.dataset.memberId);
   });
-  for (const ranking of [vicoinsRankingList,redeemersRankingList,favoritesRankingList,ratingsRankingList]) ranking.addEventListener('click',event => {
+  for (const ranking of [vicoinsRankingList,redeemersRankingList,favoritesRankingList,ratingsRankingList,fullRankingList]) ranking.addEventListener('click',event => {
     const button = event.target.closest('[data-profile-id]');
     if (button) openProfile(button.dataset.profileId);
   });
@@ -372,16 +383,6 @@
     list.querySelectorAll('.community-member-extra').forEach(item => item.classList.toggle('hidden',!membersExpanded));
     membersMoreButton.textContent = membersExpanded ? 'Ver menos' : 'Ver mais';
     membersMoreButton.setAttribute('aria-expanded',String(membersExpanded));
-  });
-  for (const button of rankingMoreButtons) button.addEventListener('click',() => {
-    const targetId = button.dataset.rankingMore;
-    const target = document.getElementById(targetId);
-    if (!target) return;
-    const expanded = !expandedRankings.has(targetId);
-    if (expanded) expandedRankings.add(targetId); else expandedRankings.delete(targetId);
-    target.querySelectorAll('[data-ranking-extra]').forEach(item => item.classList.toggle('hidden',!expanded));
-    button.textContent = expanded ? 'Ver menos' : 'Ver mais';
-    button.setAttribute('aria-expanded',String(expanded));
   });
   profilePage.addEventListener('click',event => {
     const moreButton = event.target.closest('[data-profile-more]');
@@ -419,6 +420,7 @@
   window.addEventListener('cardapio:vicoins-updated',event => { setVicoins(event.detail?.balance,false,event.detail?.infinite); loadRankings(); });
   window.addEventListener('cardapio:redemptions-updated',loadRankings);
   window.CardapioCommunityProfiles = {open:openProfile,getCurrentId:() => currentProfileId};
+  window.CardapioCommunityRankings = {show:showFullRanking,refresh:loadRankings};
   loadMembers();
   loadRankings();
   window.setInterval(() => { if (!document.hidden) loadRankings(); },60000);
