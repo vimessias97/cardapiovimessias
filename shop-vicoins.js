@@ -238,8 +238,7 @@
       clubMembership = {active:false,pending:false,expiresAt:null,order:null};
       equippedProfileBannerId = '';
       try {
-        const [catalog,offerData,gameData] = await Promise.all([api('/api/shop/profile-banners'),api('/api/shop/rewards'),api('/api/shop/game-keys')]);
-        bannerCatalog = Array.isArray(catalog.banners) ? catalog.banners : [];
+        const [offerData,gameData] = await Promise.all([api('/api/shop/rewards'),api('/api/shop/game-keys')]);
         gameKeys = Array.isArray(gameData.games) ? gameData.games : [];
         rewards = Array.isArray(offerData.rewards) ? offerData.rewards : rewards; renderRewards();
       } catch (error) { feedback.textContent = error.message || 'Não foi possível carregar os banners.'; }
@@ -250,13 +249,12 @@
       return;
     }
     try {
-      const [wallet,inventory,ordersData,catalog,offerData,gameData] = await Promise.all([api('/api/account/vicoins'),api('/api/account/profile-banner'),api('/api/account/profile-banner-orders'),api('/api/shop/profile-banners'),api('/api/shop/rewards'),api('/api/shop/game-keys')]);
+      const [wallet,inventory,ordersData,offerData,gameData] = await Promise.all([api('/api/account/vicoins'),api('/api/account/profile-banner'),api('/api/account/profile-banner-orders'),api('/api/shop/rewards'),api('/api/shop/game-keys')]);
       updateBalance(wallet.balance,true,wallet.infinite);
       bannerInventory = inventory;
       equippedProfileBannerId = inventory.equipped?.id || '';
       bannerOrders = Array.isArray(ordersData.orders) ? ordersData.orders : [];
       clubMembership = ordersData.clubVime || {active:false,pending:false,order:null};
-      bannerCatalog = Array.isArray(catalog.banners) ? catalog.banners : [];
       gameKeys = Array.isArray(gameData.games) ? gameData.games : [];
       rewards = Array.isArray(offerData.rewards) ? offerData.rewards : rewards;
       renderRewards();
