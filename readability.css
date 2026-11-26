@@ -116,10 +116,14 @@
 .right-rail .community-members-card>.rail-more-button:hover,.right-rail .recent-redemptions-card>.rail-more-button:hover,.right-rail .top-rated-card>.rail-more-button:hover{border-color:#bd75df;background:linear-gradient(135deg,#3b1d4c,#24132f);box-shadow:0 5px 16px #8f37b533;color:#fff}
 .right-rail .community-members-card>[data-all-members],.right-rail .recent-redemptions-card>[data-all-recent-redemptions]{display:flex;align-items:center;justify-content:center;width:max-content;max-width:100%;min-height:40px;margin:12px auto 0;padding:0 21px;border:1px solid #76458d;border-radius:999px;background:linear-gradient(135deg,#211729,#17111e);color:#e9c8fa;font-size:15px;font-weight:700;line-height:1.2;text-align:center;text-decoration:none;transition:border-color .18s,background .18s,box-shadow .18s}
 .right-rail .community-members-card>[data-all-members]:hover,.right-rail .recent-redemptions-card>[data-all-recent-redemptions]:hover{border-color:#bd75df;background:linear-gradient(135deg,#3b1d4c,#24132f);box-shadow:0 5px 16px #8f37b533;color:#fff}
-.right-rail .react-week-card .react-week-day{grid-template-columns:minmax(64px,24%) minmax(0,1fr);gap:8px}
-.right-rail .react-week-card .react-week-event{grid-template-columns:22px minmax(0,1fr);gap:7px;align-items:start;min-height:0}
-.right-rail .react-week-card .react-week-event-details{display:grid;grid-template-columns:minmax(0,1fr);gap:3px;min-width:0}
+.right-rail .react-week-card .react-week-day{grid-template-columns:minmax(66px,24%) minmax(0,1fr);gap:8px;min-height:62px}
+.right-rail .react-week-card .react-week-date{gap:3px;color:#f7effb;font-family:var(--sans);font-size:14px!important;font-weight:600;line-height:1.25;text-align:center}
+.right-rail .react-week-card .react-week-date strong{color:#f7effb;font:700 14px/1.25 var(--sans);text-transform:capitalize}
+.right-rail .react-week-card .react-week-date time{color:#e0a5fa;font:700 14px/1.2 var(--sans);font-variant-numeric:tabular-nums}
+.right-rail .react-week-card .react-week-event{grid-template-columns:22px minmax(0,1fr);gap:7px;align-items:center;min-height:0}
+.right-rail .react-week-card .react-week-event-details{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:7px;min-width:0}
 .right-rail .react-week-card .react-week-event-title{display:block!important;overflow:visible!important;line-height:1.35!important;text-align:left!important;overflow-wrap:break-word;word-break:normal}
-.right-rail .react-week-card .react-week-event-details time{justify-self:end;color:#cbbbd4;font-size:12px!important;line-height:1.2;text-align:right}
+.right-rail .react-week-card .react-week-event-details time{justify-self:end;align-self:center;color:#e2d7e8;font:600 13px/1.2 var(--sans)!important;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.right-rail .react-week-date time,.right-rail .react-week-event time,.right-rail .top-rated-rank,.right-rail .community-ranking-position,.right-rail .community-ranking-value strong{font-family:var(--sans)!important;font-variant-numeric:tabular-nums}
 @media(max-width:520px){.right-rail .community-members-card>[data-all-members],.right-rail .recent-redemptions-card>[data-all-recent-redemptions]{min-height:38px;padding:0 16px;font-size:14px}}
 @media(max-width:520px){.right-rail .community-members-card>.rail-heading,.right-rail .recent-redemptions-card>.rail-heading,.right-rail .top-rated-card>.rail-heading{min-height:43px}.right-rail .recent-redemption-item{grid-template-columns:56px minmax(0,1fr)}.right-rail .recent-redemption-poster,.right-rail .recent-redemption-poster-button{width:56px}}
