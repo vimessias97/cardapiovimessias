@@ -15,7 +15,9 @@ const persistenceMode = requestedDataStore || (supabaseUrl && supabaseServiceRol
 if (!['local','supabase'].includes(persistenceMode)) throw new Error('DATA_STORE deve ser "supabase" ou "local".');
 if (persistenceMode === 'supabase' && (!supabaseUrl || !supabaseServiceRoleKey)) throw new Error('Configure SUPABASE_URL e SUPABASE_SECRET_KEY (ou a chave legada SUPABASE_SERVICE_ROLE_KEY) no ambiente do servidor.');
 if (process.env.NODE_ENV === 'production' && persistenceMode !== 'supabase') throw new Error('Em produção, configure DATA_STORE=supabase para não salvar dados em armazenamento temporário.');
-const dataRoot = path.resolve(process.env.DATA_DIR || root);
+const dataRoot = path.resolve(
+  process.env.DATA_DIR || (process.env.VERCEL ? '/tmp' : root)
+);
 await mkdir(dataRoot, {recursive:true});
 const favoritesFile = path.join(dataRoot, 'favorites.json');
 const ratingsFile = path.join(dataRoot, 'ratings.json');
