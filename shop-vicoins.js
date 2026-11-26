@@ -249,7 +249,7 @@
       return;
     }
     try {
-      const [wallet,inventory,ordersData,catalog,offerData,gameData] = await Promise.all([api('/api/account/vicoins'),api('/api/account/profile-banner'),api('/api/account/profile-banner-orders'),api('/api/shop/profile-banners'),api('/api/shop/rewards'),api('/api/shop/game-keys')]);
+      const [wallet,inventory,ordersData,offerData,gameData] = await Promise.all([api('/api/account/vicoins'),api('/api/account/profile-banner'),api('/api/account/profile-banner-orders'),api('/api/shop/rewards'),api('/api/shop/game-keys')]);
       updateBalance(wallet.balance,true,wallet.infinite);
       bannerInventory = inventory;
       equippedProfileBannerId = inventory.equipped?.id || '';
