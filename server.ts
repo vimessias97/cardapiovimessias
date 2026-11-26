@@ -52,8 +52,6 @@ const calendarCache = new Map();
 const trailerCache = new Map();
 let youtubeVideosCache = {expiresAt:0,videos:[]};
 let youtubeChannelId = '';
-const twitchOAuthStates = new Map();
-const twitchSessions = new Map();
 const infiniteVicoinsUserIds = new Set();
 let patreonPostsCache = {expiresAt:0,posts:[]};
 const manualPatreonLinksFile = path.join(root, 'patreon-links.json');
@@ -145,9 +143,13 @@ function twitchReturnRedirect(returnTo, status) {
   return `${target.pathname}${target.search}${target.hash}`;
 }
 
-function clearTwitchSession(req, res) {
+async function clearTwitchSession(req, res) {
   const cookies = parseCookies(req);
-  if (cookies.cardapio_twitch_session) twitchSessions.delete(cookies.cardapio_twitch_session);
+
+  if (cookies.cardapio_twitch_session) {
+    await deleteTwitchSession(cookies.cardapio_twitch_session);
+  }
+
   setCookie(res, 'cardapio_twitch_session', '', `clear${cookieOptions(req)}`);
 }
 
@@ -213,29 +215,39 @@ async function verifyTwitchSession(session) {
 
 async function getAuthenticatedProfile(req, res) {
   const sessionId = parseCookies(req).cardapio_twitch_session;
-  const session = sessionId ? twitchSessions.get(sessionId) : null;
+  const session = sessionId ? await getTwitchSession(sessionId) : null;
+
   if (!session || session.expiresAt <= Date.now()) {
-    if (sessionId) twitchSessions.delete(sessionId);
+    if (sessionId) await deleteTwitchSession(sessionId);
     return null;
   }
+
   let valid;
-  try { valid = await verifyTwitchSession(session); }
-  catch (error) {
-    console.warn('Não foi possível verificar a sessão Twitch agora:',error.message);
+  try {
+    valid = await verifyTwitchSession(session);
+  } catch (error) {
+    console.warn('Não foi possível verificar a sessão Twitch agora:', error.message);
     throw error;
   }
+
   if (!valid) {
-    twitchSessions.delete(sessionId);
+    await deleteTwitchSession(sessionId);
     res.setHeader('set-cookie', `cardapio_twitch_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${cookieOptions(req)}`);
     return null;
   }
+
+  await saveTwitchSession(sessionId, session);
+
   if (!session.communityMemberSavedAt || Date.now() - session.communityMemberSavedAt > 60 * 60 * 1000) {
     session.communityMemberSavedAt = Date.now();
-    saveCommunityMember(session.profile).catch(error => console.warn('Não foi possível atualizar o perfil da comunidade:',error.message));
+    saveCommunityMember(session.profile).catch(error => console.warn('Não foi possível atualizar o perfil da comunidade:', error.message));
+    await saveTwitchSession(sessionId, session);
   }
+
   const role = getTwitchRole(session.profile);
   if (role === 'admin') infiniteVicoinsUserIds.add(session.profile.id);
-  return {...session.profile,role};
+
+  return { ...session.profile, role };
 }
 
 function json(res, status, data) {
@@ -338,6 +350,51 @@ async function updateJsonState(key,fallback,update) {
     if (Array.isArray(updated) && updated.length) return result;
   }
   throw new Error(`O estado "${key}" mudou várias vezes; tente novamente.`);
+}
+
+async function getTwitchSession(sessionId) {
+  const sessions = await readJsonState('twitchSessions', {});
+  return sessions && typeof sessions === 'object' && !Array.isArray(sessions)
+    ? sessions[sessionId] || null
+    : null;
+}
+
+async function saveTwitchSession(sessionId, session) {
+  const stored = structuredClone(session);
+  delete stored.verificationPromise;
+
+  await updateJsonState('twitchSessions', {}, sessions => {
+    sessions[sessionId] = stored;
+    return true;
+  });
+}
+
+async function deleteTwitchSession(sessionId) {
+  await updateJsonState('twitchSessions', {}, sessions => {
+    delete sessions[sessionId];
+    return true;
+  });
+}
+
+async function saveTwitchOAuthState(state, value) {
+  await updateJsonState('twitchOAuthStates', {}, states => {
+    for (const [key, pending] of Object.entries(states)) {
+      if (!pending || pending.expiresAt <= Date.now()) {
+        delete states[key];
+      }
+    }
+
+    states[state] = value;
+    return true;
+  });
+}
+
+async function consumeTwitchOAuthState(state) {
+  return updateJsonState('twitchOAuthStates', {}, states => {
+    const pending = states[state] || null;
+    delete states[state];
+    return pending;
+  });
 }
 
 async function updateUserTitleLists(update) {
@@ -1159,9 +1216,11 @@ async function handle(req, res) {
     const {clientId,redirectUri,configured} = twitchConfig();
     const returnTo = safeTwitchReturnTo(url.searchParams.get('returnTo'));
     if (!configured) return redirect(res, twitchReturnRedirect(returnTo,'not-configured'));
-    for (const [key, value] of twitchOAuthStates) if (value.expiresAt <= Date.now()) twitchOAuthStates.delete(key);
     const state = randomBytes(32).toString('base64url');
-    twitchOAuthStates.set(state, {expiresAt:Date.now() + 10 * 60 * 1000,returnTo});
+await saveTwitchOAuthState(state, {
+  expiresAt: Date.now() + 10 * 60 * 1000,
+  returnTo
+});
     setCookie(res, 'cardapio_twitch_oauth_state', state, `oauth-state${cookieOptions(req)}`);
     const authorize = new URL('https://id.twitch.tv/oauth2/authorize');
     authorize.search = new URLSearchParams({client_id:clientId,redirect_uri:redirectUri,response_type:'code',state}).toString();
@@ -1170,14 +1229,12 @@ async function handle(req, res) {
   if (req.method === 'GET' && url.pathname === '/auth/twitch/callback') {
     const cookies = parseCookies(req);
     const state = String(url.searchParams.get('state') || '');
-    const pending = twitchOAuthStates.get(state);
+    const pending = state ? await consumeTwitchOAuthState(state) : null;
     const clearStateCookie = `cardapio_twitch_oauth_state=; Path=/auth/twitch/callback; HttpOnly; SameSite=Lax; Max-Age=0${cookieOptions(req)}`;
     res.setHeader('set-cookie', clearStateCookie);
     if (url.searchParams.has('error') || !state || !cookies.cardapio_twitch_oauth_state || cookies.cardapio_twitch_oauth_state !== state || !pending || pending.expiresAt <= Date.now()) {
-      if (state) twitchOAuthStates.delete(state);
       return redirect(res, twitchReturnRedirect(pending?.returnTo || '/','cancelled'));
     }
-    twitchOAuthStates.delete(state);
     try {
       const {clientId} = twitchConfig();
       const token = await exchangeTwitchCode(String(url.searchParams.get('code') || ''), twitchConfig().redirectUri);
@@ -1195,7 +1252,7 @@ async function handle(req, res) {
         accessExpiresAt:Date.now() + Number(token.expires_in || validation.expires_in || 0) * 1000,
         validatedAt:Date.now(),expiresAt:Date.now() + 7 * 24 * 60 * 60 * 1000,communityMemberSavedAt:Date.now()
       };
-      twitchSessions.set(sessionId,session);
+      await saveTwitchSession(sessionId, session);
       saveCommunityMember(session.profile).catch(error => console.warn('Não foi possível registrar o novo perfil da comunidade:',error.message));
       res.setHeader('set-cookie', [clearStateCookie, `cardapio_twitch_session=${encodeURIComponent(sessionId)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800${cookieOptions(req)}`]);
       return redirect(res, twitchReturnRedirect(pending.returnTo,'connected'));
@@ -1219,7 +1276,7 @@ async function handle(req, res) {
   if (req.method === 'POST' && url.pathname === '/api/auth/logout') {
     const origin = req.headers.origin;
     if (origin && new URL(origin).host !== req.headers.host) return privateJson(res, 403, {error:'Origem da solicitação inválida.'});
-    clearTwitchSession(req, res);
+    await clearTwitchSession(req, res);
     return privateJson(res, 200, {authenticated:false});
   }
   if (req.method === 'OPTIONS' && url.pathname.startsWith('/api/')) {
