@@ -257,7 +257,9 @@ const localStateFiles = {
   youtubeVideos:youtubeVideosFile,
   patreonMappings:patreonMappingsFile,
   userTitleLists:userTitleListsFile,
-  communitySocial:communitySocialFile
+  communitySocial:communitySocialFile,
+  twitchSessions:path.join(dataRoot, 'twitch-sessions.json'),
+twitchOAuthStates:path.join(dataRoot, 'twitch-oauth-states.json')
 };
 
 async function supabaseRest(resource,options = {}) {
